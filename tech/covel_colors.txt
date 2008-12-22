@@ -1,0 +1,202 @@
+	      Chris Covell  <ccovell@d...> 
+              Date: Thu Oct 28, 1999 10:58pm 
+              Subject: NES Colours and Intensity 
+
+
+              Hi, folks.  After playing around with Loopy's Palette tester and a video
+              digitizer, I've come up with my own palette for the NES that I'm happier with.
+               Now before you all groan and say "Another palette?!?", don't delete the
+              message.  I also took a look at what effect the various bits in $2001 have on
+              the NES' palette on-screen.
+
+              The palettes that I'd used before were good, but I would have to use one
+              palette to aid in colour remapping images from RGB down to the NES' palette,
+              and a second palette to approximate what you would actually see on the NES'
+              screen.  Something like this is essential, because (just as on the
+              Commodore-64) if you take something like a digitized image and remap it to an
+              exact representation of the target console's palette, the result does not look
+              so good.  The NES does not have a "perfect" red, or yellow, for example.  If
+              you use a paint program that tries to map a perfect red onto the NES' palette,
+              sometimes it won't hit the colour that you wanted.  (Some of you might not
+              have a clue as to what I mean by all this, but bear with me...)
+
+              Anyways, the ideal palette used for remapping colours came from an emulator,
+              but the palette that I used which would "represent" the NES' palette exactly
+              was not very helpful.  The hues seemed to be off; that was my biggest concern.
+               So, I digitized the colours from Loopy's palette tester on my NES, and paid
+              special attention to the hues of all the colours, and not really to the RGB
+              values.
+
+              From what I can tell, the NES does not have each of its colours from x1 to xC
+              perfectly spaced out in 30-degree increments of hue (going from 0 to 360
+              degrees).  Nor are the hues perfectly constant at varying levels of
+              brightness.  The palettes that do try to space out the colours evenly do not
+              look much like a real NES' output.
+
+              The hues do, however, vary in an orderly fashion from one another, but it is
+              not anything that I can predict or analyze.  Anybody who has an oscilloscope,
+              please let's solve this whole palette thing once and for all!   Anyway, I'll
+              just attach the palette I made at the bottom and leave it at that.  Anybody
+              who wants to try it out can.  (Format is R,G,B and in HEX.)
+
+
+              *$2001 Issues*
+
+               %fffxxxxt
+
+               fff = Full Background Colour
+
+                 000 = No Effect
+                 001 = Emphasize Red (or De-Emphasize Cyan)
+                 010 = Emphasize Green (or De-Emphasize Magenta)
+                 011 = Emphasize Yellow (or De-Emphasize Blue)
+                 100 = Emphasize Blue (or De-Emphasize Yellow)
+                 101 = Emphasize Magenta (or De-Emphasize Green)
+                 110 = Emphasize Cyan (or De-Emphasize Red)
+                 111 = Emphasize Black (or De-Emphasize Red, Green, and Blue)
+
+               t = Monochrome bit
+
+              Bit 0 of $2001 (the Monochrome bit) simply copies the first four greys
+              ($00,$10,$20,$30) across the board.  So, any colour in the $2x range will
+              appear exactly as $20.  Black, which is arguably $0D or $0E, will look the
+              same as $00, which is a middle grey.  This will appear more relevant to what I
+              have to say next.
+
+              Bits 7, 6, and 5 of $2001, called the "Full Background Colour" or "Colour
+              Intensity" bits could also be described as "colour de-emphasis" bits.  Let me
+              explain why.  I compared the colours displayed when using all possible
+              combinations of these three bits, and each bit has sort of a predictable
+              effect on the display.  When using just one bit of the three, the palette will
+              appear to be influenced more in R, G, or B value.  This is achieved by an
+              increase in the intensity of the component being emphasized, and also a
+              decrease in the brightness of the components not being emphasized.  That is to
+              say, if I were emphasizing the green component of the palette (by setting bit
+              6 of $2001), the magenta component (green's negative) of each colour is
+              functionally reduced.  This would, of course, have the greatest effect on what
+              appears as magenta in the NES' palette, which then gets darkened quite a bit
+              (since there is no green component in the colour magenta).  This also has a
+              large effect on the neighbouring colours to green, as they are the ones in the
+              NES' palette that have the most in common to green; they are essentially
+              brought even closer in the hue circle to green.  But this change is not
+              uniform to all colours in the NES' palette.  It instead seems to be relative
+              to the colour being "emphasized" (or de-emphasized, depending on how you look
+              at it.)
+
+              Now, if I set two bits of the top three of $2001, a combination of R, G, or B
+              is emphasized.  But this does not make the Cyan, Yellow, or Magenta components
+              of the NES' palette become brighter.  Instead, the palette darkens even more
+              than if only one bit in $2001 were set.  So, more aptly, when two bits of the
+              top three of $2001 are set, either Red, Green, or Blue is effectively taken
+              out (to a degree) of the palette.
+
+              Finally, when all three of the top bits of $2001 are set, the entire palette
+              becomes uniformly darker.  This would suggest that setting bits does more to
+              take away certain chromatic components of the NES' palette than to add to
+              those components.  (By the way, my NES hasn't croaked yet from setting more
+              than one of the Colour Intensity bits.)
+
+              As for the difference between the "Full Background Colour" mode when bit 0 of
+              $2001 is clear and the "Colour Intensity" mode when bit 0 of $2001 is set:
+              there is no difference.  The "Full Background Colour" effect is applied to the
+              entire palette in a normal way.  If the Monochrome bit is set, then all
+              palette entries from $01 to $0F are mirrored to $00; all from $11 to $1F, to
+              $10; etc...  The appearance of the NES' palette when in Monochrome mode, then,
+              depends entirely on the appearance of colours $00, $10, $20, and $30 in the
+              palette.
+
+
+              Okay, enough of the boring words; here are some boring numbers.
+
+              Here are some *average* amounts showing the change in the RGB components of a
+              neutral colour (ie: grey or white) when a certain colour is being emphasized
+              through $2001.
+
+              Red being emphasized:  R: 123.9%   G:  91.5%   B:  74.3%
+              Green "      "      :  R:  79.4%   G: 108.6%   B:  88.2%
+              Blue  "      "      :  R:  90.5%   G: 102.6%   B: 127.7%
+              Cyan  "      "      :  R:  74.1%   G:  98.7%   B: 100.1% 
+              Magenta      "      :  R: 102.3%   G:  90.8%   B:  97.9%
+              Yellow       "      :  R: 101.9%   G:  98.0%   B:  65.3%
+              Black "      "      :  R:  75.0%   G:  75.0%   B:  75.0%
+
+              (any number less than 100% means a decrease in value for that colour component
+              (after the corresponding bit in $2001 is set).  Any number greater than 100%
+              means an increase in value.  A value of 100% means that the colour component
+              does not change at all after a certain bit in $2001 is set.  For example, if
+              all three of the top bits of $2001 are set, the brightness of the screen drops
+              to 75% of its original brightness.)
+
+              I hope this helps somebody in some way.  It's pretty useless to me, but maybe
+              this effect will be implemented in more emulators someday.  Now for my
+              palette...
+
+                         $80, $80, $80 
+                         $00, $3d, $a6 
+                         $00, $12, $b0 
+                         $44, $00, $96 
+                         $a1, $00, $5e 
+                         $c7, $00, $28 
+                         $ba, $06, $00 
+                         $8c, $17, $00 
+                         $5c, $2f, $00 
+                         $10, $45, $00 
+                         $05, $4a, $00 
+                         $00, $47, $2e 
+                         $00, $41, $66 
+                         $00, $00, $00 
+                         $05, $05, $05 
+                         $05, $05, $05 
+                         $c7, $c7, $c7 
+                         $00, $77, $ff 
+                         $21, $55, $ff 
+                         $82, $37, $fa 
+                         $eb, $2f, $b5 
+                         $ff, $29, $50 
+                         $ff, $22, $00 
+                         $d6, $32, $00 
+                         $c4, $62, $00 
+                         $35, $80, $00 
+                         $05, $8f, $00 
+                         $00, $8a, $55 
+                         $00, $99, $cc 
+                         $21, $21, $21 
+                         $09, $09, $09 
+                         $09, $09, $09 
+                         $ff, $ff, $ff 
+                         $0f, $d7, $ff 
+                         $69, $a2, $ff 
+                         $d4, $80, $ff 
+                         $ff, $45, $f3 
+                         $ff, $61, $8b 
+                         $ff, $88, $33 
+                         $ff, $9c, $12 
+                         $fa, $bc, $20 
+                         $9f, $e3, $0e 
+                         $2b, $f0, $35 
+                         $0c, $f0, $a4 
+                         $05, $fb, $ff 
+                         $5e, $5e, $5e 
+                         $0d, $0d, $0d 
+                         $0d, $0d, $0d 
+                         $ff, $ff, $ff 
+                         $a6, $fc, $ff 
+                         $b3, $ec, $ff 
+                         $da, $ab, $eb 
+                         $ff, $a8, $f9 
+                         $ff, $ab, $b3 
+                         $ff, $d2, $b0 
+                         $ff, $ef, $a6 
+                         $ff, $f7, $9c 
+                         $d7, $e8, $95 
+                         $a6, $ed, $af 
+                         $a2, $f2, $da 
+                         $99, $ff, $fc 
+                         $dd, $dd, $dd 
+                         $11, $11, $11 
+                         $11, $11, $11 
+
+              -- 
+              Chris Covell (ccovell@d...)
+              http://www.sfu.ca/~ccovell/
+              Solar Wars (NES) Homepage!

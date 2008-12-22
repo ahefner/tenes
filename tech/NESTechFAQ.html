@@ -1,0 +1,584 @@
+<HTML>
+<HEAD>
+<!-- WEBMAKER AUTHOR="Chris Covell" -->
+<!-- WEBMAKER EMAIL="chris_covell@yahoo.ca" -->
+<TITLE>The NES Technical / Emulation / Development Frequently Asked Questions Document                                                                                                                                                                                                        (go away, Microsoft!)</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF"><A NAME="top">
+<CENTER><FONT SIZE="+2">NES Technical/Emulation/Development FAQ</FONT><BR>
+(or "NES Tech FAQ" in shorthand.)</CENTER><P>
+
+This is version 1.4, written by Chris Covell (<A HREF="MAILTO:chris_covell@yahoo.ca">chris_covell@yahoo.ca</A>) and updated on January 18, 2002.
+
+<H1>Purpose</H1>
+
+The purpose of this doc is to answer the questions about the technical side of the NES/Famicom, NES emulation, and NES development, which are most frequently asked by people curious about their NES system.  This is not the definitive NES document; rather, it is a launching pad for investigation into the other documents scattered in certain places on the internet.  Be warned that it is not just a stale technical discussion.  I bring my own opinions into answering some of the more controversial questions.  If you have a problem with that, then write your own document that's devoid of all vitality and humour.  Then get a job with Microsoft, something that you'd be perfectly suited for.  Nyuk Nyuk.   :-)<P>
+
+You should note that since I wrote this document by myself, the grammar and spelling that is used throughout the doc is standard Canadian English.  So, bear with me if you prefer colour to be spelled "color" or if you prefer "while" to be spelled "whilst," or even if you prefer "spelled" to be spelt "spelt."  That's just the way I am.<HR>
+
+<B>Table of Contents</B><BR>
+<FONT SIZE="-1"><OL><P>
+
+<A HREF="#basics">The Basics</A><P>
+
+<A HREF="#whatprocessor"><LI>What processor does the NES use?</A>
+<A HREF="#howmanycolours"><LI>How many colours can the NES display at once?</A>
+<A HREF="#resolution"><LI>What is the resolution of the NES?</A>
+<A HREF="#slowdown"><LI>Why does the NES slow down and flicker?</A>
+<A HREF="#mappers"><LI>How do memory mappers work?  Why are there so many of them?</A>
+<A HREF="#lockout"><LI>What is the NES lockout chip (CIC) and how does it work?</A>
+<A HREF="#translation"><LI>How do I translate an NES game?</A>
+<A HREF="#biggestgame"><LI>What is the biggest NES game ever made?</A>
+<A HREF="#smallestgame"><LI>What is the smallest NES game?</A>
+<A HREF="#protos"><LI>How can I find prototype NES cartridges?</A>
+<P>
+
+<A HREF="#hardware">Hardware</A><P>
+
+<A HREF="#openup"><LI>How can I open up my NES cartridges?</A>
+<A HREF="#disablelockout"><LI>Can I disable the lockout chip?</A>
+<A HREF="#nesfamcompat"><LI>Are the NES and Famicom compatible?</A>
+<A HREF="#nesfamident"><LI>Are the NES and Famicom hardware identical?</A>
+<A HREF="#usefam"><LI>How do I use a Japanese Famicom in North America/Europe?</A>
+<A HREF="#nessnescompat"><LI>Are the NES and SNES compatible?</A>
+<A HREF="#nesgbcompat"><LI>Are the NES and Gameboy/GBC compatible?</A>
+<A HREF="#fronttopdiff"><LI>Is there any difference between the old (toaster) NES and the new top-loading one?</A>
+<A HREF="#famcontroller"><LI>Can I use a Famicom controller on my NES or vice-versa?</A>
+<A HREF="#snescontroller"><LI>Can I use a SNES controller on my NES or vice-versa?</A>
+<A HREF="#rgbvideo"><LI>Can I get RGB video from my NES?</A>
+<A HREF="#avtoploading"><LI>Can I get A/V from my toploading NES?</A>
+<A HREF="#stereones"><LI>Can I get stereo audio or separate the sound channels of the NES?</A>
+<A HREF="#whatisfds"><LI>What is the Famicom Disk System?</A>
+<A HREF="#gamegenie"><LI>How does the Game Genie work?</A>
+<A HREF="#batterylife"><LI>How long will the battery in my NES game last?</A>
+<A HREF="#batteryswap"><LI>Can I change the battery without erasing the save RAM?</A>
+<A HREF="#expansionport"><LI>What is the expansion port on the NES for?</A>
+<P>
+
+<A HREF="#emulation">Emulation</A><P>
+
+<A HREF="#isillegal"><LI>Is emulation illegal?</A>
+<A HREF="#nesticle"><LI>In Nesticle...</A>
+<A HREF="#copybackup"><LI>How can I copy/backup my NES games?</A>
+<A HREF="#copyxgame"><LI>How can I copy X game onto a cartridge?</A>
+<A HREF="#universalcart"><LI>Can I make/buy a universal NES cartridge?</A>
+<A HREF="#startemulator"><LI>I want to make an NES emulator.  Where do I start?</A>
+<A HREF="#gimmeromz"><LI>&#165;ø&#181; a&#174;3 &#163;ee+, g0+ an&#165; ROMz +ø g&#161;v3 m3?</A>
+<A HREF="#loadfds"><LI>How do I load those .FDS files in my emulator?</A>
+<A HREF="#inesheader"><LI>What is an iNES header?</A>
+<A HREF="#unif"><LI>What is UNIF?</A>
+<A HREF="#ines2unif"><LI>Are there iNES < - > UNIF conversion programs?</A>
+<A HREF="#ipspatches"><LI>What are .IPS patches and how do I apply them?</A>
+<A HREF="#nsfs"><LI>What are NSFs?</A>
+<A HREF="#ripnsfs"><LI>How do you rip NSFs?</A>
+<P>
+
+<A HREF="#programming">Programming</A><P>
+
+<A HREF="#cbasicwhat"><LI>Are NES games written in C, BASIC, or something else?</A>
+<A HREF="#beginprogramming"><LI>How do I begin programming for the NES?</A>
+<A HREF="#namattpat"><LI>How do the NAME table, ATTRIBUTE table, and PATTERN table all fit together?</A>
+<A HREF="#chrgfx"><LI>How are NES graphics laid out?</A>
+<A HREF="#palmirror"><LI>How does palette mirroring work?</A>
+<A HREF="#ppumirror"><LI>How does PPU mirroring work?</A>
+<A HREF="#sprite0"><LI>How does sprite 0 hit detection work?</A>
+<A HREF="#vblankhblank"><LI>What is VBlank and what is HBlank?</A>
+<A HREF="#scanlinesinvb"><LI>How many scanlines are in VBlank period?</A>
+<A HREF="#20052006"><LI>What's up with $2005/2006?</A>
+<A HREF="#stablebg"><LI>How can I get a stable background in my demo?</A>
+<A HREF="#whyglitching"><LI>Why is there graphics glitching when you change $2005 or $2006 mid-screen?</A>
+<A HREF="#ispalettergb"><LI>Is the NES palette RGB or what?</A>
+<A HREF="#accuratepal"><LI>How do I get an accurate palette then?</A>
+<A HREF="#correctblack"><LI>What is the right register value for black in the palette?</A>
+<A HREF="#colemphasis"><LI>What are the colour emphasis bits?</A>
+<A HREF="#monochrome"><LI>What is the monochrome mode in the NES?</A>
+<A HREF="#busconflicts"><LI>What are bus conflicts?</A>
+<A HREF="#enableints"><LI>Do I enable interrupts (CLI) in my demo?</A>
+<A HREF="#makemusic"><LI>How can I make music for my demo?</A>
+<A HREF="#demoinemu"><LI>Why does my demo work in an emulator, but not on a real NES?</A>
+<A HREF="#testonnes"><LI>How can I test my demo on a real NES?</A>
+<A HREF="#sampledsounds"><LI>How does the NES produce sampled sounds?  What bit size are they?</A>
+<A HREF="#how4011"><LI>How does $4011 work?</A>
+<A HREF="#dmctiming"><LI>Why does my demo's timing mess up when a DMC sample is playing?</A>
+<A HREF="#spritedma"><LI>What's better, writing to SPR-RAM directly, or using DMA?</A>
+</OL>
+<A HREF="#thanks">Thank-Yous</A>
+</FONT>
+
+<OL>
+<A NAME="basics"><FONT SIZE="+1">The Basics</FONT>
+<P ALIGN="RIGHT"><A HREF="#top">Top</A></P>
+
+<A NAME="whatprocessor"><B><LI>What processor does the NES use?</B><P>
+
+Its CPU is based off the 6502 NMOS line of 8-bit processors.  It is manufactured by Ricoh, and its name is RP2A03G.  Its instruction set does not contain any CMOS "STZ" instructions, and more importantly, this NES CPU does not have a working decimal mode.  You can set and clear the decimal flags all you want, but any arithmetic instructions on the NES will be calculated in base 16.  The custom NES CPU also has 5 different sound channels built-in.<P>
+
+<A NAME="howmanycolours"><B><LI>How many colours can the NES display at once?</B><P>
+
+Ordinarily, the NES can display 13 different background colours, and 12 different sprite colours, giving a total of 25 colours on-screen, at once.  However, using PPU trickery, one can display all of the NES' 64 palette values at once.  (And if you used the Colour Emphasis bits as well as PPU trickery, I guess you could say that you can have a maximum of 512 colours on-screen, at once.  But that would really be stretching things.  For one, there would most likely be some duplication across the palette entries.)  Anyhow, let's just say that the normal colour maximum is 25, okay?<P>
+
+<A NAME="resolution"><B><LI>What is the resolution of the NES?</B><P>
+
+The NES resolution <I>IS</I> 256x240.  For many years, people have thought that the NTSC NES has a lower resolution than the PAL NES, and so emulators have been programmed to show only 256x224.  It is true that on many video screens or television sets, the top and bottom 8 lines of the NES screen are cut off; however, that is a function of the display device, not necessarily the NES.  On my video monitor, using my NTSC NES, I can see lines 8 to 240 (and then 3 additional scanlines).  Ordinarily, then, all of lines 233-240 (once thought hidden) are being broadcast by the NES.  The top 8 scanlines (1-8) are also assumed to be hidden, but may not be.  For example, when I video capture the NES' display, lines 4-onwards are visible.  PAL NESes do display all 240 scanlines, no question about that.  The NTSC NES still has some ambiguities.<P>
+
+The bottom line (no pun intended) is, if you are making an emulator, you should provide an option to display the top 8 and bottom 8 scanlines or not.  If you are writing a demo or game for the NES, you should assume that players might be able to see what you have put in the first and last pattern rows of the screen.<P>
+
+<A NAME="slowdown"><B><LI>Why does the NES slow down and flicker?</B><P>
+
+The NES doesn't slow down and flicker automatically.  Actually what happens is that as a game becomes more complex, and more objects are introduced into the play area, there is not enough time in one frame (1/60th of a second) to calculate all the action for one frame.  The NES CPU runs at about 1.79 Mhz, not quite fast enough for some calculations.  In fact, if the calculations spill over to the next frame, oftentimes a game will glitch or freeze up.  So, the programmers put slowdown into the game to split the calculation between successive frames.<P>
+
+Flicker is usually a result of having too many sprites in one horizontal scanline.  The NES can have a maximum of 8 sprites in one line.  Any more than that, and the PPU simply won't display them.  Thus, the programmer has to alternate between displaying one set of sprites and another.  This is handled through a good algorithm of "OAM Cycling".  Depending on the OAM algorithm used, the sprites might either flicker (as in many Konami games), or blank out with a rippling effect (seen in some games).<P>
+
+<A NAME="mappers"><B><LI>How do memory mappers work?  Why are there so many of them?</B><P>
+
+The 6502 CPU has only a 16-bit address bus.  That means it can only access up to 65536 bytes of either ROM or RAM at one time.  And the NES is designed to access half that much ROM.  As programmers want to have more complex games, they need a way to spread a game across more than 32K of ROM.  Thus, memory mappers are devices which switch different banks of program code into the 32K window of ROM which the CPU can access.<P>
+
+After increasing the address space, the more modern memory mappers really improved the amount of character graphics available to the game, and how it can combine them.  The first mapper that changed graphics did it 8K at a time.  However, the later mappers allowed games to swap in much smaller sections of CHR ROM, to allow for more animation in the backgrounds.  Plus, of course, many game companies came out with their own mappers which had IRQ timers, and allowed tricks to be performed with the PPU.  Several mappers also had additional sound chips, to add to the complexity of the music in (really only Famicom) games.<P>
+
+So, in summary, memory mappers allowed programmers to overcome the limitations inherent in the NES/Famicom.<P>
+
+<A NAME="lockout"><B><LI>What is the NES lockout chip (CIC) and how does it work?</B><P>
+
+Nintendo are greedy and they wanted to maximize their profits by requiring developers to have a licence before making games for the NES.  As a way to ensure this, they installed a chip inside the NES unit which looks for a similar chip inside each game cartridge.  The two chips then establish a communications protocol.  Without this protocol, the NES unit never comes out of reset mode.  Since only Nintendo sold this lockout chip, developers had little choice but to buy them from Nintendo (through a licence), or else they would have to find ways of disabling the lockout chip, which is what the majority of unlicenced developers did.  There are also regional lockouts.  Several European varieties of lockout chips exist, as do Asian varieties.  In general, USA NES games/systems are not compatible with Euro/Asian NES games/systems until you <A HREF="#disablelockout">disable</A> the lockout chip.<P>
+
+I don't think anybody in the public really knows the communications protocol of the CIC in detail, but since there is a way to <A HREF="#disablelockout">disable the chip</A> permanently, I don't think it's too important anymore.  As far as I know, the new top-loading NES unit has no lockout chip.  No Famicom systems have lockout chips either.<P>
+
+<A NAME="translation"><B><LI>How do I translate an NES game?</B><P>
+
+Aha, well.  I'm no expert at this, but here goes.  If you are translating between languages that use the same alphabet, then no problem.  If you are translating between two languages that use different alphabets, you will have to draw your own font (or use someone else's).  You should be fluent in both the source language and the target language, and should have played through the game to encounter all/most of the text in the game.  The first step will be to hunt in the game ROM for the text strings that are stored.  If the original text is in Japanese, then you're on your own in terms of finding the text/font mapping.  If the text is in English, then you should use a relative text-searching program to search for text, if it uses a non-ASCII font mapping.  If you locate the strings in the game (or if you identify the type of text compression scheme used), you now have to begin translating the text, making sure not to overwrite non-text portions of the game.<P>
+
+You will probably discover that the translated text will not fit into the space allocated for the original text.  This means that you will probably have to change the text pointers (if present) in the game to reflect the modified text string locations.  Translating is a task that requires several different kinds of skills.  Look for more involved translation tutorials on the internet.<P>
+
+<A NAME="biggestgame"><B><LI>What is the biggest NES game ever made?</B><P>
+
+The largest single NES game that I know of is Dragonquest 4 / Dragon Warrior 4.  It has 1 megabyte of program ROM.  Also, the Japanese game Metal Slader Glory has 512K of PRG and 512K of CHR ROM, making it also a full megabyte.  Several pirate/unlicenced Famicom games are also pretty large.<P>
+
+<A NAME="smallestgame"><B><LI>What is the smallest NES game?</B><P>
+
+Although the iNES mapper format deems 16K PRG ROM games as the minimum, there are in fact some 8K games out there, such as Galaxian.  There is really no lower limit to the size of a valid NES game or demo, but why would you want to make one so small?<P>
+
+<A NAME="protos"><B><LI>How can I find prototype NES cartridges?</B><P>
+
+You don't really find prototypes; they find YOU.  Seriously, though.  Protos are rather rare, and are usually only found in some areas of the world.  If you're in the absolute middle of nowhere (I don't wanna offend anybody by naming names) you probably will not find a proto at the local flea market.  But who knows?  Maybe you might?<P>
+
+Just keep going to your local pawn shops, thrift stores, flea markets, and garage sales.  One day, perhaps you too will find a proto.  <I>I</I> still don't own any prototype NES games, unless you count my own.  Heh heh.  :-)<HR>
+
+<A NAME="hardware"><FONT SIZE="+1"><B>Hardware</B></FONT>
+<P ALIGN="RIGHT"><A HREF="#top">Top</A></P>
+
+<A NAME="openup"><B><LI>How can I open up my NES cartridges?</B><P>
+
+There are a few different ways.  If your cartridge has the old-style flathead screws, then just open them with a screwdriver, flathead!  Most games, however, use the 3.8mm "Inverse Torx" type screw, for which screwdrivers are difficult to find.  MCM Electronics (<A HREF="http://www.mcmelectronics.com">www.mcmelectronics.com</A>) sells screwdriver bits of this type.  Their part number is 22-1145.  MCM also sells the 4.5mm varieties (22-1150) for opening up SNES systems, etc.  Watch out, though, because MCM rapes you up the ass for shipping!<P>
+
+There are other ways.  You can apply a hot soldering iron (careful now!) to the top of the screw and gently pull apart the casing.  This should melt the plastic through the screw so as to unthread the plastic.  You can then replace the screws with small flathead screws.  Alternately, one way that worked with me, oh, so long ago, is to get a very strong sewing needle or thumbtack, and slowly unscrew the screw by applying rotational pressure on one of the notches of the screw with the tip of the needle/tack.<P>
+
+And finally, there's always the brute force method of prying open the cartridge with all your might (or some strong tools).  Be careful, though; when the plastic finally gives way a shard could get lodged in your jugular... and then we'd just have another health scare in the headlines: "NINTENDO KILLED MY SON!!!  Cartridge slits boy's neck!"  We don't want that.  ;-P<P>
+
+<A NAME="disablelockout"><B><LI>Can I disable the lockout chip?</B><P>
+
+Yes.  The short version is: Find the chip marked "CIC" on the NES PCB (only on old toaster NESes!) and cut pin #4 (make sure you know what you are doing), and connect it to ground (pins 11-15 on the same chip will do).<P>
+
+A full document on how to disable the lockout chip was written by Mark Knibbs, and is available on the internet in some places like <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A>.<P>
+
+<A NAME="nesfamcompat"><B><LI>Are the NES and Famicom compatible?</B><P>
+
+For all intents and purposes, yes.  With the proper adaptors, you can play Famicom games on your NES, and NES games in your Famicom.  Just remember when you look for your adaptors that the NES has 72 pins; and the Famicom, 60.<P>
+
+There are some caveats, though:  For Famicom games with sound chips built-in, the sound from the cartridge will not pass through to the NES.  Also, some adaptors inhibit the special scanline or IRQ timing circuitry of the cartridge if the adaptor connector is not clean enough, or if a good connection is not made.  Finally, if you are using an adaptor to play NES games on your Famicom, the use of a Game Genie with this combination might not work.  The Genie might not fit into the adaptor's connector, or there might be a bad buzzing noise while the game is turned on.<P>
+
+<A NAME="nesfamident"><B><LI>Are the NES and Famicom hardware identical?</B><P>
+
+From a software standpoint, yes.  I know of no way for a game to detect whether it is running on an American system or a Japanese system, unless there are ways to detect the microphone or the absence of the Start and Select buttons on the 2nd controller.  Even so, the new-style AV Famicom uses detachable, interchangeable controllers like the NES.<P>
+
+From a hardware standpoint, there are some minor differences.  The controllers are not detachable on the (older) Famicom, and there is a connector for a third joypad or other input/output device.  This connector also serves as the expansion connector (which is found on the bottom of the NES unit).  The second control pad has a microphone with volume control built-in, and it also lacks Start and Select buttons.  The old Famicom outputs RF only for connection to a TV.  The Famicom has no lockout chip, so its cartridge connector is only 60-pin.  The cartridge connector also passes audio in and out of the cartridge, to allow for external sound chips to be mixed in with the Famicom audio.  <B>The NES and the Famicom have identical audio circuitry in regards to <A HREF="#sampledsounds">sampled sound</A>.  Both the Famicom and the NES can output samples through the delta modulation method and the raw method.</B>  Let's clear that up!<P>
+
+The new style Famicom uses the same joypads as the NES (cosmetically modified) as well as the same joypad connectors.  The new Famicom, this time, outputs AV only.  Other than that, it is (mostly) fully compatible with old Famicom devices.<P>
+
+<A NAME="usefam"><B><LI>How do I use a Japanese Famicom in North America/Europe?</B><P>
+
+That's a good question, but a little tricky.  First things first, <B>DO NOT USE YOUR NES ADAPTOR WITH THE FAMICOM!!!</B>  The NES adaptor outputs 9v AC, but your Famicom requires 9v DC.  You will need to find a suitable adaptor somewhere (9/10v DC, 850MA, Negative Tip is good).<P>
+
+If you get an old Famicom with RF only, then you will either need to find an old television set with analogue tuning (and UHF perhaps), or modify the Famicom somehow to get the audio/video directly.  Hook up the Famicom via RF and start searching for its signal on your television set.  Sometimes I've found the Famicom signal between North American channels 3 and 4; sometimes I've found it in a UHF channel.  You can either do that, or if you're good with electronics, hunt for the (weak) A/V signals directly on the Famicom PCB.<P>
+
+The newer Famicom is simplicity itself.  You need the same 9v DC adaptor, and a SNES/SFC Multi-AV cable.  The Multi-AV cable plugs directly into the back of the AV Famicom.<P>
+
+<A NAME="nessnescompat"><B><LI>Are the NES and SNES compatible?</B><P>
+
+Aaaaaalmost, but not quite.  Why Nintendo didn't retain full compatibility is a mystery to me.  (Well, it isn't much of a mystery: Greed is the answer.)  Although the SNES' 65816 processor is (for all intents and purposes) backwards compatible with 6502 software, the graphics and sound hardware on the SNES are not directly compatible.  There are some conversions of small NES ROMs in SMC format which work on the SNES, but they are manually converted with different register writes.  There's no way to blanket convert NES games to work on the SNES.<P>
+
+There is, however, an adaptor called either the TriStar or Super 8, which lets you run NES/Famicom games on your SNES.  However, it only uses the SNES for power, controllers, and composite video.  The NES/Famicom CPU/PPU is located entirely inside the TriStar/Super 8 adaptor.  So, unfortunately, no RGB or S-VHS video from the NES.  :-(<P>
+
+<A NAME="nesgbcompat"><B><LI>Are the NES and Gameboy/GBC compatible?</B><P>
+
+No.  The GB/GBC use a Zilog Z-80 variant processor, not a 6502.  Plus, the screen size and palette details are different.  There is a program which does convert small NES ROMs to work on the Gameboy, but the output of such a program is slow and buggy at best.  Those games (such as SMB DX and Ghosts & Goblins) which are official conversions of NES games on the GBC have been reprogrammed by the game companies to work with Z-80 machine code.<P>
+
+<A NAME="fronttopdiff"><B><LI>Is there any difference between the old (toaster) NES and the new top-loading one?</B><P>
+
+Yes, significantly the top-loading one only outputs an RF signal, unless you modify it.  Stupid Nintendo, why???  The top-loader is much better at loading carts than the old front-loading mechanism because the connector almost always makes proper contact with the games.  The top-loading NES is not easily compatible with the Game Genie because of the extra-thick Genie PCB.  Galoob once offered an extension adaptor to fix this problem.  As far as I know, the new NES has no lockout chip to speak of.  Finally, the top-loading NES has a poorer video signal compared to the old NES, due to improper decoupling.  There is a fix to this, but without such a fix, the new NES normally has faint vertical bars every 8 pixels.<P>
+
+<A NAME="famcontroller"><B><LI>Can I use a Famicom controller on my NES or vice-versa?</B><P>
+
+Yes, you can.  Once, I made an NES joystick that connects to my Famicom using a spare 15-pin controller cable.  I even installed switches that determine whether the added controller is for player 1 or player 2.  There is a good chance that you can also use Famicom controllers on your NES.  Search the internet somewhere (or <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A>) for documents on the controller pinouts.<P>
+
+<A NAME="snescontroller"><B><LI>Can I use a SNES controller on my NES or vice-versa?</B><P>
+
+I've seen documents that let you use SNES controllers on your NES.  The other way around is unknown to me, but sounds possible.  Try looking in the <A HREF="http://nesdev.parodius.com">usual place</A>.<P>
+
+<A NAME="rgbvideo"><B><LI>Can I get RGB video from my NES?</B><P>
+
+No.  Absolutely not.  The NES generates composite video, and nothing better, directly from its PPU.  There are NES units that do output RGB signals, but they are only: 1) Units which Nintendo used in-house to take game screenshots, 2) Play Choice 10 arcade units, and 3) French NES units, which may or may not generate an RGB signal natively.  Sorry.<P>
+
+<A NAME="avtoploading"><B><LI>Can I get A/V from my toploading NES?</B><P>
+
+Yes, there are documents that show you how to do that.  Try looking on websites such as <A HREF="http://www.gamesx.com">Game Station X</A>.  The same modification could potentially also be applied to RF-only Famicoms.<P>
+
+<A NAME="stereones"><B><LI>Can I get stereo audio or separate the sound channels of the NES?</B><P>
+
+Yes, this is possible.  You cannot separate all the sound channels individually; however, all NES/Famicom units output the 5 channels of audio split into two channels (pins on the CPU).  The two square wave channels come out of one CPU pin, and the triangle, noise, and sample channels come out of another pin.  Try searching the web for information on that, or go directly to <A HREF="http://mypage.direct.ca/c/ccovell">my site</A> which has a page describing how to get great sounding stereo audio from your NES!<P>
+
+<A NAME="whatisfds"><B><LI>What is the Famicom Disk System?</B><P>
+
+This was a relatively short-lived device released in 1986 in Japan only.  It was a disk drive unit that sat underneath the Famicom system, and connected to it via a RAM cartridge.  Games came on non-standard 3-inch disks.  The benefits of this system were that the disks were very cheap to sell, they utilized the extra sound hardware in the RAM unit, and that players could save their games on the disks (This was before the era of cheap battery-backed RAM.)  The downsides of this system were many:  The games were limited in scope and size, loading times were long, piracy of the disks was rampant, and the belt of the disk drive unit wore out all-too-easily.  By the time a few years passed, memory mappers were more advanced and much more viable for large Famicom games.  Thus, Nintendo quietly discontinued the FDS in the early Nineties.<P>
+
+<A NAME="gamegenie"><B><LI>How does the Game Genie work?</B><P>
+
+The Game Genie basically monitors the address bus of the cartridge port and modifies the data bus of the cartridge port if it encounters an address which it is supposed to intercept.  In layman's terms, it replaces certain data values with others in a game depending on a certain proscribed code.  This allows it to make temporary changes to the game's appearance to the NES CPU, without permanently changing the game itself.  The Game Genie is unlike other cheat devices which may freeze certain areas in RAM to a fixed value; the Genie instead works on ROM.<P>
+
+<A NAME="batterylife"><B><LI>How long will the battery in my NES game last?</B><P>
+
+Nintendo said about 5 years; however, I still have a Zelda cartridge from 1987 which still has its original battery and saves games just fine.  I suppose it depends on the amount of use of the cartridge, or something.<P>
+
+<A NAME="batteryswap"><B><LI>Can I change the battery without erasing the save RAM?</B><P>
+
+Well, you possibly can, but it'd really just be simpler to replace the battery and lose your saved game.  Changing the battery in an NES game is not too difficult; it involves desoldering the original battery, replacing it with an identical type, and soldering that down.  If you intend to replace the battery and keep your backup data, then you will need to figure out a way to keep a constant voltage applied to the save RAM throughout the entire replacement process.<P>
+
+<A NAME="expansionport"><B><LI>What is the expansion port on the NES for?</B><P>
+
+Expansion???  Um, it was rarely used, though on the Famicom it was used for many things, such as the 3-D glasses, Keyboard, Tape Drive (I think), etc.  The NES had (as far as I know) two accessories which used the expansion port: the Miracle Keyboard Piano Teaching System, and the Baton Teleplay System, a modem device for the NES which offered head-to-head play on the NES and Genesis.  I don't believe the Teleplay was ever widely released.<HR>
+
+<A NAME="emulation"><FONT SIZE="+1"><B>Emulation</B></FONT>
+<P ALIGN="RIGHT"><A HREF="#top">Top</A></P>
+
+<A NAME="isillegal"><B><LI>Is emulation illegal?</B><P>
+
+In theory, no.  In practice, yes, usually.  Now let's make this clear.  If <B>you</B> make a backup of your Nintendo game (somehow) and play it in an emulator, you are not breaking copyright law.  In the U.S., "fair use" copies of media and games are permitted for archival and educational purposes.  However, if you play the same game on an emulator and the NES system at the same time; if you play in an emulator a game that you didn't back up and legally own yourself; if you download a game ROM from the internet; all these things are considered illegal (contraventions of copyright law and "fair use" doctrines).  I'd say that the majority of emulated games are copyright infringing copies, because most likely not every user of a given game owns the cartridge of said game.  There are no IFs, ANDs, or BUTs about this.  However, this dispute will go on.  And on and on.<P>
+
+Nevertheless, I believe that there is a difference between emulating old, obsolete systems (such as the Atari 2600 and possibly the NES) and emulating newer, still marketed systems, such as the N64, GameBoy Color, and GameBoy Advance.  Copying a game ROM the day after it is released in the stores is just a shoddy excuse to get a game without paying.  Conversely, I feel that emulating old systems is one of the ways to keep that system alive, in perpetuity.  We already see with the Famicom Disk System that the emulated copies will greatly outlast the software and hardware of the original system.  I have two FDS disk drives which both have worn-out drive belts; you can see that emulation is the only viable way of keeping these games and systems alive.<P>
+
+<A NAME="nesticle"><B><LI>In Nesticle...</B><P>
+
+Nesticle should not be used as an emulation testbed for any game or homemade demo.  Although Nesticle has been the most popular NES emulator for many years, it is by far not the most accurate.  Please delete Nesticle now, and get a more accurate emulator today!!  I recommend LoopyNES for all your accuracy needs.  There.  I'm glad that's out of the way.<P>
+
+<A NAME="copybackup"><B><LI>How can I copy/backup my NES games?</B><P>
+
+It's not easy.  You can either build the copier device yourself (&agrave; la IO-56), get somebody else to build it for you (&agrave; la CopyNES, made by Kevin Horton (but don't bug him about it, because he is not currently selling these things)), or buy one of the rare Hong Kong copiers.  Really, the NES copier world is so small because of the multitude of different memory mappers in NES/Famicom cartridges.  A copier would have to account for all mappers in order to be able properly to copy all cartridges.  The copiers that are available tend to be rather old, and some of them are almost worthless, because they back up games only onto the (scarce) FDS disks!<P>
+
+Another option would be to lend the game that you want dumped (make sure it really hasn't been dumped already!) to a known NES dumping guru.  I am not one of them!  :-(<P>
+
+<A NAME="copyxgame"><B><LI>How can I copy X game onto a cartridge?</B><P>
+
+Ahhh... we can thank <U>Earth Bound Zero</U> for this question.  Well, if we're speaking in generalities here, you have to find a cartridge that is of an identical or compatible layout to game X.  You should find a cartridge that has the same board type, memory mapper, RAM chip, battery backup (if present), and at least the same ROM sizes as the game (ROM) which you want to copy.  Remember that what you are doing is illegal if you are just copying a non-freeware game ROM taken from the internet onto a cartridge.<P>
+
+Anyway, the process involves removing (desoldering) the mask ROMs from the aforesaid cartridge and replacing the ROMs either with sockets or EPROMs.  You have to program these EPROMs (it should be obvious how, if you already own some EPROMs) with the binary data taken from the PRG ROM and CHR ROM, respectively.  If you are not familiar with the terms PRG ROM and CHR ROM, go to the <A HREF="#inesheader">iNES header</A> section of this FAQ.  EPROMs are usually not pin-compatible with regular mask ROMs, so you must be familiar with EPROM pinouts in order to make the necessary wiring switches.  <B>This is not a beginner's project!</B><P>
+
+<A NAME="universalcart"><B><LI>Can I make/buy a universal NES cartridge?</B><P>
+
+No, absolutely not.  To make your NES cartridge "universal", you would have to construct it in such a way that it contains all the memory mappers ever made.  The closest thing to this is either one of the NES/Famicom copiers, or a system called the Dr. PC Jr., made by Bung.  The Dr. PC Jr. loads games from regular 3.5" floppy disks and you play them on your TV or video screen.  The system has support for only a small handful of mappers, but the wizards at Bung have apparently made trainers that allow some of the differently-mapped games to work on their system.<P>
+
+<A NAME="startemulator"><B><LI>I want to make an NES emulator.  Where do I start?</B><P>
+
+That's good that you want to make an NES emulator, but you should know that there are already countless NES emulators out there right now.  Do you want to make an emulator that stands out from all the rest, or are you making it just for the Hell of it?  If you cannot think of any way to make your emulator better than all the other functional but mediocre ones out there, then you should keep the emu to yourself, just for your own private use and education.<P>
+
+Anyway, of course, you can't make an emu for a game system if you aren't already familiar with the system itself.  This is why I recommend always making some of your own NES demos before you even begin thinking about an emulator.  You have to know how the CPU works, how the PPU behaves, and how the audio channels work, and this can best be done through testing them all out in NES test programs which you write yourself.  Really, that's the best way to do it.  So, that's the NES side of things.<P>
+
+On the PC side of things (by PC, I mean a generic Personal Computer, not an IBM PC specifically), you should be familiar with producing a fast graphics display in various video modes, interfacing with the sound hardware of your computer, and handling keyboard, mouse, and joystick inputs.  Setting up stable 60Hz (or whatever) timing is also very important for a console emulator such as the NES.  If you aren't familiar with this, then it's the same recommendation: I suggest you write demos or even a small game on your PC.  Making an emulator really is like a software marriage between two systems: If you aren't proficient and knowledgeable in both the computer on which you are programming, and the system which you are emulating, then it will show through in a shoddy emulator.<P>
+
+<A NAME="gimmeromz"><B><LI>&#165;ø&#181; a&#174;3 &#163;ee+, g0+ an&#165; ROMz +ø g&#161;v3 m3?</B><P>
+
+Having 25,632,890 ROMz doesn't make one "'leet," nor does using lame "'leetspeak," so stop trying.  If there's such a thing as "'leetness" in the NES world, it comes from doing amazing and ingenious things with the NES hardware (and software), such as what is routinely done by humble people like Kevin Horton, Mark Knibbs, and others.<P>
+
+<A NAME="loadfds"><B><LI>How do I load those .FDS files in my emulator?</B><P>
+
+First, your emulator has to support the Famicom Disk System.  If it doesn't, then you're out of luck.  Loading the actual FDS disks is different in many emulators, but generally it involves loading the disk, then pressing some button either to "insert" the disk or "flip" the disk side.  Note that you sometimes have to have a binary image of the 8K FDS ROM before the emulator will run the disk.<P>
+
+There are, unfortunately, two slightly different .FDS formats out there in the emu world: one without a header, and one with.  The emulator iNES supports FDS disks which are straight byte-for-byte copies of the FDS disk media, without any headers at the beginning.  Other emulators load FDS images with a 16-byte header that simply counts the number of sides to the disk image.  Hopefully, most emulators will eventually support both types of .FDS images.<P>
+
+<A NAME="inesheader"><B><LI>What is an iNES header?</B><P>
+
+It's currently the <I>de-facto</I> standard of the NES emulation world.  The iNES header is a 16-byte area at the beginning of a .NES ROM, which describes the size of the game and the mapper type, etc.  For detailed information about the iNES header, check out some of the docs at <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A>.  A .NES ROM is composed of, from beginning to end: iNES Header, [trainer], X PRG ROM banks, [Y CHR ROM banks].  (Brackets mean that those portions are optional, depending on the game in question.)  Trainers are rare, but there are some games that have them.<P>
+
+In the iNES format, a bank of PRG ROM data is 16384 bytes.  The PRG ROM is the sequentially mapped game program.  This is what actually gets executed by the emulator.  The mapping of these banks in the NES memory area is primarily determined by the mapper.  A bank of CHR ROM area is 8192 bytes.  CHR ROM (also called VROM) is the graphics data stored in an external ROM.  Some games have no CHR ROM banks because the graphics data is intermingled with the PRG ROM.  These games simply use 8k of RAM for CHR storage during gameplay.<P>
+
+<A NAME="unif"><B><LI>What is UNIF?</B><P>
+
+The UNIF format is a new format proposed to end most of the problems of the iNES format, specifically, the lazy and arbitrary assignment of obscure memory mappers.  It does this by being more exact in its description of the game being dumped.  Board type, memory mappers, ROM sizes, etc. are more clearly defined.  The UNIF format is also a chunked format, meaning that a programmer can decide which sections of the .UNF (seriously!) ROM get read by his emulator.  If an emulator comes across an unrecognized chunk, it can skip over it to read the next one.  So far, not very many emulators support the UNIF format, which is its main detriment.  But everything has to start somewhere, right?<P>
+
+For detailed information about UNIF, either look on <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A> or go straight to <A HREF="http://www.parodius.com/~veilleux/index.html">the UNIF website</A>.<P>
+
+<A NAME="ines2unif"><B><LI>Are there iNES < - > UNIF conversion programs?</B><P>
+
+Yes, there are conversion tools as part of the open-source <A HREF="http://www.pretendo.org/~proxy/">UNIF lib</A> project.  The NESDev "powers that be" generally frown on programs that convert from UNIF back to iNES, as we are supposed to be going the other way.<P>
+
+<A NAME="ipspatches"><B><LI>What are .IPS patches and how do I apply them?</B><P>
+
+IPS Files are small files that are used to change (or patch) the data in a game ROM (or any file for that matter) in an efficient way.  They are used to apply hacks, translations, and fixes to game ROMs in a non-copyright-infringing way (hopefully).  See, if you translate a game and just post the translated version on your webpage, you're still breaking copyright law.  So, basically what the IPS files do is tell a patching program which bytes in the file to change, and what to change them to.  The added upside of this is that IPS files are generally much smaller than having the full, patched ROM.<P>
+
+You can't just run an IPS file -- that's a common misconception.  (Can you run an MP3 file?  I didn't think so.)  So, you have to use a patching program that supports IPS.  It will load both an IPS file and a game ROM and apply the patch to the ROM, but beware that some programs overwrite the original ROM, so be sure to make backups!  IPS patching programs exist on many computer platforms, (including my good ol' Amiga!).  A good place to begin looking for IPS programs for your computer is on <A HREF="http://www.zophar.net">www.zophar.net</A>, for now.<P>
+
+<A NAME="nsfs"><B><LI>What are NSFs?</B><P>
+
+NSFs (Nintendo Sound Files) are a game's music, ripped out of the game and playable in music programs, such as the many NSF plugins for WinAmp.  This format was developed by Kevin Horton in 1999, and is very similar to the popular SID format used for C-64 music rips.  NSFs are unlike GYM or (in some ways) SPC music files from other systems because they are not recordings of the NES audio.  They are instead 6502 program code and data extracted from an NES ROM, and allowed to  function on their own, making music through the NES' audio hardware.  This is why NSFs loop properly just like the original music in the game.  So, for every NSF file you see out there, somebody went through the work of finding the music code, isolating its entry points, and separating it into another file.  NSFs sound good.  :-)<P>
+
+<A NAME="ripnsfs"><B><LI>How do you rip NSFs?</B><P>
+
+Well, you have to know 6502 machine code, and be familiar with the NES sound registers.  I've written a full document describing the basics of NSF ripping.  You can find it either at <A HREF="http://mypage.direct.ca/c/ccovell">my site</A> or at <A HREF="http://nesdev.parodius.com">the usual place</A>.<HR>
+
+<A NAME="programming"><FONT SIZE="+1"><B>Programming</B></FONT>
+<P ALIGN="RIGHT"><A HREF="#top">Top</A></P>
+
+<A NAME="cbasicwhat"><B><LI>Are NES games written in C, BASIC, or something else?</B><P>
+
+Almost all NES games are written in 6502 assembly code, because the slow processor in the NES demands it.  Perhaps some games might be written in C, but I doubt it.  (Some unlicenced games are so bad that they might be written in C or something.  :-))  The same goes for BASIC.  Although both Bung and Nintendo have working BASIC interpreters on the Famicom hardware, it is too slow to make a professional, fast-paced game using high-level languages such as C and BASIC.<P>
+
+<A NAME="beginprogramming"><B><LI>How do I begin programming for the NES?</B><P>
+
+First, learn 6502 assembly.  Take out a book from the library or take a course on assembly programming.  Assembly is more difficult than most other computer languages, because you're bangin' the hardware directly.  (That's what I like about assembly, in fact.)  Make sure you are familiar with how most CPUs work, with memory access, program counters, and opcodes.  Knowledge of the base 16 numbering system (Hexadecimal or HEX) is also crucial.<P>
+
+Second, mosey on over to <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A> and begin reading those NES technical documents which describe how the NES' memory is laid out, which registers do what, and what the NES' capabilities (and peculiarities) are.  Keep reading those documents until you have a good idea about the NES' hardware.<P>
+
+Third, begin making test or demonstration ROMs for the NES.  You can start by looking at the source code of the most basic NES demos out there, to get a good general idea of how an NES program starts up, how it clears memory, how it initializes registers, and how it grapples with the PPU.  Get a 6502 assembler, like DASM or X816, to begin assembling your code.  All these tools are available from <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A>.  There, you can also find many demos, and my demos with source are also available on <A HREF="http://mypage.direct.ca/c/ccovell">my site</A>.<P>
+
+After that, it's the uphill battle of reaching proficiency with your NES knowledge.  Good luck!<P>
+
+<A NAME="namattpat"><B><LI>How do the NAME table, ATTRIBUTE table, and PATTERN table all fit together?</B><P>
+
+The NES is not like your average Windows PC which has one bitmap screen with all possible colour values being stored directly in each pixel.  The PPU memory on the NES is limited, so the NES has to construct a screen display by combining several different, optimized memory areas.  First, the pattern table is a small window into the CHR ROM of the NES.  It stores 256 different graphics tiles (each being 8x8 pixels) for the background, and 256 more for sprites.  When the name table wants to display a certain graphic image, it doesn't literally draw the image in its own memory.  Instead, the name table has to store a byte which is the same number as the desired tile in the pattern table.<P>
+
+The NES' background palette has 16 entries in it, with some mirroring going on.  But a tile in the name table can't access all 16 colours at once; it can only be made up of 4 colours from the total palette of 16.  This is just a limitation imposed by Nintendo.  So, the attribute table comes in and describes which 4 of the 16 colours in the palette a certain tile will take.  Because the attribute table is of such a small size (64 bytes), it only has a resolution of 2 tiles x 2 tiles.  So, each 16x16 pixel area on the background has to share the same 4 colours.  The MMC5 memory mapper overcomes this limitation, but without it, you're stuck to what the NES dictates.<P>
+
+<A NAME="chrgfx"><B><LI>How are NES graphics laid out?</B><P>
+
+I assume you mean in the CHR ROM, right?  NES CHR graphics are 2 bitplanes deep.  That means that all graphics can be made up of a total of 4 colours.  Read the NES Technical documentation on <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A> for completely detailed descriptions of the layout of the CHR graphics.  Each tile takes up 16 bytes of data: 8 bytes for the first plane, and 8 for the second.  The layout for each plane is the same as any bitmapped 8x8 image: the first byte is a binary representation of the 8 pixels in the first line of graphics; the second byte the same for the second line, and so on.  The two bitplanes for each character are stored sequentially, but are combined by the NES to produce a 4-colour tile.<P>
+
+<A NAME="palmirror"><B><LI>How does palette mirroring work?</B><P>
+
+Palette entry 0 is GOD.  It is the most important entry because it determines the background colour, defines transparency for background and sprites, and is mirrored across the palette table.  The PPU's palette table goes from $3F00-$3F1F in its memory.  Palette entry 0 is $3F00.  But because of mirroring, any changes that you make to $3F00 also directly change $3F10, and vice-versa.  Every 4 bytes in the NES palette is also a copy of palette entry 0.  Thus, the registers $3F04, $3F08, $3F0C, $3F14, $3F18, etc.. are useless registers.  You can write to them, but because they are direct copies of $3F00, there will be no change to the palette.  It is because of palette mirroring that only 13 background colours can be shown at once, and not the full 16.<P>
+
+<A NAME="ppumirror"><B><LI>How does PPU mirroring work?</B><P>
+
+Well, there is mirroring across the PPU, in terms of NAME tables.  There is only enough physical RAM in the PPU to store 2 different name tables at one time; however, there is still the address space for 4 different name tables.  Thus, two of the name tables in the PPU are copies of the other two.  Which table is a copy of which is determined by the mirroring selection lines in an NES cartridge.  On games with no memory mappers, the mirroring is fixed, depending on which of two contact points a blob of solder is sitting.  However, most memory mappers also provide for PPU mirroring switching on-the-fly.  Some game cartridges also have extra RAM on-board, which provides for a total of 4 individual name tables to be accessed.  (There is also, of course, the capability for single-screen mirroring, which means that there is only 1 active name table in the PPU, and the other 3 are copies of it.)<P>
+
+The two major kinds of name table mirroring are horizontal and vertical.  With horizontal mirroring, the two side-by-side name tables are mirrored with each other.  Thus, in the PPU you have a tall column of two useable name tables.  This type of mirroring is useful for vertically-scrolling shooters, for example.  With vertical mirroring, two name tables, one above the other, are mirrored with each other.  In the PPU, then, you have a wide row of two useable name tables.  This type of mirroring is useful for any horizontally-scrolling platform or shooting game.<P>
+
+<A NAME="sprite0"><B><LI>How does sprite 0 hit detection work?</B><P>
+
+Sprite 0 hit detection is dependent on the contents of the CHR data in the sprite and background.  The sprite 0 hit flag in bit 6 of $2002 clears at the end of (or shortly after) VBlank.  It remains clear until two conditions are met simultaneously: 1) The scanning beam of the display device has begun drawing (i.e., it has "hit") sprite #0, and 2) The graphic image in sprite 0 is overlapping with some graphic image in the background.  This means that if sprite 0 contains no graphics data (all "0"s), the sprite hit bit of $2002 will not be set.  And, if the background underneath sprite 0 contains no graphics data, the sprite hit bit of $2002 will likewise not be set.<P>
+
+Sprite 0 hit detection is useful for doing split-screen scrolling.  Even <U>Super Mario Bros.</U> uses a sprite 0 hit to scroll the lower portion of the screen (sprite 0 is hidden in the coin image in the status bar at the top of the screen).  To do sprite 0 detection in your demo or game, you have to wait for <B>both</B> bit 6 of $2002 to clear after VBlank <B>AND</B> to set upon sprite 0 hit.  In my early efforts, I didn't realize that I had to wait for the bit to clear first, so I learnt the hard way.<P>
+
+<A NAME="vblankhblank"><B><LI>What is VBlank and what is HBlank?</B><P>
+
+VBlank is the period when the NES (and video screen) has finished drawing an entire screen (or frame) of the image, and the electron beam of the video screen is moving back up from the bottom-right of the screen to the top-left, to begin drawing the screen anew.  During this crucial period, it is safe for your NES programs to write to the PPU without fear of glitching.  The VBlank period is not long enough to make extensive writes to the PPU, but it is still long enough to make some small changes (such as to the palette or a few CHR tiles in CHR-RAM.)  VBlank is also an essential way to get constant timing in game physics and music.  On NTSC NESes, there are 60 VBlanks per second; there are 50 per second on PAL NES machines.<P>
+
+HBlank is the period on each scanline when the electron beam moves back from the right side of one scanline to the left side of the next scanline.  Generally, changes to scrolling and name table updating will not become apparent until after the next HBlank.  So, say for example you are doing some wavy scrolling by updating $2005 in a timed loop.  The changes that you make to $2005 will not be reflected on-screen until after the next HBlank; thus, they will show on the next scanline.  The same applies to mid-screen palette changing or writes to $2006.  However, turning off the screen, and changing the Colour Emphasis or Monochrome bits of $2001 can be reflected in the middle of a scanline.<P>
+
+<A NAME="scanlinesinvb"><B><LI>How many scanlines are in VBlank period?</B><P>
+
+Time-wise, there are about 21 scanlines during VBlank.  Consult the NES Technical docs for more details.<P>
+
+<A NAME="20052006"><B><LI>What's up with $2005/2006?</B><P>
+
+Ahh, yes, it's a bitter relationship trying to get the PPU to do what you want it to.  $2005 and $2006 are tied together in their displaying of the NES background.  Although this oversimplifies things a bit, $2005 doesn't control scrolling absolutely; it's more like it "gives suggestions" to $2006 about where to begin updating the background based on what part of the name table.  Vertical scrolling can be affected by $2005 only during the VBlank period.  After that, it's all up to $2006 to begin drawing from that point.  During screen drawing, writes to $2005 affect horizontal scrolling only, and only partially at that.<P>
+
+Say for example you are doing some wavy scrolling effects.  If your scrolling routine offsets the background from its original horizontal position by more than 8 pixels (1 column of tiles, coincidentally...) there will be scrolling glitches visible on the right side of the screen.  Try out the large waves of my <U>CMC Wavy</U> demo in a good emulator like LoopyNES to see what I mean.  If you absolutely <U>must</U> get vertical scrolling to begin halfway down the screen, then you'll have to write directly to $2006 mid-HBlank to change the name table row that it would be updating.  Funnily enough, I've discovered that if you are changing $2006 mid-screen, it's a <B>BAD</B> idea to write to $2005 right afterwards.  There are lots of thorny peculiarities with the PPU, and only good old-fashioned experimentation with the real hardware will bring them all to light.<P>
+
+<A NAME="stablebg"><B><LI>How can I get a stable background in my demo?</B><P>
+
+If your background is invisible, flickering, or improperly offset in some emulators, then you might not be clearing $2006 during VBlank.  Right at the end of your NMI routine, write zeroes to $2006 twice ($0000 PPU address, right?), and then write whatever value you desire (or just zeroes as well) to $2005 to set up your scrolling.  Also make sure that you have $2000 and $2001 set up correctly.  This should make the background nice and stable.  If it is still unstable, try writing $20, then $00 to $2006 (making the PPU address $2000) instead.  Strangely enough, I've found that that works when #$0000 doesn't.  Ahh, the joys of NES programming...<P>
+
+<A NAME="whyglitching"><B><LI>Why is there graphics glitching when you change $2005 or $2006 mid-screen?</B><P>
+
+I really can't tell you exactly why, but the general reason is that the NES' PPU operates on the level of characters, not individual pixels.  The PPU only cares about what character it's displaying, not what pixel it's at.  So, when you do things like change the scrolling or change the address from which $2006 should be reading, it'll sometimes mess up the finer details like pixel-perfect scrolling and such.  Blah.  Ya just gotta live with it.<P>
+
+<A NAME="ispalettergb"><B><LI>Is the NES palette RGB or what?</B><P>
+
+No.  I wish it were, but it isn't.  The NES <I>really</I> works on the NTSC colour concept, with luminance (brightness) going in one direction, and chrominance (hue) going in another.  Barring the colour values after $xC, the palette in the NES does on average a 30&#176; rotation in hue for each step of the lower nybble that you take.  Furthermore, the palette increases in luminance for each step of the upper nybble that you take.  So, the palette really operates on hue and brightness in each direction, not RGB in each direction.<P>
+
+<A NAME="accuratepal"><B><LI>How do I get an accurate palette then?</B><P>
+
+Well, the only TRUE way is to get yourself an oscilloscope and find out the exact hue, saturation, and brightness for each colour in the NES' palette.  However, not everybody can do that, can they?  What some people have done (including me) is digitize all the colours of the NES' palette with video capturing equipment, and get the R,G,B values from there.  That's not a perfect way of getting the colours, but it worked for me.<P>
+
+The following is a table showing what 'my' NES palette looks like.  It has proven very useful to me in making my NES demos, so I think it's fairly accurate.  Colour is, of course, very subjective, so what works for me might not work for you.  There are lots of other palettes out there, of course, but I still choose to use my own.  The numbers in the cells represent the palette entry number on the NES.<BR>
+<CENTER>
+<table border="0" cellpadding="0" cellspacing="0" width="80%" height="88">
+  <tr>
+    <td width="128%" bgcolor="#000000" height="1" colspan="18">&nbsp;</td>
+  </tr>
+  <tr>
+    <td width="2%" bgcolor="#000000" height="83" rowspan="5">&nbsp;</td>
+    <td width="5%" height="21" bgcolor="#FFFFFF">30</td>
+    <td width="6%" height="21" bgcolor="#A6FCFF">31</td>
+    <td width="6%" height="21" bgcolor="#B3ECFF">32</td>
+    <td width="6%" height="21" bgcolor="#DAABEB">33</td>
+    <td width="6%" height="21" bgcolor="#FFA8F9">34</td>
+    <td width="6%" height="21" bgcolor="#FFABB3">35</td>
+    <td width="6%" height="21" bgcolor="#FFD2B0">36</td>
+    <td width="6%" height="21" bgcolor="#FFEFA6">37</td>
+    <td width="6%" height="21" bgcolor="#FFF79C">38</td>
+    <td width="6%" height="21" bgcolor="#D7E895">39</td>
+    <td width="6%" height="21" bgcolor="#A6EDAF">3A</td>
+    <td width="6%" height="21" bgcolor="#A2F2DA">3B</td>
+    <td width="6%" height="21" bgcolor="#99FFFC">3C</td>
+    <td width="6%" height="21" bgcolor="#DDDDDD">3D</td>
+    <td width="6%" height="21" bgcolor="#111111"><FONT COLOR="#FFFFFF">3E</FONT></td>
+    <td width="6%" height="21" bgcolor="#111111"><FONT COLOR="#FFFFFF">3F</FONT></td>
+    <td width="3%" bgcolor="#000000" height="83" rowspan="5">&nbsp;</td>
+  </tr>
+  <tr>
+    <td width="5%" height="21" bgcolor="#FFFFFF">20</td>
+    <td width="6%" height="21" bgcolor="#0FD7FF">21</td>
+    <td width="6%" height="21" bgcolor="#69A2FF">22</td>
+    <td width="6%" height="21" bgcolor="#D480FF">23</td>
+    <td width="6%" height="21" bgcolor="#FF45F3">24</td>
+    <td width="6%" height="21" bgcolor="#FF618B">25</td>
+    <td width="6%" height="21" bgcolor="#FF8833">26</td>
+    <td width="6%" height="21" bgcolor="#FF9C12">27</td>
+    <td width="6%" height="21" bgcolor="#FABC20">28</td>
+    <td width="6%" height="21" bgcolor="#9FE30E">29</td>
+    <td width="6%" height="21" bgcolor="#2BF035">2A</td>
+    <td width="6%" height="21" bgcolor="#0CF0A4">2B</td>
+    <td width="6%" height="21" bgcolor="#05FBFF">2C</td>
+    <td width="6%" height="21" bgcolor="#5E5E5E"><FONT COLOR="#FFFFFF">2D</FONT></td>
+    <td width="6%" height="21" bgcolor="#0D0D0D"><FONT COLOR="#FFFFFF">2E</FONT></td>
+    <td width="6%" height="21" bgcolor="#0D0D0D"><FONT COLOR="#FFFFFF">2F</FONT></td>
+  </tr>
+  <tr>
+    <td width="5%" height="21" bgcolor="#C7C7C7">10</td>
+    <td width="6%" height="21" bgcolor="#0077FF">11</td>
+    <td width="6%" height="21" bgcolor="#2155FF">12</td>
+    <td width="6%" height="21" bgcolor="#8237FA">13</td>
+    <td width="6%" height="21" bgcolor="#EB2FB5">14</td>
+    <td width="6%" height="21" bgcolor="#FF2950">15</td>
+    <td width="6%" height="21" bgcolor="#FF2200">16</td>
+    <td width="6%" height="21" bgcolor="#D63200">17</td>
+    <td width="6%" height="21" bgcolor="#C46200">18</td>
+    <td width="6%" height="21" bgcolor="#358000">19</td>
+    <td width="6%" height="21" bgcolor="#058F00">1A</td>
+    <td width="6%" height="21" bgcolor="#008A55">1B</td>
+    <td width="6%" height="21" bgcolor="#0099CC">1C</td>
+    <td width="6%" height="21" bgcolor="#212121"><FONT COLOR="#FFFFFF">1D</FONT></td>
+    <td width="6%" height="21" bgcolor="#090909"><FONT COLOR="#FFFFFF">1E</FONT></td>
+    <td width="6%" height="21" bgcolor="#090909"><FONT COLOR="#FFFFFF">1F</FONT></td>
+  </tr>
+  <tr>
+    <td width="5%" height="21" bgcolor="#808080"><FONT COLOR="#FFFFFF">00</FONT></td>
+    <td width="6%" height="21" bgcolor="#003DA6"><FONT COLOR="#FFFFFF">01</FONT></td>
+    <td width="6%" height="21" bgcolor="#0012B0"><FONT COLOR="#FFFFFF">02</FONT></td>
+    <td width="6%" height="21" bgcolor="#440096"><FONT COLOR="#FFFFFF">03</FONT></td>
+    <td width="6%" height="21" bgcolor="#A1005E"><FONT COLOR="#FFFFFF">04</FONT></td>
+    <td width="6%" height="21" bgcolor="#C70028"><FONT COLOR="#FFFFFF">05</FONT></td>
+    <td width="6%" height="21" bgcolor="#BA0600"><FONT COLOR="#FFFFFF">06</FONT></td>
+    <td width="6%" height="21" bgcolor="#8C1700"><FONT COLOR="#FFFFFF">07</FONT></td>
+    <td width="6%" height="21" bgcolor="#5C2F00"><FONT COLOR="#FFFFFF">08</FONT></td>
+    <td width="6%" height="21" bgcolor="#104500"><FONT COLOR="#FFFFFF">09</FONT></td>
+    <td width="6%" height="21" bgcolor="#054A00"><FONT COLOR="#FFFFFF">0A</FONT></td>
+    <td width="6%" height="21" bgcolor="#00472E"><FONT COLOR="#FFFFFF">0B</FONT></td>
+    <td width="6%" height="21" bgcolor="#004166"><FONT COLOR="#FFFFFF">0C</FONT></td>
+    <td width="6%" height="21" bgcolor="#000000"><FONT COLOR="#FFFFFF">0D</FONT></td>
+    <td width="6%" height="21" bgcolor="#050505"><FONT COLOR="#FFFFFF">0E</FONT></td>
+    <td width="6%" height="21" bgcolor="#050505"><FONT COLOR="#FFFFFF">0F</FONT></td>
+  </tr>
+  <tr>
+    <td width="122%" bgcolor="#000000" height="8" colspan="16">&nbsp;</td>
+  </tr>
+</table>
+</CENTER><P>
+
+And here is my RGB palette in HEX, beginning with value 0:<BR>
+<CENTER><TABLE><TR><TD><FONT SIZE="-1">
+<PRE>$80,$80,$80, $00,$3D,$A6, $00,$12,$B0, $44,$00,$96
+$A1,$00,$5E, $C7,$00,$28, $BA,$06,$00, $8C,$17,$00
+$5C,$2F,$00, $10,$45,$00, $05,$4A,$00, $00,$47,$2E
+$00,$41,$66, $00,$00,$00, $05,$05,$05, $05,$05,$05
+$C7,$C7,$C7, $00,$77,$FF, $21,$55,$FF, $82,$37,$FA
+$EB,$2F,$B5, $FF,$29,$50, $FF,$22,$00, $D6,$32,$00
+$C4,$62,$00, $35,$80,$00, $05,$8F,$00, $00,$8A,$55
+$00,$99,$CC, $21,$21,$21, $09,$09,$09, $09,$09,$09
+$FF,$FF,$FF, $0F,$D7,$FF, $69,$A2,$FF, $D4,$80,$FF
+$FF,$45,$F3, $FF,$61,$8B, $FF,$88,$33, $FF,$9C,$12
+$FA,$BC,$20, $9F,$E3,$0E, $2B,$F0,$35, $0C,$F0,$A4
+$05,$FB,$FF, $5E,$5E,$5E, $0D,$0D,$0D, $0D,$0D,$0D
+$FF,$FF,$FF, $A6,$FC,$FF, $B3,$EC,$FF, $DA,$AB,$EB
+$FF,$A8,$F9, $FF,$AB,$B3, $FF,$D2,$B0, $FF,$EF,$A6
+$FF,$F7,$9C, $D7,$E8,$95, $A6,$ED,$AF, $A2,$F2,$DA
+$99,$FF,$FC, $DD,$DD,$DD, $11,$11,$11, $11,$11,$11</PRE>
+</FONT></TD></TR></TABLE></CENTER><P>
+
+<A NAME="correctblack"><B><LI>What is the right register value for black in the palette?</B><P>
+
+The official one which Nintendo recommends is either $0E or $0F.  Palette value $0D is the blackest value of them all, but it is what's known as "blacker than black".  In other words, some video monitors or television screens might not accept that colour as a valid NTSC colour value.  It has been said that it might even cause some video screens to interpret it as another blanking signal, and mess up their synching rates.  However, I have been using $0D in my demos with no problems to my screens.  Your mileage may vary, of course.<P>
+
+<A NAME="colemphasis"><B><LI>What are the colour emphasis bits?</B><P>
+
+This is almost the final frontier of NES emulation, as not many emulators handle these bits properly.  The top 3 bits of $2001 are known as the "Colour Emphasis Bits" because each bit modifies the R, G, or B colour component of the NES' display.  The bits look like this in $2001:  BGRxxxx.  If you set one of these bits, the entire palette changes dynamically towards the colour  component selected in the bits.  If you set the Red bit, the entire palette seems much more "red".  However, since the NES does not work in RGB, what seems to be happening is that the hue of all the colours in the display are more influenced towards the hue that is being emphasized.  Another thing to note is that if the Red bit is set, for example, the palette entries that have a large amount of cyan (red's negative) in them are darkened considerably.<P>
+
+You can combine each of the emphasis bits as well.  Setting both the R and G bits emphasizes the yellow in the palette, and so on.  However, when any two bits are set, the entire palette is dimmer than normally.  Thus, the emphasis seems more like "de-emphasis".  I really believe that when you set the R bit, for example, to emphasize red, what is really occurring is a widespread de-emphasis of cyan.  My suspicions are confirmed further because when you set all three of the colour emphasis bits, the entire palette dims to 75% of its original brightness.  The game <U>Super Spy Hunter</U> does this very thing with the emphasis bits when you pause the game.<P>
+
+The colour emphasis bits of $2001 can be used to produce translucency and special lighting effects in demos and games.  I've made a couple of demos, such as my <U>Wall</U> demo, which do this.  If you are curious about the emphasis bits and want more information, I have a lot more in-depth detail.  <A HREF="MAILTO:chris_covell@yahoo.ca">Mail me</A> and I can send it to you.<P>
+
+<A NAME="monochrome"><B><LI>What is the monochrome mode in the NES?</B><P>
+
+Bit 0 of $2001 is funny.  When it is set, the entire palette goes greyscale.  However, it is not a simple greyscale mode.  For one, there is no black value when the monochrome bit is set.  In fact, what technically occurs is that when the monochrome bit is set, the 64-value palette in the NES is reduced to simply a 4-value palette.  All palette entries from $01 to $0F are mirrored to entry $00; all entries from $11 to $1F are mirrored to $10; all entries from $21 to $2F are mirrored to $20; and finally, all entries from $31 to $3F are mirrored to $30.  This is also shown to be true because if you set the monochrome bit and some of the colour emphasis bits, the display still gets skewed to the colour being emphasized.  If you need a more detailed explanation than what is here, <A HREF="MAILTO:chris_covell@yahoo.ca">mail me</A>.<P>
+
+<A NAME="busconflicts"><B><LI>What are bus conflicts?</B><P>
+
+Bus conflicts are what occur when a game program writes to a memory mapper in order to change a bank of CHR graphics or PRG code.  Memory mappers get switched by having the NES program write to some address in the ROM address space ($8000-$FFFF); however, this address area is normally READ ONLY, so the data on the data lines of the cartridge connector comes into conflict with what the CPU is trying to do.  I'll give the CNROM board as an example.  Mapper 3 games such as Cybernoid, Adventure Island, etc, use the CNROM board to effect character bank switching.  To switch the CHR banks, you simply have to write the bank value to some address between $8000-$FFFF.  However, since you can't actually write a value into the address area, the CNROM switcher just takes whatever value is on the data bus at the address specified.  And since this is a game, it usually is a random value.  Not what we want.<P>
+
+To get around this, many games have included in the game program a table of known data values to write to safely, ensuring that the proper bank gets switched in.  This ensures that the value written to the bus is the same value that is present at the address written to.  If you check out the source code to my game Solar Wars (which also uses the CNROM board), you'll see what I mean.<P>
+
+<A NAME="enableints"><B><LI>Do I enable interrupts (CLI) in my demo?</B><P>
+
+Not immediately.  IRQ interrupts and the VBlank (NMI) interrupt are different things.  The CLI/SEI instructions have no effect on NMI interrupts; NMIs are controlled by bit 7 of $2000.  When you first turn on your demo, there could be a flood of IRQ interrupts coming from $4017 (which has some kind of role in IRQs?), so you don't want to enable interrupts.  Otherwise, your demo might be deluged in them.  Normally, for a demo in which you will not be using IRQs at all, keep interrupts disabled with a SEI instruction at the beginning of your reset routine.<P>
+
+If you are using IRQs in your demo, such as with DMC samples, or MMC3 timing, you will need to be careful with your IRQ management.  Since I have never programmed MMC3 demos, I cannot really offer much help in this area.  Perhaps somebody else knows enough to help you out.<P>
+
+<A NAME="makemusic"><B><LI>How can I make music for my demo?</B><P>
+
+Michel Iwaniec (Mr. Bananmos) has written a very interesting program for DOS called <U>NerdTracker 2</U>.  It is just like a tracker program, except that it uses the NES sound channels as instruments.  When you have composed a song in NT2, you can assemble the code into a ROM, playable on a real NES.  Go to <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A> for perhaps more information on NT2.<P>
+
+<A NAME="demoinemu"><B><LI>Why does my demo work in an emulator, but not on a real NES?</B><P>
+
+There can be many reasons behind this.  Here's a small list:  Do you enable interrupts (CLI) needlessly?  Have you forgotten to turn on VBlanks and the screen?  Are you writing to the PPU during non-VBlank time?  Do you write too much to the PPU during VBlank?  Did you forget to write to $2006 twice to reset the PPU address counter after writing?  Did you forget to write to $2005 properly?  Are you using the wrong PPU mirroring in either your NES ROM or cartridge?  Do you know if your test cartridge works at all?<P>
+
+Getting things to work on the NES is a plodding process, and there are many things that can go wrong.  Patience, Grasshopper.<P>
+
+<A NAME="testonnes"><B><LI>How can I test my demo on a real NES?</B><P>
+
+There are a few ways.  One, you can make a dev cartridge yourself which uses EPROMs or EEPROMs.  In the Solar Wars section of <A HREF="http://mypage.direct.ca/c/ccovell">my homepage</A>, there is a page describing how you can make a simple devcart to try out demos (and Solar Wars) using EEPROMs.  If you already have an EPROM writer, then that's a better option than the limited EEPROMs.  Two, you can try and obtain the aforementioned CopyNES, game copiers, or the Dr. PC Jr.  Three, you can politely ask one of us devkit-owning developers to try out your demo on the hardware for you.  I'll gladly do it, because I love seeing other people's NES creations.<P>
+
+<A NAME="sampledsounds"><B><LI>How does the NES produce sampled sounds?  What bit size are they?</B><P>
+
+The fifth NES sound channel is dedicated to producing sampled sounds using two methods.  The most basic is by sending RAW sampled values through $4011 at a certain speed to produce a sampled waveform.  The second method is the DMA method (also called DMC, for Delta Modulation Channel), which automatically plays short samples for you at a certain bitrate.  The DMC method works differently from the RAW method, however, in that 1 bit is read from the sample data at a time, and the value in $4011 is either increased or decreased depending on the value of the bit which was read.  This is why this method is called <U>Delta</U>, because each bit of a sample causes a change either up or down.  The size of the sample data in $4011 for the raw method is <B>7 bits</B>.<P>
+
+<A NAME="how4011"><B><LI>How does $4011 work?</B><P>
+
+For RAW sample playing, you just write 7-bit unsigned (as far as I know) binary data to $4011, and the level shows up directly as an analogue voltage level on the NES' audio pin #2.  I have made some demos (unreleased) which do this, and this method works well.<P>
+
+DMC sample playing is more complicated in terms of the data format that you have to use, but $4011 plays a role in that it is used to define the origin (or centreline) which the DMC data will modify.  The "proper" centreline for a good DMC sample, which begins at volume 0, is $40 (or $3F is good as well).  For more details on making samples on the NES, browse around at <A HREF="http://nesdev.parodius.com">nesdev.parodius.com</A>.<P>
+
+<A NAME="dmctiming"><B><LI>Why does my demo's timing mess up when a DMC sample is playing?</B><P>
+
+The DMC sample method is a DMA (direct memory access) method of playing samples without direct CPU intervention.  Thus, whenever a DMC sample is playing, some CPU cycles are lost to the DMA transfer which occurs at set periods.  If you are running some cycle-timed code (such as screen splitting or wavy scrolling), your timing could indeed be adversely affected by the DMA transfer.  My only suggestion would be to move your DMC-initializing code in your sound routines so that they are triggered right after your cycle-timed code, not before (or in VBlank).  This is what I did in my latest version of Solar Wars.<P>
+
+<A NAME="spritedma"><B><LI>What's better, writing to SPR-RAM directly, or using DMA?</B><P>
+
+I would definitely say that DMA transferring of sprite RAM ($4014) is better than writing to $2003 and then $2004.  I've found that on the real NES, there are far fewer random sprite glitches when I use sprite DMA transfer than when I just poke sprite values to SPR-RAM.  This is especially noticeable if I set up sprites immediately after power-up of the NES.  When using $2003 and $2004 at this time, often not all the sprites get copied properly.  I suggest you experiment with both methods on a real NES and see the results for yourself.<HR>
+
+</OL>
+<A NAME="thanks"><FONT SIZE="+1"><B>Thank-Yous</B></FONT><P>
+
+All this NES information didn't come magically out of my ass, you know!  (Though sometimes I do feel as though I am speaking outta my butt.)  To wit: about 5 years ago, I didn't know the answers to &#190; of the questions on this page.  But through the help of the various people in the NES and NES Development scenes, and through my own perseverance, I learnt little glittering pearls of wisdom here and there.  This doc couldn't have been written without the knowledge and patience of all the enterprising and just plain smart people in the NESDev scene and on the lists.  Thanks a lot guys!  Long live the NES!
+
+<P ALIGN="RIGHT"><A HREF="#top">Top</A></P>
+</BODY>
+</HTML>

@@ -1,0 +1,261 @@
++------------------+
+| Revision History |
++------------------+
+
+---------------------------------------------------------------------------
+ 2.00: [ 2   ] Removed: Sections F-H.
+       [ 2:A ] Updated: Minor terminology adjustment for pAPU.
+       [ 5   ] Updated: All information removed.
+       [ 4:E ] Updated: Terminology.
+       [ 4:N ] Updated: Removed. Refer to loopy-2005.txt.
+       [ 8   ] Updated: $2006: More accurate definition.
+               Updated: $2007: More accurate definition.
+               Updated: $4000-4013: Descriptions removed.
+       [10:C ] Updated: Minor modifications.
+       [11:D ] Updated: All information removed.
+       [12:F ] Updated: http://nesdev.parodius.com/
+       [ xxx ] Updated: Removed all smilies from document.
+---------------------------------------------------------------------------
+1.01s: [ 1:E ] Updated: Added Thomas Steen.
+---------------------------------------------------------------------------
+1.01r: [ 1:E ] Updated: Email address for Morgan Johansson.
+       [ 3:A ] Updated: Cosmetic changes.
+       [ 3:D ] Added:   SECTION: "NES-specific Customizations."
+       [ 3:E ] Shifted.
+       [ 3:E ] Updated: Moved notes from Emulation portion to here.
+       [ 4:A ] Updated: Added short description for "Mirroring."
+       [ 4:B ] Updated: Modified mirroring specifications.
+               Updated: Added "RAM Memory Map" layout.
+               Updated: Cosmetic changes.
+       [ 4:G ] Renamed: "Name Table Mirroring."
+               Updated: Severe content modification. Please read.
+       [ 5   ] Updated: Going through complete hell here, still. :-)
+       [ 8   ] Updated: $2002: Cosmetic changes.
+       [ 9:A ] Updated: Changed four-screen title to "mirroring."
+               Updated: Cosmetic changes.
+---------------------------------------------------------------------------
+1.01q: [ 2:B ] Updated: Description of the Famicom.
+       [ 5:A ] Updated: Note about Famicom DMC.
+       [ 5:E ] Updated: Notes about Famicom.
+       [ 8   ] Updated: $4013: Bytes, not bits. And +1 byte, not bit.
+       [11:B ] Updated: Correct info about BRK & D4/'b' CPU bit.
+       [ xxx ] Changes to CHANGES: $40*00*-4FFF not used? Riiiiight...
+---------------------------------------------------------------------------
+1.01p: [ 3:B ] Updated: $4020-4FFF region is actually not used.
+       [ 4:F ] Updated: D7-D6 unused in all palette areas.
+       [ 4:I ] Updated: Note about $2005+VBlank=Horizontal removed.
+       [ 4:J ] Updated: Less confusing diagram.
+       [ 4:K ] Updated: More accurate sprite priority explanation.
+               Updated: More verbose "trashed sprites" description.
+       [ 4:L ] Updated: Partially re-wrote section.
+       [ 4:N ] Updated: More valid mid-HBlank data description.
+       [ 8   ] Updated: $2002: D6 description was ambiguous.
+       [10:C ] Updated: Fixed example wait-VBlank code.
+       [11:B ] Updated: Cosmetic changes.
+---------------------------------------------------------------------------
+1.01o: [ 1:E ] Updated: Email address for Loopy.
+       [ 3:B ] Updated: $4000-4FFF region.
+       [ 3:C ] Updated: Partially re-written (nothing important).
+       [ 4:H ] Updated: Severe changes (emulator authors, read!)
+       [ 4:L ] Added:   SECTION: "Sprite #0 Hit Flag."
+       [ 4:M ] Shifted.
+       [ 4:O ] Updated: Small note about pseudo-code (nothing important).
+       [ 4:P ] Updated: Removed note about 14-bit VRAM address. Useless.
+       [ 5   ] Updated: Entire re-write.
+       [ 8   ] Updated: $2001: D7-D5 is dual-purpose.
+               Updated: $2002: D6 verbosity (emulator authors, read!)
+               Updated: $2002: Resets $2006 on read.
+               Updated: $4000-4015: Entire re-write.
+               Updated: $4016: Register is R/W.
+               Updated: $4017: Register is R/W.
+       [10:C ] Updated: Reference to Subsection N, not M.
+       [11:B ] Updated: Note regarding BRK & 'b' CPU bit inside IRQ & NMI.
+
+  I pray this release will stabilize the sound definitions we've been
+  yearning for the past 2 zillion light years. There will be no private
+  release until the sound portions are complete. At this point, the
+  document may go from 1.01 to 1.5, or 2.0.
+---------------------------------------------------------------------------
+1.01n: [ 1:C ] Updated: Small (unimportant) modifications.
+       [ 1:E ] Updated: Added Memblers.
+               Updated: Added Tennessee Carmel-Veilleux.
+       [ 1:F ] Updated: Address change.
+       [ 1:G ] Updated: Email change and home page change.
+       [ 3:A ] Updated: Moved CLD note to Section 11, Subsection B.
+       [ 3:B ] Updated: Mirroring for $4020-5FFF.
+       [ 4:B ] Updated: Mirroring within $4000-FFFF.
+       [ 4:H ] Updated: Note about D7-D6 within $3F20-3FFF.
+       [ 4:I ] Updated: Cosmetical changes.
+       [ 4:M ] Updated: Cosmetical changes.
+               Updated: Mid-HBlank data is written to $2006.
+       [ 6:B ] Updated: Note about dual Zapper support.
+       [10:B ] Updated: Note about BRK and CPU 'b' bit.
+       [10:C ] Updated: Changed Subsection reference from L to M.
+               Updated: Incorrect SquareSoft FF2j example.
+       [11:B ] Updated: Added note about CLD.
+       [12:F ] Added:   SECTION: "WWW Sites."
+               Updated: Added http://nesdev.cjb.net/
+               Updated: Added http://www.ameth.org/~veilleux/NES_info.html
+       [12:G ] Added:   SECTION: "Hardware Information."
+               Updated: Note regarding purchasing security bits.
+
+  'NESAUDIO.TXT' file removed: NES audio is 100% digital; no analogue
+  circuitry is used. I'll have to write something new later.
+---------------------------------------------------------------------------
+1.01m: [ 4:N ] Added:   SECTION: "PPU Quirks."
+       [ 4:O ] Updated: SECTION: "Notes."
+       [ 8   ] Updated: $4016: D4-D3 functionality was reversed.
+               Updated: $4017: D4-D3 functionality was reversed.
+       [ 9:B ] Removed: SECTION: "Famicom Disk System."
+               Removed: SECTION: "dNESe Format."
+       [10:C ] Updated: Removal of examples (See Section 4, Subsection N).
+---------------------------------------------------------------------------
+1.01l: [ 1:E ] Updated: Email modification for \FireBug\.
+---------------------------------------------------------------------------
+1.01k: [ 4:B ] Updated: Mirroring at $3000-3EFF.
+       [ 4:K ] Updated: More verbose explanation of 8x16 sprites.
+---------------------------------------------------------------------------
+1.01j: [ 1:E ] Updated: Added Barubary.
+       [ 1:G ] Updated: Removal of address and telephone; no longer cur-
+                        rent, and privacy is desired.
+               Updated: Email changed; nicknames changed.
+       [11:A ] Updated: RAM ($0000-07FF) should not be cleared on RESET.
+       [11:B ] Updated: Bad example; address should've been $C100.
+---------------------------------------------------------------------------
+1.01i: [ 1:E ] Updated: Added David de Regt.
+               Updated: Email modification for \FireBug\.
+       [ 6:B ] Updated: Small note regarding Zapper bits described in
+                        Section 8.
+       [ 8   ] Updated: $400E: D3-D0: Corrected frequency values, extended
+                                      frequency range list.
+       [11:A ] Updated: Functionality when SRAM is disabled.
+       [11:B ] Updated: Changed note regarding decimal mode.
+               Updated: Indexed-indirect addressing cannot page wrap.
+---------------------------------------------------------------------------
+1.01h: [ 5:B ] Updated: Chart for D7-D3 of $4003.
+       [ 5:E ] Updated: Chart for $4010 (D3-D0), and DMA CPU cycle count.
+       [ 8   ] Updated: $4010: D3-D0: Accurate playback rates. In
+                               specific, value of %1110.
+---------------------------------------------------------------------------
+1.01g: [ 1:E ] Updated: Added Andrew Davie.
+       [ 1:F ] Updated: Location.
+       [ 1:G ] Updated: URL.
+       [ 1:H ] Updated: Possible French translation.
+       [ 2   ] Renamed: SECTION: "Acronymns."
+       [ 2:A ] Renamed: SECTION: "Internals."
+               Updated: Cosmetical changes.
+       [ 2:B ] Renamed: SECTION: "Hardware."
+       [ 3:A ] Updated: Confirmed: NES CPU is without decimal mode.
+       [ 4:J ] Updated: Cosmetical changes.
+       [ 4:M ] Updated: Cosmetical changes.
+       [ 9:D ] Removed: SECTION: "Notes."
+       [10:C ] Updated: Cosmetical changes.
+       [10:D ] Removed: SECTION: "Notes."
+       [11:B ] Updated: Note about non-existent decimal mode.
+       [11:C ] Updated: Previous note about $2005 invalid.
+               Updated: Note about "graphic glitches" and how to fix them.
+       [11:E ] Removed: SECTION: "FAQ (Frequency Asked Questions)."
+---------------------------------------------------------------------------
+1.01f: [ 1:E ] Updated: Email modification for AvatarZ.
+               Updated: Email modification for Patrik Alexandersson.
+       [ 1:F ] Updated: Nicknames (wow, such vanity!).
+       [ 2:B ] Updated: "Dendy" typo (Dandy).
+       [ 3:B ] Updated: Unused area starts at $4018.
+       [ 4:B ] Updated: $3000-3EFF mirrors $2000-2EFF.
+       [ 4:C ] Updated: NTSC/PAL resolutions removed.
+       [ 4:E ] Updated: Cosmetic.
+       [ 4:F ] Updated: Cosmetic.
+       [ 4:I ] Updated: Negative BG scroll values.
+       [ 4:J ] Added:   SECTION: "Screen and Sprite Layering."
+       [ 4:K ] Shifted.
+       [ 4:K ] Updated: Sprite priority order was incorrect.
+       [ 4:M ] Updated: Unknown bits defined: Name Table switch.
+       [ 5:B ] Updated: Frequency >100 validity unknown.
+       [ 5:E ] Updated: Order of DMA data bits incorrect (D0-D7).
+       [ 8   ] Updated: $2002: D7 switching NT during HBlank not valid.
+               Updated: $4000: D7-D6: Pulse Width.
+               Updated: $4010: D3-D0: %1111 frequency unknown.
+               Updated: $4011: D6-D1: Volume.
+
+  The file 'NESAUDIO.TXT' has been included into the archive. This goes
+  over how the NES's analogue circuitry works, and explains analogue
+  audio (specific to the NES) in detail. Feel free to read it and learn
+  something :-)
+
+  Due to new information, 'NESAUDIO.TXT' may be considered, literally,
+  100% inaccurate. :-( Please read it to learn more about analogue cir-
+  cuitry, but not the NES's possible IC-based APU.
+---------------------------------------------------------------------------
+1.01e: [ 4:J ] Updated: X/Y coordinate trashing.
+       [ 5:A ] Updated: Description.
+       [ 5:B ] Updated: Audio enable.
+       [ 5:D ] Updated: Description.
+       [ 5:E ] Updated: Severe changes (more verbose).
+       [ 5:F ] Renamed: SECTION: "Frequency Sweeping (Ramping)."
+       [ 8   ] Updated: $2002: D7-D5.
+               Updated: $400C: D6-D0.
+               Updated: $400D: Unused (???).
+               Updated: $400E: D7, D3-D0.
+               Updated: $400F: D7-D3.
+               Updated: $4010: D7-D0.
+               Updated: $4012: Formulae.
+               Updated: $4013: Size in bits.
+       [10:C ] Updated: Small note about "invalid" PPU reads.
+---------------------------------------------------------------------------
+1.01d: [ 1:E ] Updated: Added Martin Nielsen.
+       [ 1:F ] Updated: Description.
+       [ 1:G ] Added:   URL specification.
+       [ 1:H ] Added:   SECTION: "Other Languages."
+       [ 4:K ] Updated: Cosmetical changes.
+       [ 4:L ] Updated: More verbose description.
+       [ 5:B ] Updated: Length Data Tables even more verbose.
+       [ 5:E ] Updated: Cosmetical changes.
+       [ 6:C ] Updated: Cosmetical changes.
+       [ 6:D ] Updated: Cosmetical changes.
+       [ 8   ] Updated: $2000: D6 (PPU Master/Slave) is unused.
+               Updated: $2002: Cosmetical changes.
+               Updated: $4002/3: Write-only.
+               Updated: $4006/7: Write-only.
+               Updated: $4015: Cosmetical changes.
+---------------------------------------------------------------------------
+1.01c: [ 3:J ] Updated: Cosmetical changes.
+       [ 5:A ] Updated: Re-worded.
+       [ 5:B ] Updated: Pretty verbose now...
+       [ 5:F ] Added:   SECTION: "Frequency Sweeping."
+       [ 5:G ] Shifted.
+       [ 8   ] Updated: Description.
+       [ 8   ] Updated: $4000: D5.
+               Updated: $4001: D7.
+               Updated: $4002/3: 16-bit description.
+               Updated: $4002/3: D15-D11.
+               Updated: $4006/7: 16-bit description.
+               Updated: $4003: D7-D3.
+               Updated: $4010: D7.
+---------------------------------------------------------------------------
+1.01b: [ 1:E ] Small comment regarding Stumble and his dedication.
+               Chi-Wan Yang's real name is not FanWen, obviously.
+       [ 3:B ] Updated: More specific.
+       [ 4:J ] Updated: Sprite priorities.
+       [ 5:A ] Updated: Description.
+       [ 5:B ] Updated: Description.
+       [ 5:C ] Updated: Description.
+       [ 5:E ] Renamed: SECTION: "Delta Modulation Channel."
+       [ 6   ] Renamed: SECTION: "Joypads, paddles, expansion ports."
+       [ 6:H ] Added:   SECTION: "Expansion ports."
+       [ 6:I ] Shifted.
+       [ 8   ] Updated: Severe cosmetical changes.
+               Updated: $2004: Read-only.
+               Updated: $4000: D7-D6, re-worded descriptions.
+               Updated: $4010: D6, D3-D0.
+               Updated: $4011: D6-D1, D0.
+               Updated: $4012: PRG-ROM ranges updated.
+               Renamed: $4014: "Sprite DMA Register."
+               Added:   $4015: D6 (read).
+               Updated: $4016: Expansion Port definitions updated.
+               Added:   $4017: D7 (read).
+       [ 9   ] Removed: SECTION: "fwNES Format."
+---------------------------------------------------------------------------
+ 1.00: [ N/A ] Changes from 0.53 to 1.00 should be blatantly obvious.
+               Besides being practically re-written, all information has
+               changed, and the MMC section is no longer supported.
+---------------------------------------------------------------------------

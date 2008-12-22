@@ -1,0 +1,65 @@
+              From: goroh  <goroh_kun@xxxxxxxxx.xx.xxx> 
+              Date: Tue Apr 13, 1999 3:16am 
+              Subject: Re: Silly Famicom question. 
+
+
+              Hi,I'm goroh.
+
+
+              >From: "Matthew Conte" itsbroke@c...
+              >
+              >This just occurred to me, and irks me for some reason.  Why do some games
+              >like Contra (J) use the PCM channel when the Famicom, from what I've heard,
+              >does not even have a PCM channel?
+              >
+              >And didn't goroh say that he did his all of his testing on an NTSC Famicom,
+              >and yet he produced a chart of the PCM frequencies?!?  WTF?
+              >
+              >Later,
+              >Shady.
+
+
+              Japanese NES(Famicom) has Delta Modulation Channel($4010-$4013)
+              I don't know what DAC means.
+              Does American NES have a special device to play Delta Modulation?
+              CPU of Famicom performs Delta Modulation with own special module.
+
+              $4010 AB--ffff
+              A: if B=0, interrupt occers when finished playing.
+              B: Play-Mode  0:no-Loop 1:Loop
+              ffff : frequency
+              Famicom performs Delta Modulation by reading ROM($c000-$ffff).
+              ,This access occers every some clocks.
+
+              ffff clocks 428*8 mean CPU perform 1bit every 428clock,so DMA
+              occers every 428*8 clock.
+
+              0 428*8
+              1 380*8
+              2 340*8
+              3 320*8
+              4 286*8
+              5 254*8
+              6 226*8
+              7 214*8
+              8 190*8
+              9 160*8
+              10 142*8
+              11 128*8
+              12 106*8
+              13 85*8
+              14 72*8
+              15 54*8
+
+              $4011 Immediate volume
+
+              $4012 Delta Channel DMA Address Register
+              This register means where CPU starts reading ROM.
+              Address = $c000+(data<<6) 
+
+              $4013 Delta Channel Data count Register
+              This register means how meny data access occer.
+              AmountofData = data<<4+1
+
+              $4015 bit ...Edcba
+              E: E=1 play sound.   E=0 stop sound

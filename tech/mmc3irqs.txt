@@ -1,0 +1,161 @@
+MMC3 IRQs
+by Allan Blomquist
+
+   iNES mapper #4 (MMC3) provides a convenient way to make mid-frame changes to
+the PPU to achieve "special effects" like split screen scrolling in NES games.
+Instead of using sprite-0 hits to time your writes to PPU hardware, using an
+IRQ will enable the CPU to do useful work during the frame instead of wasting
+time polling the sprite-0 hit flag.  There are 4 registers that MMC3 uses for
+IRQ generation:
+
+$C000 - IRQ counter - This is the countdown value that the mapper uses
+        to trigger the IRQ.  The value is decremented once every scanline and
+		when it reaches 0, the IRQ is generated.  Note: BGs OR sprites MUST be
+		enabled in $2001 (bits 3 and 4) in order for the countdown to occur.
+
+$C001 - IRQ counter latch - Write the value you want to use as your countdown
+        here, not directly to the IRQ counter register.
+
+$E000 - IRQ disable / acknowledge - Writing any value here disables IRQ
+        generation but also copies the value in the IRQ counter latch to
+		the actual IRQ counter.  It also acknowledges an IRQ once it has
+		occurred.
+
+$E001 - IRQ enable - Writing any value here will enable IRQ generation.
+
+So, this is how most commercial games use these registers:
+
+ When you want to set up the IRQ: (do this in your NMI/vblank routine)
+   1. Write to $E000 to acknowledge any currently pending interrupts
+   2. Write the number of scanlines you want to wait to $C000 and then $C001
+   3. Write to $E000 again to latch in the countdown value
+   4. Write to $E001 to enable the IRQ counter
+
+ Once your IRQ has occurred: (do this in your IRQ routine)
+   1. Write to $E000 to acknowledge the IRQ and disable the IRQ counter
+
+   There are a few things you have to set up before you can use MMC3 IRQs in a
+game.  First, you have to set the IRQ vector at the end of the ROM to point to
+the code you want to be called when an IRQ is generated.  The IRQ vector is
+located at $FFFE, right after the NMI vector and the reset vector.  When an IRQ
+is generated, the CPU jumps to the 16-bit address at $FFFE and the CPU flags are
+saved to be automatically restored when the IRQ routine returns.  The CPU registers
+however are not saved so you have to make sure they are restored to their
+original values at the end of your IRQ routine (just push A,X,Y at the very
+beginning and then pull Y,X,A at the end.)
+   The second thing you have to do to use MMC3 IRQs is stop other things on the
+NES from generating IRQs of their own.  The NES has a "frame counter" that by
+default generates IRQs at the end of every frame much like the NMI.  If this
+isn't disabled, your IRQ code will be called more often than you want which will
+probly screw things up in your game.  To disable the frame counter IRQs, just
+write $40 to $4017 once at the beginning of your program.
+   Finally, to be able to use IRQs, you have to tell the NES' CPU to actually
+acknowledge them instead of ignoring them as it does by default (that's why
+you don't have to worry about frame counter IRQs in simple games - the CPU 
+actually ignores them)  To enable IRQs, you have to clear the interrupt disable 
+flag in the CPU by using the "CLI" instruction.  If you want to disable them 
+again at some point, use "SEI".
+
+   Here is a minimal example of using MMC3 IRQs in nbasic.  It uses an IRQ to
+change the background color half way down the screen without having to use
+sprite-0 hits to figure out when you're there.  NOTE: The timing of MMC3 IRQs
+is something that most emulators don't really do correctly (i.e. a countdown
+value of X may actually trigger an IRQ on scanline X-1 or X+1 depending on the
+emulator you use)  If you use IRQs, test your game on a variety of emulators!
+
+
+//header for nesasm
+asm
+	.inesprg 1 ;//one PRG bank
+	.ineschr 0 ;//zero CHR bank
+	.inesmir 0 ;//mirroring type 0
+	.inesmap 4 ;//memory mapper 4 (MMC3)
+	.org $C000
+	.bank 0
+endasm
+
+start:
+
+	gosub vwait
+	set $2000 $80			// turn NMI generation on
+	set $2001 $08			// turn the BG on so that MMC3 can count
+
+	set $4017 $40			// disable frame counter IRQs
+asm
+	cli						; enable IRQ processing
+endasm
+
+gameloop:
+	goto gameloop
+
+// NMI routine
+nmi:
+	set $2006 $3F
+	set $2006 $00			// set the BG color to red
+	set $2007 $06
+
+	set $E000 $01
+	set $C000 $78			// setup MMC3 to generate an IRQ after
+	set $C001 $78			// 120 scanlines
+	set $E000 $01
+	set $E001 $01
+
+	set $2006 $00
+	set $2006 $00
+
+	set $2001 $08			// BG on to enable counting for MMC3
+
+	resume
+
+// IRQ routine
+irq:
+
+asm
+	pha
+	txa
+	pha						; save A,X and Y.  you have to do this because
+	tya						; IRQs interrupt your main thread of code.  having your
+	pha						; register values change in the middle of that main thread
+							; would be bad...
+endasm						
+
+	set $2001 $00			// BG off to force stupid emulators to realize i'm changing the BG color
+
+	set $2006 $3F
+	set $2006 $00			// set the BG color to green
+	set $2007 $0A
+
+	set $E000 $01			// acknowledge the IRQ and disable further IRQ generation
+
+	set $2006 $00
+	set $2006 $00
+
+asm
+	pla
+	tay						; get your register values back
+	pla
+	tax
+	pla
+endasm
+
+	resume
+
+
+//wait until screen refresh
+vwait:
+	asm
+		lda $2002
+		bpl vwait ;//wait for start of retrace
+	vwait_1:
+		lda $2002
+		bmi vwait_1 ;//wait for end of retrace
+	endasm
+	return
+
+//file footer
+asm
+	;//jump table points to NMI, Reset, and IRQ start points
+	.bank 1
+	.org $fffa
+	.dw nmi, start, irq
+endasm
