@@ -37,7 +37,7 @@ void init_nes (struct nes_machine *nes)
   if (idx != -1) {
     printf ("Mapper is \"%s\"\n", MapTable[idx].name);
   } else {
-    printf ("Unknown mapper.\n");
+    printf ("Unknown mapper (%i).\n", nes->rom.mapper);
   }
   if (info == NULL) {
     printf ("Defaulting to mapper 0.\n");
