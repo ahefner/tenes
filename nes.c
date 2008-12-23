@@ -170,11 +170,12 @@ void Wr6502 (register word Addr, register byte Value)
   case 0x0000:			/* ram - mirror in read function */
     nes.ram[Addr & 0x7FF] = Value;
     break;
+
   case 0x2000:			/* register */
-    {
       switch ((Addr & 0x0007) | 0x2000) {
+
       case ppu_cr1: /* 2000 */
-	{
+
 	  nes.ppu.control1 = Value;
 	  nes.ppu.ppu_writemode = (Value & 0x04) ? PPUWRITE_VERT : PPUWRITE_HORIZ;
 	  
@@ -195,66 +196,58 @@ void Wr6502 (register word Addr, register byte Value)
 	      printf("\n");
 	    }
 	  break;
-	}
+
+	
       case ppu_cr2: /* 2001 */
-	{
 	  nes.ppu.control2 = Value;
-	  if (superverbose) 
-	    {
-	    nes_printtime ();
-	    if (Value & 0x10)
-	      printf ("sprites ON  ");
-	    else
-	      printf ("sprites OFF  ");
-	    if (Value & 0x08)
-	      printf ("bg ON  ");
-	    else
-	      printf ("bg OFF  ");
+	  if (superverbose) {
+            nes_printtime ();
+	    if (Value & 0x10) printf ("sprites ON  ");
+	    else printf ("sprites OFF  ");
+	    if (Value & 0x08) printf ("bg ON  ");
+	    else printf ("bg OFF  ");
 	    /*                 if(Value & 0x01) printf("MONO display mode\n"); else printf("Color display\n"); */
 	    printf ("\n");
 	    /*                 if(!in_vblank(&nes)) printf("PPU: CR2 written during frame\n"); */
 	  }
 	  break;
-	}
+
+
+
       case ppu_status: /* 2002 */
-	{
-	  printf ("PPU: Write to status register ???\n");
+	  printf("PPU: Write to status register ???\n");
 	  break;
-	}
+
 
       case spr_addr: /* 2003 */
-	{
 	  nes.ppu.sprite_address = Value;
 	  break;
-	}
+
 
       case spr_data: /* 2004 */
-	{
           printf("Sprite[%i] = %i\n", (unsigned)nes.ppu.sprite_address, (unsigned)Value);
 	  nes.ppu.spriteram[nes.ppu.sprite_address++] = Value;
           nes.ppu.sprite_address &= 0xFF;
 	  break;
-	}
+
 
       case ppu_bgscroll: /* 2005 */
-	{
 	  //	  nes_printtime();
 	  //	  printf ("%cscroll=%02X\n", nes.ppu.ppu_addr_mode == DUAL_HIGH?'h':'v', (unsigned)Value);
 	  if (superverbose) /* loopy says that $2005 and $2006 share the same toggled state */
 	    nes_printtime ();
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
-	    if (superverbose)
-	      printf ("hscroll=%u\n", (unsigned) Value);
+	    if (superverbose) printf ("hscroll=%u\n", (unsigned) Value);
 	    nes.ppu.ppu_addr_mode = DUAL_LOW;
 	    nes.ppu.hscroll = Value;
 	  } else {
-	    if (superverbose)
-	      printf ("vscroll=%u\n", (unsigned) Value);
+	    if (superverbose) printf ("vscroll=%u\n", (unsigned) Value);
 	    nes.ppu.ppu_addr_mode = DUAL_HIGH;
 	    if (Value<=239) nes.ppu.vscroll = Value;
 	  }
 	  break;
-	}
+
+
       case ppu_addr: /* 2006 */
 	  //	  nes_printtime();
           //printf ("ppu_addr, wrote %02X %s\n", (unsigned) Value, (nes.ppu.ppu_addr_mode==DUAL_HIGH?"high":"low"));
@@ -267,6 +260,8 @@ void Wr6502 (register word Addr, register byte Value)
 	    nes.ppu.ppu_address = (nes.ppu.ppu_address & 0xFF00) | Value;
 	  }
 	  nes.ppu.ppu_address &= 0x3FFF;
+          
+          /* I'd like to emulate manual cycling of the MMC3 IRQ counter via PPU A12, but I'm not sure how it should work. In particular, it doesn't make any sense to me that a write to this register should */
           if (nes.ppu.ppu_address & 0x1000) mapper_twiddle();
 
 /*		       printf("ppu_addr = %04X\n",nes.ppu.ppu_address); */
@@ -274,9 +269,8 @@ void Wr6502 (register word Addr, register byte Value)
 	
 
       case ppu_data: /* 2007 */
-	{
 
-	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {	/* AAAAAAAAAAAAAAAARRRRRRRRGGGGGGGGGGHHHHHHHH !@#@&!#%&@!%&#*(&%(~!^&%^!@*)(%*@!^!@~^%@#!~@$^!~#&*@!^#$!@^%#$^%!@~$#^%!@#^&$%!@&#% !~~~~~~~!!!!!!!!!!!!!!! */
+	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
 	    /*if (superverbose)*/ {
 	      nes_printtime ();
 	      printf ("hblank wrote %02X ", (int) Value);
@@ -361,16 +355,14 @@ void Wr6502 (register word Addr, register byte Value)
 	  nes.ppu.ppu_address += nes.ppu.ppu_writemode;
 	  nes.ppu.ppu_address &= 0x3FFF;
 	  break;
-	}			/* case ppu_data: */
 
       default:
-	{
 	  printf ("Wr6502 is broken for registers.\n");
 	  break;
-	}
       }
       break;
-    }
+
+
   case 0x4000:
       if (Addr <= 0x4017) {
           if (Addr == 0x4014) {	/* sprite DMA transfer */

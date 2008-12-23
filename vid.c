@@ -369,7 +369,7 @@ void vid_render_frame (int sx, int sy)
     int j;
 
     if (!(lineinfo[line].control2 & 8)) {
-      memset ((void *)dest, nes.ppu.vram[0x3F00] ,256);
+      memset ((void *)dest, nes.ppu.vram[0x3F00], 256);
       continue;
     }
    
