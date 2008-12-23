@@ -53,7 +53,7 @@ sys.o: Makefile sys.c sys.h
 nes.o: Makefile nes.c nes.h
 	$(COBJ) nes.c
 
-vid.o: Makefile vid.c vid.h
+vid.o: Makefile vid.c vid.h nes.h
 	$(COBJ) vid.c
 
 filters.o: Makefile filters.c filters.h

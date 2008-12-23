@@ -32,8 +32,6 @@ extern int vid_renderer;
 extern int cfg_joythreshold;
 extern int cfg_diagnostic;
 
-extern struct nes_machine nes;
-
 extern int cfg_syncmode;
 extern int cfg_framelines;
 extern int cfg_vblanklines;
@@ -52,6 +50,7 @@ extern SDL_Surface *surface; /* Video output surface, possibly the same as the a
 extern void (*vid_filter) (SDL_Surface *surface);
 
 extern int superverbose;
+extern int trace_ppu_writes;
 extern struct timeval time_frame_start;
 
 extern unsigned frame_number;

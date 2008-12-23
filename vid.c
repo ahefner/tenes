@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <SDL/SDL.h>
@@ -155,10 +156,10 @@ void vid_build_attr (int *attrdst, unsigned char *attrsrc)
       attrdst[0 + 64] = (*attrsrc) & 3;
       attrdst[1 + 64] = (*attrsrc) & 3;
 
-      attrdst[2] = ((*attrsrc) & 12) >> 2;
-      attrdst[3] = ((*attrsrc) & 12) >> 2;
-      attrdst[2 + 64] = ((*attrsrc) & 12) >> 2;
-      attrdst[3 + 64] = ((*attrsrc) & 12) >> 2;
+      attrdst[2] = ((*attrsrc) >> 2) & 3;
+      attrdst[3] = ((*attrsrc) >> 2) & 3;
+      attrdst[2 + 64] = ((*attrsrc) >> 2) & 3;
+      attrdst[3 + 64] = ((*attrsrc) >> 2) & 3;
 
       if (y < 7) {
 	attrdst[0 + 128] = ((*attrsrc) & 0x30) >> 4;
@@ -174,7 +175,7 @@ void vid_build_attr (int *attrdst, unsigned char *attrsrc)
       attrdst += 4;
       attrsrc++;
     }
-    attrdst += 32 + 192;
+    attrdst += (32 + 192);
   }
 }
 
@@ -185,15 +186,17 @@ void vid_build_tables (void)
   int x, y;
   for (y = 0; y < 60; y++) {
     for (x = 0; x < 64; x++) {
-      tiletable[y][x] = nes.ppu.vram[((y < 30) ? 0x2000 : 0x2800) + y * 32 + (x & 31) + ((x < 32) ? 0 : 0x400)];
+        word addr = ((y < 30) ? 0x2000 + y*32 : 0x2800 + (y-30)*32) 
+                    + (x & 31) + ((x < 32) ? 0 : 0x400);
+        tiletable[y][x] = nes.ppu.vram[ppu_mirrored_nt_addr(addr)];
     }
   }
   
 /*   memset((void *)attrtable,0,60*64*sizeof(int)); */
-  vid_build_attr (&attrtable[0][0], nes.ppu.vram + 0x23C0);
-  vid_build_attr (&attrtable[0][32], nes.ppu.vram + 0x27C0);
-  vid_build_attr (&attrtable[30][0], nes.ppu.vram + 0x2BC0);
-  vid_build_attr (&attrtable[30][32], nes.ppu.vram + 0x2FC0);
+  vid_build_attr (&attrtable[0][0], nes.ppu.vram + ppu_mirrored_nt_addr(0x23C0));
+  vid_build_attr (&attrtable[0][32], nes.ppu.vram + ppu_mirrored_nt_addr(0x27C0));
+  vid_build_attr (&attrtable[30][0], nes.ppu.vram + ppu_mirrored_nt_addr(0x2BC0));
+  vid_build_attr (&attrtable[30][32], nes.ppu.vram + ppu_mirrored_nt_addr(0x2FC0));
 }
 
 
@@ -375,10 +378,11 @@ void vid_render_frame (int sx, int sy)
    
     if (lineinfo[line].control1 & 1) x+=256;
     if (lineinfo[line].control1 & 2) y+=240;      
-    while (y>=480) y-=480;
-    x>>=3;
-    x&=63;
-    y>>=3;
+    while (y >= 480) y -= 480;
+    y >>= 3;
+    x >>= 3;
+    x &= 63;
+
     
     //      printf ("%i%i\n", (int)nes.ppu.control1&2>>1, (int)nes.ppu.control1&1);
     

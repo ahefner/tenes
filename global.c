@@ -11,6 +11,7 @@ int cfg_trapbadops = 0;
 int vid_renderer = 0;
 int cfg_joythreshold = 4096;
 int superverbose = 0;
+int trace_ppu_writes = 0;
 int cfg_diagnostic = 0;
 int cfg_disable_joysticks = 0;
 
@@ -27,7 +28,7 @@ void (*vid_filter) (SDL_Surface *surface)=NULL;
 int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};
 
-struct nes_machine nes;
+//struct nes_machine nes;
 struct scanline_info lineinfo[LOG_LENGTH];
 
 struct timeval time_frame_start;

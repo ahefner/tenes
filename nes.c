@@ -182,15 +182,16 @@ void Wr6502 (register word Addr, register byte Value)
 	  if (superverbose) 
 	    {
 	      nes_printtime ();
+              printf("PPU 2000: ");
 	      PrintBin (Value);
-	      printf(" PC=$%04X, bloog=$%02X%02X ",nes.cpu.PC.W, (unsigned)nes.ram[nes.cpu.S+3+256], (unsigned)nes.ram[nes.cpu.S+2+256]);	      
+	      printf(" next PC=$%04X, ",nes.cpu.PC.W);	      
 	      if (Value & 0x80) printf ("NMI ON  ");
 	      if (Value & 0x10) printf ("bg1 ");
 	      else printf ("bg0 ");
 	      if (Value & 0x08) printf ("spr1 ");
 	      else printf ("spr0 ");
 	      /*                 if(Value & 0x20) printf("8x16 sprites "); else printf("8x8 sprites "); */
-	      if (Value & 0x40) printf ("Vertical write\n");
+	      if (Value & 0x04) printf ("Vertical write\n");
 	      else printf ("Horiz write.\n");
 	      /*                 if(!in_vblank(&nes)) printf("PPU: CR1 written during frame\n"); */
 	      printf("\n");
@@ -202,6 +203,7 @@ void Wr6502 (register word Addr, register byte Value)
 	  nes.ppu.control2 = Value;
 	  if (superverbose) {
             nes_printtime ();
+             printf("PPU 2001: ");
 	    if (Value & 0x10) printf ("sprites ON  ");
 	    else printf ("sprites OFF  ");
 	    if (Value & 0x08) printf ("bg ON  ");
@@ -260,9 +262,12 @@ void Wr6502 (register word Addr, register byte Value)
 	    nes.ppu.ppu_address = (nes.ppu.ppu_address & 0xFF00) | Value;
 	  }
 	  nes.ppu.ppu_address &= 0x3FFF;
+          if (trace_ppu_writes)
+              printf("%u.%u: ppu addr = %04X\n", frame_number, nes.scanline, nes.ppu.ppu_address);
           
           /* I'd like to emulate manual cycling of the MMC3 IRQ counter via PPU A12, but I'm not sure how it should work. In particular, it doesn't make any sense to me that a write to this register should */
-          if (nes.ppu.ppu_address & 0x1000) mapper_twiddle();
+          // TODO: Manual scanline twiddle for IRQ counter?
+
 
 /*		       printf("ppu_addr = %04X\n",nes.ppu.ppu_address); */
 	  break;
@@ -271,6 +276,7 @@ void Wr6502 (register word Addr, register byte Value)
       case ppu_data: /* 2007 */
 
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
+
 	    /*if (superverbose)*/ {
 	      nes_printtime ();
 	      printf ("hblank wrote %02X ", (int) Value);
@@ -278,6 +284,7 @@ void Wr6502 (register word Addr, register byte Value)
 		printf ("\tBG OFF");
 	      printf ("\n");
 	    }
+
 	    if (nes.ppu.hbwrite_mode == DUAL_HIGH) {
 	      nes.ppu.hbwrite_mode = DUAL_LOW;
 	      nes.ppu.hbwrite.val = Value << 8;
@@ -294,33 +301,23 @@ void Wr6502 (register word Addr, register byte Value)
 				 if(!(nes.ppu.control2&0x08)) printf("\tBG OFF");
 				 printf("\n");
 			      }*/
-            if (nes.ppu.ppu_address & 0x1000) mapper_twiddle();
+              // TODO: Manual scanline twiddle for IRQ counter?
+
 	    if (nes.ppu.ppu_address >= 0x2000) {
 	      if (nes.ppu.ppu_address < 0x3F00) {
 		if (nes.ppu.ppu_address < 0x3000) {	/* name/attribute table write */
-		  switch (nes.rom.mirror_mode) {
-		  case MIRROR_HORIZ:
-		    nes.ppu.vram[nes.ppu.ppu_address & 0xFBFF] = Value;
-		    nes.ppu.vram[nes.ppu.ppu_address | 0x0400] = Value;
-		    break;
-		  case MIRROR_VERT:		    
-		    nes.ppu.vram[nes.ppu.ppu_address & 0xF7FF] = Value;
-		    nes.ppu.vram[nes.ppu.ppu_address | 0x0800] = Value;
-		    break;
-		  case MIRROR_NONE:
-		    nes.ppu.vram[nes.ppu.ppu_address] = Value;
-		    break;
-		  case MIRROR_ONESCREEN:
-		    nes.ppu.vram[(nes.ppu.ppu_address & 0xFBFF) & 0xF7FF] = Value;
-		    nes.ppu.vram[(nes.ppu.ppu_address | 0x0400) & 0xF7FF] = Value;
-		    nes.ppu.vram[(nes.ppu.ppu_address & 0xFBFF) | 0x0800] = Value;
-		    nes.ppu.vram[(nes.ppu.ppu_address | 0x0400) | 0x0800] = Value;
-		    break;
-		  default: assert(0);
-		  }
-/*					   printf("ntwrite %04X=%02X\n",(int)nes.ppu.ppu_address,(int)Value); */
+                    int maddr = ppu_mirrored_nt_addr(nes.ppu.ppu_address);
+
+                    if (trace_ppu_writes)
+                        printf("%u.%u: ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
+                               frame_number, nes.scanline, 
+                               nes.ppu.ppu_address, maddr, Value, nes.ppu.ppu_writemode);
+
+                    nes.ppu.vram[maddr] = Value;
 		} else {
 		  nes.ppu.vram[nes.ppu.ppu_address] = Value;
+                  /* Technically this should mirror 0x2000, but I want
+                   * to see a game require this before I enable it. */
 		  printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.ppu_address);
 		}
 	      } else {		/* palette write - palette mirroring must be done in read function */		
@@ -340,7 +337,6 @@ void Wr6502 (register word Addr, register byte Value)
 		if ((tmp == 0x3F00) || (tmp == 0x3F10)) {
 		  nes.ppu.vram[0x3F00] = Value;
 		} else {	/* else normal palette write */
-
 		  nes.ppu.vram[tmp] = Value;
 		}
 	      }
@@ -465,10 +461,11 @@ byte Rd6502 (register word Addr)
 	      printf ("clear hit flag\n");
 	    }
 	  }
+
+          /* Don't clear the PPU write mode! Breaks SMB2. */
           
 	  nes.ppu.vblank_flag = 0;
 	  /*	  nes.ppu.hit_flag = 0; */
-	  nes.ppu.ppu_writemode = PPUWRITE_HORIZ;
 	  /*	  nes.ppu.scroll_mode= DUAL_HIGH;*/
 	  nes.ppu.ppu_addr_mode = DUAL_HIGH;
 	  nes.ppu.control1 &= (0xFF - 4);
@@ -478,20 +475,10 @@ byte Rd6502 (register word Addr)
 	{
 	  byte ret = nes.ppu.read_latch;
 
-          if (nes.ppu.ppu_address >= 0x3F20) {
-            nes.ppu.read_latch = nes.ppu.vram[(nes.ppu.ppu_address & 0x1F) | 0x3F00];
-            printf ("Read from mirrored palette area. Interesting.\n");
-          } else {
-              nes.ppu.read_latch = nes.ppu.vram[nes.ppu.ppu_address];
-              if (nes.ppu.ppu_address & 0x1000) mapper_twiddle();
-          }
+          nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.ppu_address)];
+          // TODO: Manual scanline twiddle for IRQ counter?
           
           nes.ppu.ppu_address += nes.ppu.ppu_writemode;
-          /* A message from Andy Simpson (somewhere, sometime) claimed
-             that the address increment flag did not apply to reads
-             (all reads increment the address counter by 1.  I don't
-             buy it. */
-          //nes.ppu.ppu_address++;
           nes.ppu.ppu_address &= 0x3FFF;
           
 	  return ret;
@@ -661,6 +648,6 @@ void list (void)
     int i;
     for (i=0; i<8; i++) instr[i] = Rd6502((nes.cpu.PC.W + i) & 0xFFFF);
     DAsm(buf, instr, nes.cpu.PC.W);
-    printf("PC=%04X  A=%02X  X=%02X Y=%02X  P=%02X S=%02X   %s\n", 
+    printf("PC=%04X  A=%02X  X=%02X Y=%02X  fl=%02X S=%02X   %s\n", 
            nes.cpu.PC.W, nes.cpu.A, nes.cpu.X, nes.cpu.Y, nes.cpu.P, nes.cpu.S, buf);
 }

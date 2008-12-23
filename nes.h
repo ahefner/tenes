@@ -1,6 +1,7 @@
 #ifndef NES_H
 #define NES_H
 
+#include <assert.h>
 #include "M6502/M6502.h"
 #include "global.h"
 #include "rom.h"
@@ -129,6 +130,11 @@ struct nes_machine
   struct joypad_info joypad;
 };
 
+#ifndef global_c
+extern
+#endif
+struct nes_machine nes;
+
 struct scanline_info
 {
   byte control1, control2;
@@ -142,5 +148,43 @@ void init_nes(struct nes_machine *nes);
 void shutdown_nes(struct nes_machine *nes);
 void reset_nes(struct nes_machine *nes);
 void nes_runframe(void);
+
+static inline word ppu_mirrored_nt_addr (word paddr)
+{
+    //word paddr_hbit = (paddr & 0x400) >> 10;
+    word paddr_vbit = (paddr & 0x800) >> 11;    
+    
+    switch (nes.rom.mirror_mode) {
+
+    case MIRROR_HORIZ: 
+        return (paddr & 0xF3FF) | (paddr_vbit << 10);
+
+    case MIRROR_VERT: 
+        return paddr & 0xF7FF;
+
+    case MIRROR_NONE:                      
+        return paddr;
+
+    case MIRROR_ONESCREEN:
+        /* FIXME: Totally broken. Should mask out 0xC00
+         * and OR a value from the mapper. */
+        return paddr;
+
+    default:
+        assert(0);
+        return 0x2000;
+    }        
+}
+
+static inline word ppu_mirrored_addr (word paddr)
+{
+    paddr &= 0x3FFF;
+    if ((paddr >= 0x2000) && (paddr < 0x3000)) return ppu_mirrored_nt_addr(paddr);
+    else if (paddr >= 0x3F00) {
+        paddr &= 0x3F1F;
+        if (paddr == 0x3F10) return 0x3F00;
+        else return paddr;
+    } else return paddr;
+}
 
 #endif

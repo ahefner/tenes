@@ -109,16 +109,18 @@ void mmc3_write (register word addr, register byte value)
 
         } else {   /* PRG-ROM switch */
             int bank = mmc3_8000 & 1; /* LSB of 6 or 7 */
-            printf ("%u: MMC3: Switching program - bank %u (mode %i) to page %u.\n", 
-               frame_number, (unsigned)bank, ((unsigned)mmc3_8000 & 0x40)>>6, (unsigned)value);
+            if (0)
+                printf ("%u: MMC3: Switching program - bank %u (mode %i) to page %u.\n", 
+                        frame_number, (unsigned)bank, ((unsigned)mmc3_8000 & 0x40)>>6, 
+                        (unsigned)value);
+               
             mmc3_ram[bank] = mmc3_getprgpage(value);
         }
         break;
 
     case 0xA000:
-        printf("MMC3: mirroring select? (");
-        PrintBin (value);
-        printf(")\n");
+        //printf("MMC3: mirroring select: %i\n", value&1);
+        nes.rom.mirror_mode = value&1? MIRROR_HORIZ : MIRROR_VERT;
         break;
 
     case 0xA001:
@@ -126,22 +128,22 @@ void mmc3_write (register word addr, register byte value)
         break;
 
     case 0xC000:
-        printf ("%u.%u: MMC3: IRQ countdown register latched %i\n", frame_number, nes.scanline, (int)value);
+        //printf ("%u.%u: MMC3: IRQ countdown register latched %i\n", frame_number, nes.scanline, (int)value);
         mmc3_latched = value;
         break;
 
     case 0xC001:
-        printf ("%u.%u: MMC3: IRQ latch trigger (wrote %i)\n", frame_number, nes.scanline, (int)value);
+        //printf ("%u.%u: MMC3: IRQ latch trigger (wrote %i)\n", frame_number, nes.scanline, (int)value);
         mmc3_latch_trigger = 1;
         break;
 
     case 0xE000:
-        printf ("MMC3: IRQ CR0: IRQ disabled.\n");
+        //printf ("MMC3: IRQ CR0: IRQ disabled.\n");
         mmc3_irq_enabled = 0;
         break;
 
     case 0xE001:
-        printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", frame_number, nes.scanline);
+        //printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", frame_number, nes.scanline);
         mmc3_irq_enabled = 1;
         break;
         
@@ -165,7 +167,7 @@ int mmc3_scanline (void)
     if (mmc3_countdown) {
         mmc3_countdown--;
         if (!mmc3_countdown && mmc3_irq_enabled) {
-            printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
+            //printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
             return 1;
         }
     }

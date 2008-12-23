@@ -76,10 +76,21 @@ void process_key_event (SDL_KeyboardEvent * key)
             printf("done.\n");
             break;
 #endif
+            
+        case SDLK_F12:            
+            superverbose^=1;
+            break;
+            
+        case SDLK_F11: 
+            printf("Toggled PPU write trace.\n");
+            trace_ppu_writes^=1;
+            break;
     
-        case SDLK_F11:
+
+        case SDLK_F10:
+            printf("Toggled CPU trace.\n");
             nes.cpu.Trace = (~nes.cpu.Trace) & 1;
-            superverbose = ~superverbose;
+            break;
 
         case SDLK_BACKSPACE: 
             reset_nes(&nes); 
@@ -169,17 +180,14 @@ int main (int argc, char **argv)
       case SDL_QUIT:
 	runflag = 0;
 	break;
+
       case SDL_KEYDOWN:
-	{
-	  if (event.key.keysym.sym==SDLK_F12) superverbose^=1;
-	  else process_key_event (&event.key);
-	  break;
-	}
-      case SDL_KEYUP:
-	{
 	  process_key_event (&event.key);
 	  break;
-	}
+
+      case SDL_KEYUP:
+	  process_key_event (&event.key);
+	  break;
 
       default:
 	break;
