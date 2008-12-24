@@ -32,21 +32,23 @@ typedef tile_group tc_page[256];
 
 tc_page tilecache[2];
 
-
-
-static inline void render_tile (unsigned char *chrdata, tile image, unsigned char cols[4])
+static inline void render_tile_line (byte line[8], unsigned char *chrdata, 
+                                     unsigned y, unsigned char cols[4])
 {
-  unsigned char l;
-  for (l = 0; l < 8; l++) {
-    image[l * 8 + 7] = cols[(chrdata[l] & 1) + (2 * (chrdata[l + 8] & 1) >> 0)];
-    image[l * 8 + 6] = cols[((chrdata[l] & 2) >> 1) + (2 * (chrdata[l + 8] & 2) >> 1)];
-    image[l * 8 + 5] = cols[((chrdata[l] & 4) >> 2) + (2 * (chrdata[l + 8] & 4) >> 2)];
-    image[l * 8 + 4] = cols[((chrdata[l] & 8) >> 3) + (2 * (chrdata[l + 8] & 8) >> 3)];
-    image[l * 8 + 3] = cols[((chrdata[l] & 16) >> 4) + (2 * (chrdata[l + 8] & 16) >> 4)];
-    image[l * 8 + 2] = cols[((chrdata[l] & 32) >> 5) + (2 * (chrdata[l + 8] & 32) >> 5)];
-    image[l * 8 + 1] = cols[((chrdata[l] & 64) >> 6) + (2 * (chrdata[l + 8] & 64) >> 6)];
-    image[l * 8 + 0] = cols[((chrdata[l] & 128) >> 7) + (2 * (chrdata[l + 8] & 128) >> 7)];
-  }
+    line[7] = cols[(chrdata[y] & 1) + (2 * (chrdata[y + 8] & 1) >> 0)];
+    line[6] = cols[((chrdata[y] & 2) >> 1) + (2 * (chrdata[y + 8] & 2) >> 1)];
+    line[5] = cols[((chrdata[y] & 4) >> 2) + (2 * (chrdata[y + 8] & 4) >> 2)];
+    line[4] = cols[((chrdata[y] & 8) >> 3) + (2 * (chrdata[y + 8] & 8) >> 3)];
+    line[3] = cols[((chrdata[y] & 16) >> 4) + (2 * (chrdata[y + 8] & 16) >> 4)];
+    line[2] = cols[((chrdata[y] & 32) >> 5) + (2 * (chrdata[y + 8] & 32) >> 5)];
+    line[1] = cols[((chrdata[y] & 64) >> 6) + (2 * (chrdata[y + 8] & 64) >> 6)];
+    line[0] = cols[((chrdata[y] & 128) >> 7) + (2 * (chrdata[y + 8] & 128) >> 7)];
+}
+
+static inline void render_tile (byte *chrdata, tile image, unsigned char cols[4])
+{
+    unsigned char l;
+    for (l = 0; l < 8; l++) render_tile_line(&image[l*8], chrdata, l, cols);
 }
 
 /* builds a cache group for one character */
