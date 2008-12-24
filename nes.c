@@ -66,14 +66,13 @@ void reset_nes (struct nes_machine *nes)
   memset ((void *) (nes->ppu.vram + 0x2000), 0, 0x2000);
   nes->ppu.control1 = 0;
   nes->ppu.control2 = 0;
-  nes->ppu.hscroll = 0;
-  nes->ppu.vscroll = 0;
+  nes->ppu.v = 0;
+  nes->ppu.t = 0;
+  nes->ppu.x = 0;
   nes->ppu.sprite_address = 0;
-  nes->ppu.ppu_address = 0;
   nes->ppu.read_latch = 0;
   nes->ppu.ppu_addr_mode = DUAL_HIGH;
-  nes->ppu.ppu_writemode = PPUWRITE_HORIZ;	/* this is a guess */
-  /*nes->ppu.scroll_mode = DUAL_HIGH;*/	/* high meaning horizontal first */
+  nes->ppu.ppu_writemode = PPUWRITE_HORIZ;
   nes->ppu.vblank_flag = 0;
 
   memset ((void *) nes->joypad.pad, 0, 4 * 8 * sizeof (int));
@@ -89,11 +88,11 @@ void nes_initframe (struct nes_machine *nes)
 {
   nes->ppu.hit_flag = 0;	/* set to 0 at frame start */
   nes->ppu.vblank_flag=0; /* set to 0 at frame start, I think */
-  nes->ppu.hbwrite_mode=DUAL_HIGH; /* set this at the start of every frame */
-  nes->ppu.hbwrite_count = 0;	/* "                                  " */
   nes->ppu.spritecount_flag = 0;
   nes->ppu.sprite_address = 0;
   waitingforhit = 1;
+
+  nes->ppu.v = nes->ppu.t;
 
   nes->scanline = 0; 
 }
@@ -101,7 +100,6 @@ void nes_initframe (struct nes_machine *nes)
 /* nes_vblankstate - sets things that change when a vblank occurs */
 void nes_vblankstate (struct nes_machine *nes)
 {
-  /*   nes->ppu.scroll_mode = DUAL_HIGH; */ /* ??? */
   nes->ppu.vblank_flag = 1;
   nes->ppu.hit_flag = 0;
 }
@@ -178,6 +176,7 @@ void Wr6502 (register word Addr, register byte Value)
 
 	  nes.ppu.control1 = Value;
 	  nes.ppu.ppu_writemode = (Value & 0x04) ? PPUWRITE_VERT : PPUWRITE_HORIZ;
+          nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
 	  
 	  if (superverbose) 
 	    {
@@ -234,122 +233,79 @@ void Wr6502 (register word Addr, register byte Value)
 
 
       case ppu_bgscroll: /* 2005 */
-	  //	  nes_printtime();
-	  //	  printf ("%cscroll=%02X\n", nes.ppu.ppu_addr_mode == DUAL_HIGH?'h':'v', (unsigned)Value);
-	  if (superverbose) /* loopy says that $2005 and $2006 share the same toggled state */
-	    nes_printtime ();
-	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
-	    if (superverbose) printf ("hscroll=%u\n", (unsigned) Value);
-	    nes.ppu.ppu_addr_mode = DUAL_LOW;
-	    nes.ppu.hscroll = Value;
-	  } else {
-	    if (superverbose) printf ("vscroll=%u\n", (unsigned) Value);
-	    nes.ppu.ppu_addr_mode = DUAL_HIGH;
-	    if (Value<=239) nes.ppu.vscroll = Value;
-	  }
+          if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
+              nes.ppu.x = Value & 7;
+              nes.ppu.t &= ~0x1F;
+              nes.ppu.t |= Value >> 3;
+          } else {
+              nes.ppu.t &= ~0x73E0;
+              nes.ppu.t |= (Value & 7) << 12;
+              nes.ppu.t |= (Value >> 3) << 5;
+          }
+          nes.ppu.ppu_addr_mode ^= 1;
 	  break;
 
 
       case ppu_addr: /* 2006 */
-	  //	  nes_printtime();
-          //printf ("ppu_addr, wrote %02X %s\n", (unsigned) Value, (nes.ppu.ppu_addr_mode==DUAL_HIGH?"high":"low"));
-
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
-	    nes.ppu.ppu_addr_mode = DUAL_LOW;
-	    nes.ppu.ppu_address = (nes.ppu.ppu_address & 0x00FF) | (Value << 8);
-	  } else {
-	    nes.ppu.ppu_addr_mode = DUAL_HIGH;
-	    nes.ppu.ppu_address = (nes.ppu.ppu_address & 0xFF00) | Value;
+              nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);            
+          } else {
+	    nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
+            nes.ppu.v = nes.ppu.t;
 	  }
-	  nes.ppu.ppu_address &= 0x3FFF;
+          nes.ppu.ppu_addr_mode ^= 1;
           if (trace_ppu_writes)
-              printf("%u.%u: ppu addr = %04X\n", frame_number, nes.scanline, nes.ppu.ppu_address);
-          
-          /* I'd like to emulate manual cycling of the MMC3 IRQ counter via PPU A12, but I'm not sure how it should work. In particular, it doesn't make any sense to me that a write to this register should */
-          // TODO: Manual scanline twiddle for IRQ counter?
+              printf("%u.%u: ppu.v = %04X\n", frame_number, nes.scanline, nes.ppu.v);
 
-
-/*		       printf("ppu_addr = %04X\n",nes.ppu.ppu_address); */
 	  break;
 	
 
       case ppu_data: /* 2007 */
 
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
-
-	    /*if (superverbose)*/ {
 	      nes_printtime ();
 	      printf ("hblank wrote %02X ", (int) Value);
-	      if (!(nes.ppu.control2 & 0x08))
-		printf ("\tBG OFF");
+	      if (!(nes.ppu.control2 & 0x08)) printf ("\tBG OFF");
 	      printf ("\n");
-	    }
-
-	    if (nes.ppu.hbwrite_mode == DUAL_HIGH) {
-	      nes.ppu.hbwrite_mode = DUAL_LOW;
-	      nes.ppu.hbwrite.val = Value << 8;
-	    } else {
-	      nes.ppu.hbwrite_mode = DUAL_HIGH;
-	      nes.ppu.hbwrite.val = nes.ppu.hbwrite.val | Value;
-	    }
-	    nes.ppu.hbwrite_count++;
 	  } else {
-/*			    if((nes.ppu.control2&0x08)) 
-			      {
-				 nes_printtime();
-				 printf("ppu wrote %02X",(int)Value);
-				 if(!(nes.ppu.control2&0x08)) printf("\tBG OFF");
-				 printf("\n");
-			      }*/
               // TODO: Manual scanline twiddle for IRQ counter?
 
-	    if (nes.ppu.ppu_address >= 0x2000) {
-	      if (nes.ppu.ppu_address < 0x3F00) {
-		if (nes.ppu.ppu_address < 0x3000) {	/* name/attribute table write */
-                    int maddr = ppu_mirrored_nt_addr(nes.ppu.ppu_address);
+              if (nes.ppu.v >= 0x2000) {
+                  if (nes.ppu.v < 0x3F00) {
+                      if (nes.ppu.v < 0x3000) {	/* name/attribute table write */
+                          int maddr = ppu_mirrored_nt_addr(nes.ppu.v);
+                          
+                          if (trace_ppu_writes)
+                              printf("%u.%u: ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
+                                     frame_number, nes.scanline, 
+                                     nes.ppu.v, maddr, Value, nes.ppu.ppu_writemode);
 
-                    if (trace_ppu_writes)
-                        printf("%u.%u: ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
-                               frame_number, nes.scanline, 
-                               nes.ppu.ppu_address, maddr, Value, nes.ppu.ppu_writemode);
+                          nes.ppu.vram[maddr & 0x3FFF] = Value;
+                      } else {
+                          nes.ppu.vram[nes.ppu.v & 0x3FFF] = Value;
+                          /* Technically this should mirror 0x2000, but I want
+                           * to see a game require this before I enable it. */
+                          printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.v);
+                      }
+                  } else { /* palette write - palette mirroring must be done in read function */
+                      word tmp = nes.ppu.v;
+                      vid_tilecache_dirty = 1;
+                      tmp &= 0x1F;
+                      tmp |= 0x3F00;
 
-                    nes.ppu.vram[maddr] = Value;
-		} else {
-		  nes.ppu.vram[nes.ppu.ppu_address] = Value;
-                  /* Technically this should mirror 0x2000, but I want
-                   * to see a game require this before I enable it. */
-		  printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.ppu_address);
-		}
-	      } else {		/* palette write - palette mirroring must be done in read function */		
-		word tmp = nes.ppu.ppu_address;
-                //printf("pal %X %i\n", tmp, Value);
-                //printf("IRQ vector is %X\n", Rd6502(0xFFFE) +  (Rd6502(0xFFFF)<<8));
-                //Debug6502(&nes.cpu);
-
-		vid_tilecache_dirty = 1;
-		tmp &= 0x1F;
-		tmp |= 0x3F00;
-/*				      if(!(tmp&0x3)) 
-					{
-					   int i;
-					   for(i=0x3F00;i<=0x3F20;i+=4) nes.ppu.vram[i]=Value;
-					}*/
-		if ((tmp == 0x3F00) || (tmp == 0x3F10)) {
-		  nes.ppu.vram[0x3F00] = Value;
-		} else {	/* else normal palette write */
-		  nes.ppu.vram[tmp] = Value;
-		}
-	      }
-	    } else {
-	      if (!nes.rom.chr_size) {
-		nes.ppu.vram[nes.ppu.ppu_address] = Value;
-		vid_tilecache_dirty = 1;
-	      }
-	      /*printf("PPU: attempted write into character ROM!\n"); */
-	    }
+                      if ((tmp == 0x3F00) || (tmp == 0x3F10)) {
+                          nes.ppu.vram[0x3F00] = Value;
+                      } else nes.ppu.vram[tmp] = Value;
+                  }
+              } else {
+                  if (!nes.rom.chr_size) {
+                      nes.ppu.vram[nes.ppu.v] = Value;
+                      vid_tilecache_dirty = 1;
+                  } /* else printf("PPU: attempted write into character ROM!\n"); */
+              }
 	  }
-	  nes.ppu.ppu_address += nes.ppu.ppu_writemode;
-	  nes.ppu.ppu_address &= 0x3FFF;
+	  nes.ppu.v += nes.ppu.ppu_writemode;
+	  nes.ppu.v &= 0x3FFF;
 	  break;
 
       default:
@@ -432,8 +388,7 @@ byte Rd6502 (register word Addr)
 #endif
 {
   switch (Addr & 0xE000) {
-  case 0x0000:
-    return nes.ram[Addr & 0x07FF];
+  case 0x0000: return nes.ram[Addr & 0x07FF];
   case 0x2000:
       switch ((Addr & 0x0007) | 0x2000) {
       case ppu_cr1:
@@ -444,12 +399,12 @@ byte Rd6502 (register word Addr)
       case spr_addr:
       case spr_data:
       case ppu_status:
-	{
+      {
 	  byte tmp = 
-            (nes.ppu.vblank_flag << 7) |
-            (nes.ppu.hit_flag << 6) | 
-            (nes.ppu.spritecount_flag << 5) |
-	    ((in_vblank(&nes))<<4); /* VRAM Write flag - this is a guess. ccovel's cmcwavy demo uses this. */
+              (nes.ppu.vblank_flag << 7) |
+              (nes.ppu.hit_flag << 6) | 
+              (nes.ppu.spritecount_flag << 5) |
+              ((in_vblank(&nes))<<4); /* VRAM Write flag - this is a guess. ccovel's cmcwavy demo uses this. */
 
 	  if (superverbose) {
 	    if (nes.ppu.vblank_flag) {
@@ -470,27 +425,27 @@ byte Rd6502 (register word Addr)
 	  nes.ppu.ppu_addr_mode = DUAL_HIGH;
 	  nes.ppu.control1 &= (0xFF - 4);
 	  return tmp;
-	}
+      }
+
       case ppu_data:
-	{
+      {
 	  byte ret = nes.ppu.read_latch;
 
-          nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.ppu_address)];
+          nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.v & 0x3FFF)];
           // TODO: Manual scanline twiddle for IRQ counter?
           
-          nes.ppu.ppu_address += nes.ppu.ppu_writemode;
-          nes.ppu.ppu_address &= 0x3FFF;
+          nes.ppu.v += nes.ppu.ppu_writemode;
+          nes.ppu.v &= 0x7FFF;
           
 	  return ret;
-	}
+      }
 
       default:
-	{
 	  printf ("PPU: Read from unknown ppu register 0x%04X\n", (int) Addr);
 	  break;
-	}
+
       }
-      break;
+      break;      
 
   case 0x4000:
       if (Addr <= 0x4017) {
@@ -566,10 +521,11 @@ byte Loop6502 (register M6502 * R)
   if (nes.scanline == 0) nes.ppu.vblank_flag = 0;
 
   if ((nes.scanline<256)) {
-    lineinfo[nes.scanline].hscroll = nes.ppu.hscroll;
-    lineinfo[nes.scanline].vscroll = nes.ppu.vscroll;
-    lineinfo[nes.scanline].control1 = nes.ppu.control1;
-    lineinfo[nes.scanline].control2 = nes.ppu.control2;
+      lineinfo[nes.scanline].v = nes.ppu.v;
+      lineinfo[nes.scanline].t = nes.ppu.t;
+      lineinfo[nes.scanline].x = nes.ppu.x;
+      lineinfo[nes.scanline].control1 = nes.ppu.control1;
+      lineinfo[nes.scanline].control2 = nes.ppu.control2;
   } 
 
   if (nes.scanline == cfg_framelines) {
@@ -578,7 +534,7 @@ byte Loop6502 (register M6502 * R)
   } else if (nes.scanline == (cfg_framelines + cfg_vblanklines - 1))
     ret = INT_QUIT;
 
-/*   printf("line %i  vblank=%i flag=%i ppu_addr=%04X\n",nes.scanline,in_vblank(&nes),nes.ppu.vblank_flag,(int)nes.ppu.ppu_address); */  
+/*   printf("line %i  vblank=%i flag=%i ppu.v=%04X\n",nes.scanline,in_vblank(&nes),nes.ppu.vblank_flag,(int)nes.ppu.v); */  
   nes.scanline++;
 
   if ((!in_vblank(&nes)) && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
@@ -591,7 +547,7 @@ void nes_runframe (void)
   nes.cpu.IPeriod = cfg_linecycles;
   nes_initframe (&nes);
   if (superverbose) {
-    printf ("ppu @ $%04X\n", (unsigned)nes.ppu.ppu_address);
+    printf ("ppu @ $%04X\n", (unsigned)nes.ppu.v);
   }
   Run6502 (&nes.cpu);
   if (superverbose)

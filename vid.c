@@ -332,6 +332,22 @@ void vid_draw_sprites (int sx, int sy)
 }
 
 
+
+
+/*
+struct chr_shifter {
+    byte low;
+    byte high;
+};
+
+struct sprite_unit {
+    struct chr_shifter shifter;
+    int palette;
+};
+*/
+
+
+
 void vid_render_frame (int sx, int sy)
 {
   unsigned char *bytefb = ((unsigned char *) surface->pixels) + sy * surface->pitch + sx;
@@ -345,25 +361,36 @@ void vid_render_frame (int sx, int sy)
 
   
   for (line=0; line<240; line++) {
-    int tcpage = (lineinfo[line].control1 & 0x10) >> 4;
+    int xoff = lineinfo[line].x;
+    int v = lineinfo[line].v;
+    int control1 = lineinfo[line].control1;
+    int control2 = lineinfo[line].control2;
+
+    /* A future reworking of the code will render from the V register directly. */
+    int hscroll = xoff + ((v & 0x1F) << 3);
+    int vscroll = ((v >> 5)<<3) + (v >> 12);
+
+    int tcpage = (control1 & 0x10) >> 4;
     unsigned char *dest = (((unsigned char *)bytefb)+surface->pitch*line);
-    int y = lineinfo[line].vscroll + line;
+    int y = vscroll + line;
     int yoffset = y&7;
-    int x = lineinfo[line].hscroll;
-    int pixel=0;    
-    int hscroll = lineinfo[line].hscroll;
+    int x = hscroll;
+
     unsigned int *destl;
 //    unsigned char data[8];
     unsigned char *data;
     int j;
 
-    if (!(lineinfo[line].control2 & 8)) {
+    if (!(control2 & 8)) {
       memset ((void *)dest, nes.ppu.vram[0x3F00], 256);
       continue;
     }
    
-    if (lineinfo[line].control1 & 1) x+=256;
-    if (lineinfo[line].control1 & 2) y+=240;      
+    /* if (control1 & 1) x += 256;
+       if (control1 & 2) y += 240; */
+
+    if (v & 0x400) x+= 256;
+    if (v & 0x800) y+= 240;
     while (y >= 480) y -= 480;
     y >>= 3;
     x >>= 3;
@@ -372,12 +399,12 @@ void vid_render_frame (int sx, int sy)
     
     //      printf ("%i%i\n", (int)nes.ppu.control1&2>>1, (int)nes.ppu.control1&1);
     
-    if (hscroll&7) {
+    if (xoff) {
         byte *d;
-        d = tilecache[tcpage][tiletable[y][x]][attrtable[y][x]] + 8 * yoffset + (hscroll&7);
+        d = tilecache[tcpage][tiletable[y][x]][attrtable[y][x]] + 8 * yoffset + (xoff&7);
         //tileseg(data, tcpage, tiletable[y][x], attrtable[y][x], yoffset);
-        //d += hscroll & 7;
-        for (j=hscroll&7; j<8; j++) *dest++ = *d++;
+        //d += xoff & 7;
+        for (j=xoff&7; j<8; j++) *dest++ = *d++;
         x = (x+1)&63;
     }
     
@@ -395,9 +422,9 @@ void vid_render_frame (int sx, int sy)
     
     dest+=248;
     data = tilecache[tcpage][tiletable[y][x]][attrtable[y][x]] + 8*yoffset;
-    for (j=0; j<((lineinfo[line].hscroll&7)?lineinfo[line].hscroll&7:8); j++) {
+    for (j=0; j<(xoff?xoff:8); j++) {
       *dest++ = *data++;
-    }      
+    }
   }
       
   if (nes.ppu.control2 & 0x10) vid_draw_sprites (sx, sy);

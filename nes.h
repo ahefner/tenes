@@ -67,39 +67,25 @@
 
 typedef int dualmode;
 
-
-struct hblank_write_struct
-{
-   int line_from; /* The scanline the write occurred at.    */
-   word val;      /* 16-bit value written, before decoding. */
-   byte h_pos;    /* The new horizontal scroll value.       */
-   byte scanline; /* Scanline specified for change.         */
-};
-
 struct ppu_struct
 {
-   byte vram[0x4000];
-   byte spriteram[0x100];
-   byte sprite_address;	
-   
-   word ppu_address;
-   dualmode ppu_addr_mode;
-   int ppu_writemode; /* horizontal or vertical write pattern */
-   
-   struct hblank_write_struct hbwrite;
-   int hbwrite_count;	
-   dualmode hbwrite_mode;
-   
-   byte read_latch;
-  
-   byte control1,control2;
-   
-   byte vscroll,hscroll;
-  /*   dualmode scroll_mode; */
-   
-   int vblank_flag;
-   int hit_flag;
-   int spritecount_flag; /* more than 8 sprites on current scanline ? */
+    byte vram[0x4000];
+    byte spriteram[0x100];
+    byte sprite_address;	
+    
+    word v, t;
+    byte x;
+
+    dualmode ppu_addr_mode;
+    int ppu_writemode; /* horizontal or vertical write pattern */
+    
+    byte read_latch;
+    
+    byte control1,control2;
+    
+    int vblank_flag;
+    int hit_flag;
+    int spritecount_flag; /* more than 8 sprites on current scanline ? */
    
 };
 
@@ -137,8 +123,8 @@ struct nes_machine nes;
 
 struct scanline_info
 {
-  byte control1, control2;
-  byte hscroll, vscroll;
+    byte control1, control2, x;
+    word v, t;
 };
 
 #define LOG_LENGTH 256
