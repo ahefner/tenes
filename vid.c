@@ -11,18 +11,16 @@ int vid_tilecache_dirty = 1;
 
 void vid_drawpalette (int x, int y)
 {
-  int j;
-  for (j = 0; j < 16; j++) {
-    SDL_Rect r = { x + j * 16, y, 16, 16 };
-    SDL_FillRect (surface, &r, nes.ppu.vram[0x3F00 + j] & 0x3F);
-  }
-  for (j = 0; j < 16; j++) {
-    SDL_Rect r = { x + j * 16, y + 16, 16, 16 };
-    SDL_FillRect (surface, &r, nes.ppu.vram[0x3F10 + j] & 0x3F);
-  }
+    int j;
+    for (j = 0; j < 16; j++) {
+        SDL_Rect r = { x + j * 16, y, 16, 16 };
+        SDL_FillRect (surface, &r, nes.ppu.vram[0x3F00 + j] & 0x3F);
+    }
+    for (j = 0; j < 16; j++) {
+        SDL_Rect r = { x + j * 16, y + 16, 16, 16 };
+        SDL_FillRect (surface, &r, nes.ppu.vram[0x3F10 + j] & 0x3F);
+    }
 }
-
-
 
 /* really disturbing tile cache stuff */
 
@@ -32,23 +30,32 @@ typedef tile_group tc_page[256];
 
 tc_page tilecache[2];
 
-static inline void render_tile_line (byte line[8], unsigned char *chrdata, 
-                                     unsigned y, unsigned char cols[4])
+static inline void unpack_chr_byte (byte line[8], unsigned char *chrdata)
 {
-    line[7] = cols[(chrdata[y] & 1) + (2 * (chrdata[y + 8] & 1) >> 0)];
-    line[6] = cols[((chrdata[y] & 2) >> 1) + (2 * (chrdata[y + 8] & 2) >> 1)];
-    line[5] = cols[((chrdata[y] & 4) >> 2) + (2 * (chrdata[y + 8] & 4) >> 2)];
-    line[4] = cols[((chrdata[y] & 8) >> 3) + (2 * (chrdata[y + 8] & 8) >> 3)];
-    line[3] = cols[((chrdata[y] & 16) >> 4) + (2 * (chrdata[y + 8] & 16) >> 4)];
-    line[2] = cols[((chrdata[y] & 32) >> 5) + (2 * (chrdata[y + 8] & 32) >> 5)];
-    line[1] = cols[((chrdata[y] & 64) >> 6) + (2 * (chrdata[y + 8] & 64) >> 6)];
-    line[0] = cols[((chrdata[y] & 128) >> 7) + (2 * (chrdata[y + 8] & 128) >> 7)];
+    byte low = chrdata[0], high = chrdata[8];
+    line[7] = ((low &   1) >> 0) | ((high & 1)   << 1);
+    line[6] = ((low &   2) >> 1) | ((high & 2)   >> 0);
+    line[5] = ((low &   4) >> 2) | ((high & 4)   >> 1);
+    line[4] = ((low &   8) >> 3) | ((high & 8)   >> 2);
+    line[3] = ((low &  16) >> 4) | ((high & 16)  >> 3);
+    line[2] = ((low &  32) >> 5) | ((high & 32)  >> 4);
+    line[1] = ((low &  64) >> 6) | ((high & 64)  >> 5);
+    line[0] = ((low & 128) >> 7) | ((high & 128) >> 6);
 }
 
-static inline void render_tile (byte *chrdata, tile image, unsigned char cols[4])
+void render_tile (byte *chrdata, tile image, unsigned char cols[4])
 {
-    unsigned char l;
-    for (l = 0; l < 8; l++) render_tile_line(&image[l*8], chrdata, l, cols);
+    unsigned char l, i;
+    for (l = 0; l < 8; l++) {
+        unpack_chr_byte(&image[l*8], chrdata + l);
+        for (i=0; i<8; i++) image[l*8+i] = cols[image[l*8+i]];
+    }
+}
+
+static inline void unpack_tile (byte out[8], int page, byte tileindex, byte y_offset)
+{
+    word addr = page * 0x1000 + tileindex * 16 + y_offset;
+    unpack_chr_byte(out, nes.ppu.vram + addr);
 }
 
 /* builds a cache group for one character */
@@ -81,30 +88,6 @@ void gen_page (unsigned char *patterns, int pageidx)
   for (i = 0; i < 256; i++) {
     gen_group (patterns + i * 16, tilecache[pageidx][i]);
   }
-}
-
-
-void vid_draw_cache_page (int page, int x, int y, int pal)
-{
-  int i, j, k;
-  SDL_LockSurface (surface);
-
-  for (i = 0; i < 16; i++) {
-    for (j = 0; j < 16; j++) {
-      int idx = i * 16 + j;
-      Uint32 *dst = (Uint32 *) (((unsigned char *) surface->pixels) + ((y + i * 8) * surface->pitch) + (x + j * 8));
-      Uint32 *chr = (Uint32 *) tilecache[page][idx][pal];
-      for (k = 0; k < 8; k++) {
-	dst[0] = *chr;
-	chr++;
-	dst[1] = *chr;
-	chr++;
-	dst = (Uint32 *) (((unsigned char *) dst) + surface->pitch);
-      }
-    }
-  }
-
-  SDL_UnlockSurface (surface);
 }
 
 void vid_copytile_arbitrary (unsigned char *tile, int width, int height, unsigned char *dst)
@@ -370,6 +353,7 @@ void vid_render_frame (int sx, int sy)
     int pixel=0;    
     int hscroll = lineinfo[line].hscroll;
     unsigned int *destl;
+//    unsigned char data[8];
     unsigned char *data;
     int j;
 
@@ -389,18 +373,23 @@ void vid_render_frame (int sx, int sy)
     //      printf ("%i%i\n", (int)nes.ppu.control1&2>>1, (int)nes.ppu.control1&1);
     
     if (hscroll&7) {
-      data = tilecache[tcpage][tiletable[y][x]][attrtable[y][x]] + 8 * yoffset + (hscroll&7);
-      for (j=hscroll&7; j<8; j++) *dest++ = *data++;
-      //	pixel+=(scrollregs[line][0]&7);
-      x = (x+1)&63;
+        byte *d;
+        d = tilecache[tcpage][tiletable[y][x]][attrtable[y][x]] + 8 * yoffset + (hscroll&7);
+        //tileseg(data, tcpage, tiletable[y][x], attrtable[y][x], yoffset);
+        //d += hscroll & 7;
+        for (j=hscroll&7; j<8; j++) *dest++ = *d++;
+        x = (x+1)&63;
     }
     
     destl = dest;
     for (j=0; j<31; j++) { 
-      unsigned int *tdata = &tilecache[tcpage][tiletable[y][x]][attrtable[y][x]][8*yoffset];
-      *destl++ = *tdata++;
-      *destl++ = *tdata++;      
-      x = (x+1)&63;
+        unsigned int *tdata = &tilecache[tcpage][tiletable[y][x]][attrtable[y][x]][8*yoffset];
+        //unsigned int tile[2];
+        //unpack_tile((byte *)tile, tcpage, tiletable[y][x], y_offset);
+        
+        *destl++ = *tdata++;
+        *destl++ = *tdata++;      
+        x = (x+1)&63;
       //	pixel+=8;
     }      
     
@@ -412,85 +401,6 @@ void vid_render_frame (int sx, int sy)
   }
       
   if (nes.ppu.control2 & 0x10) vid_draw_sprites (sx, sy);
-  // else printf("sprites disabled.\n");
 }
 
-void vid_render_frame_old (int sx, int sy)
-{
-  unsigned hscroll = nes.ppu.hscroll;
-  unsigned vscroll = nes.ppu.vscroll;
-  unsigned char *bytefb = ((unsigned char *) surface->pixels) + sy * surface->pitch + sx;
-  int x = hscroll >> 3, y = vscroll >> 3;
-  int tcpage = (nes.ppu.control1 & 0x10) >> 4;
-  int vtiles = 0;
 
-  //  printf ("vid_render_frame: %i,%i\n", hscroll, vscroll);
-
-  if (vid_tilecache_dirty) {
-    gen_page (nes.ppu.vram, 0);
-    gen_page (nes.ppu.vram + 0x1000, 1);
-/*	printf("tilecache dirty.\n"); */
-  }
-
-/*   int ix,iy; */
-  vid_build_tables ();
-
-  if (vscroll & 7) {		/* top/bottom borders, yuck. */
-    unsigned char *fbptr = bytefb;
-    int i = 0;
-
-    if (hscroll & 7) {		/* corner, double yuck. */
-      vid_copytile_arbitrary (tilecache[tcpage][tiletable[y][x]]
-			      [attrtable[y][x]] + (hscroll & 7) + 8 * (vscroll & 7), 8 - (hscroll & 7), 8 - (vscroll & 7), fbptr);
-      x++;
-      fbptr += (8 - (hscroll & 7));
-      i = 1;
-    }
-    for (; i < 32; i++) {
-      x &= 63;
-      vid_copytile_hborder (tilecache[tcpage][tiletable[y][x]]
-			    [attrtable[y][x]] + 8 * (vscroll & 7), 8 - (vscroll & 7), fbptr);
-      fbptr += 8;
-      x++;
-    }
-    if (hscroll & 7) {
-      vid_copytile_arbitrary (tilecache[tcpage][tiletable[y][x]]
-			      [attrtable[y][x]], hscroll & 7, 8 - (vscroll & 7), fbptr);
-    }
-    y++;  /* GNU indent was here. fear it. */
-    if (y > 60)
-      y -= 60;
-    bytefb += (surface->pitch) * (8 - (vscroll & 7));
-    vtiles++;
-  }
-  for (; vtiles < 30; vtiles++) {
-    unsigned char *fbptr = bytefb;
-    int i = 0;
-    x = hscroll >> 3;
-
-    if (hscroll & 7) {
-      vid_copytile_arbitrary (tilecache[tcpage][tiletable[y][x]]
-			      [attrtable[y][x]] + 8 - (hscroll & 7), 8 - (hscroll & 7), 8, fbptr);
-      fbptr += (8 - (hscroll & 7));
-      i = 0;
-      x++;
-    }
-    for (; i < 32; i++) {
-      x &= 63;
-      vid_copytile_full (tilecache[tcpage][tiletable[y][x]]
-			 [attrtable[y][x]], fbptr);
-      fbptr += 8;
-      x++;
-    }
-    if (hscroll & 7) {
-      vid_copytile_arbitrary (tilecache[tcpage][tiletable[y][x]]
-			      [attrtable[y][x]], hscroll & 7, 8, fbptr);
-    }
-    bytefb += 8 * surface->pitch;
-    y++;
-    if (y >= 60)
-      y -= 60;
-  }
-
-  vid_draw_sprites (sx, sy);
-}

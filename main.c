@@ -162,13 +162,12 @@ int main (int argc, char **argv)
 	vid_render_frame(192,64); */
     if (!framecount) {
       vid_render_frame (0, 0);
-      if (cfg_diagnostic) {
-	vid_drawpalette (0, 256);
-	vid_draw_cache_page (0, 256, 0, 8);
-	vid_draw_cache_page (1, 256, 128, 8);
-      }
+
+      if (cfg_diagnostic) vid_drawpalette (0, 256);
+
       if (vid_filter) vid_filter(post_surface);
-      if (post_surface!=window_surface) {
+
+      if (post_surface != window_surface) {
 	SDL_BlitSurface(post_surface,NULL,window_surface,NULL);
       }
      
