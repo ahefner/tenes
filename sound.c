@@ -431,7 +431,7 @@ void snd_write (unsigned addr, unsigned char value)
         nes.snd.regs[addr] = value;
         wavelength[chan]=(wavelength[chan]&0x0FF) | ((value&0x07)<<8);
         env_reset[chan] = 1;
-        out_counter[chan] = 0;
+        /* Don't reset the output counters. It creates clicks/pops in the audio. */
         if (nes.snd.regs[0x15] & BIT(chan)) {
             lcounter[chan] = translate_length(value);
             /*printf("%u: Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
@@ -519,6 +519,7 @@ inline void clock_noise_ptimer (void)
 void snd_fillbuffer (unsigned char *r, Sint16 * buf, unsigned length)
 {
     //const int dc_table[4] = { 14, 12, 8, 4 };
+    static float f_tri = 0.0, f_tri_param = 0.7;
     const int dc_table[4][8] = 
         { { 0, 1, 0, 0, 0, 0, 0, 0 },
           { 0, 1, 1, 0, 0, 0, 0, 0 },
@@ -553,13 +554,16 @@ void snd_fillbuffer (unsigned char *r, Sint16 * buf, unsigned length)
         clock_dmc_ptimer();
         if (nes.snd.regs[0x15] & BIT(4)) dmc = dmc_dac;
 
-        //buf[i] = (sq1 + sq2 + tri + noise) * 512;
-        buf[i] = 32000.0 * 
+        //f_tri = f_tri*f_tri_param + ((float)tri)*(1.0-f_tri_param);
+
+        buf[i] = 30000.0 * 
             ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
                                         ((float)noise) / 12241.0 +
                                         ((float)dmc) / 22638.0)))
              +
              ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
+
+        //buf[i] = (sq1 + sq2 + tri + noise) * 512;
 
         //printf("%X %X %02X %X %02X => %5i\n", sq1, sq2, tri, noise, dmc, buf[i]);
              

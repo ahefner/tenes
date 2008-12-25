@@ -65,6 +65,7 @@ struct nes_rom load_nes_rom (char *filename)
 
   rom.mirror_mode = rom.flags & 1 ? MIRROR_VERT : MIRROR_HORIZ;
   if (rom.flags & 0x80) rom.mirror_mode = MIRROR_NONE;
+  rom.onescreen_page = 0;
 
   fclose (in);
   return rom;

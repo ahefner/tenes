@@ -91,7 +91,7 @@ struct ppu_struct
 
 struct sound_struct
 {
-   byte regs[0x17]; /* from 0x4000-0x4015, ignoring 0x4014 which isn't sound */
+   byte regs[0x17];
 };
 
 struct joypad_info
@@ -135,6 +135,9 @@ void shutdown_nes(struct nes_machine *nes);
 void reset_nes(struct nes_machine *nes);
 void nes_runframe(void);
 
+
+/* This is dumb. Why didn't I just make this a method in the mapper?
+ */
 static inline word ppu_mirrored_nt_addr (word paddr)
 {
     //word paddr_hbit = (paddr & 0x400) >> 10;
@@ -154,7 +157,7 @@ static inline word ppu_mirrored_nt_addr (word paddr)
     case MIRROR_ONESCREEN:
         /* FIXME: Totally broken. Should mask out 0xC00
          * and OR a value from the mapper. */
-        return paddr;
+        return (paddr & ~0xC00) | nes.rom.onescreen_page;
 
     default:
         assert(0);

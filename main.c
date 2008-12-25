@@ -95,6 +95,12 @@ void process_key_event (SDL_KeyboardEvent * key)
         case SDLK_BACKSPACE: 
             reset_nes(&nes); 
             break;
+
+        case SDLK_m:
+            if (key->keysym.mod & KMOD_CTRL) {
+                nes.rom.mirror_mode ^= 1;
+                printf("Toggled mirror mode. New mode=%i\n", nes.rom.mirror_mode);
+            }
           
         default: break;
         }

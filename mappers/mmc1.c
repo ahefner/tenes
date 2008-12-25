@@ -59,11 +59,11 @@ void mmc1_write_reg (unsigned reg, unsigned val)
     {
     case 0:
         mmc1_reg[0]=val;
-/*        printf("%s %s %s %s\n", 
+        printf("%s %s %s %s\n", 
                mmc1_reg[0] & REG0_SWITCH_HIGH_LOW ? "Switching LOW" : "Switching HIGH",
                mmc1_reg[0] & REG0_SIZE_32K_16K ? "16k" : "32k",
                mmc1_reg[0] & REG0_MIRROR_MODE ? "Vertical" : "Horizontal",
-               mmc1_reg[0] % REG0_CHROM_8KB_4KB ? "CHR:4KB" : "CHR:8KB" ); */
+               mmc1_reg[0] % REG0_CHROM_8KB_4KB ? "CHR:4KB" : "CHR:8KB" ); 
         nes.rom.mirror_mode=(!(val & REG0_ONE_SCREEN_ENABLE)) ? 
             MIRROR_ONESCREEN : ((val & REG0_MIRROR_MODE) ? MIRROR_HORIZ : MIRROR_VERT);
         break;

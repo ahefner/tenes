@@ -21,6 +21,7 @@ struct nes_rom
   char filename[256];
   byte flags; /* mirroring, etc. */
   int mirror_mode;
+  int onescreen_page;
 };
 
 struct nes_rom load_nes_rom (char *filename);

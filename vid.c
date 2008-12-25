@@ -368,7 +368,7 @@ void vid_render_frame (int sx, int sy)
 
     /* A future reworking of the code will render from the V register directly. */
     int hscroll = xoff + ((v & 0x1F) << 3);
-    int vscroll = ((v >> 5)<<3) + (v >> 12);
+    int vscroll = (((v >> 5)&0x1F)<<3) + (v >> 12);
 
     int tcpage = (control1 & 0x10) >> 4;
     unsigned char *dest = (((unsigned char *)bytefb)+surface->pitch*line);

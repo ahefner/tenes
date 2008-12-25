@@ -90,7 +90,6 @@ void mmc3_write (register word addr, register byte value)
         if (cmd < 6) {
             int dest, num = 1, i;
             /* VROM switch */
-            // printf ("%u: MMC3: switching %s VROM. page=%i, chose %i\n", frame_number, mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value);
             switch (cmd) {
             case 0:
                 dest = 0;
@@ -104,6 +103,8 @@ void mmc3_write (register word addr, register byte value)
                 dest = (cmd - 2) + 4;
                 break;
             }
+            if (trace_ppu_writes)
+            printf ("%u.%u: MMC3: switching %s VROM. page=%i, chose %i (%i banks at %i)\n", frame_number, nes.scanline, mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value, num, dest);
             if (mmc3_8000 & 0x80) dest = dest ^ 4;
             for (i=0; i<num; i++) mmc3_select_chr (dest+i, value+i);
 
@@ -128,12 +129,12 @@ void mmc3_write (register word addr, register byte value)
         break;
 
     case 0xC000:
-        //printf ("%u.%u: MMC3: IRQ countdown register latched %i\n", frame_number, nes.scanline, (int)value);
+        //printf ("%u.%u: MMC3: IRQ countdown temporary = %i\n", frame_number, nes.scanline, (int)value);
         mmc3_latched = value;
         break;
 
     case 0xC001:
-        //printf ("%u.%u: MMC3: IRQ latch trigger (wrote %i)\n", frame_number, nes.scanline, (int)value);
+        //printf ("%u.%u: MMC3: IRQ latch request (wrote %i)\n", frame_number, nes.scanline, (int)value);
         mmc3_latch_trigger = 1;
         break;
 
@@ -152,22 +153,31 @@ void mmc3_write (register word addr, register byte value)
     }      
 }
 
-/* This really counts by some clever monitoring of the PPU address
- * lines. We fake it by providing a per-scanline hook into the
- * mapper. */
+/* A real MMC3 chip counts scanlines by some clever monitoring of the
+ * PPU address lines. We fake it by providing a per-scanline hook into
+ * the mapper. */
 int mmc3_scanline (void)
 {
+    /* Note this offset. It seems reasonable that the actual countdown
+     * be at least one greater than the written value. Interestingly,
+     * I found that adding the 'reload on zero' behavior broke TMNT2,
+     * and the minimal offset to get it working again was 2.
+     */
+    const int latched_offset = 2;
     // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3_countdown, mmc3_latched, mmc3_latch_trigger);
 
     if (mmc3_latch_trigger) {
-        mmc3_countdown = mmc3_latched + 1;
+        mmc3_countdown = mmc3_latched + latched_offset;
         mmc3_latch_trigger = 0;
     }
 
     if (mmc3_countdown) {
         mmc3_countdown--;
         if (!mmc3_countdown && mmc3_irq_enabled) {
-            //printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
+            printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
+
+            mmc3_countdown = mmc3_latched + latched_offset;
+
             return 1;
         }
     }

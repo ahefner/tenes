@@ -83,6 +83,16 @@ void reset_nes (struct nes_machine *nes)
   printf ("NES reset.\n");
 }
 
+int ppu_current_hscroll (void)
+{
+    return nes.ppu.x + ((nes.ppu.v & 0x1F) << 3) + ((nes.ppu.v & 0x400) ? 256 : 0);
+}
+
+int ppu_current_vscroll (void)
+{
+    return ((((nes.ppu.v >> 5)&0x1F) << 3) + (nes.ppu.v >> 12) + ((nes.ppu.v & 0x800) ? 240 : 0)) % 480;
+}
+
 /* nes_initframe - call at the start of every frame */
 void nes_initframe (struct nes_machine *nes)
 {
@@ -92,7 +102,7 @@ void nes_initframe (struct nes_machine *nes)
   nes->ppu.sprite_address = 0;
   waitingforhit = 1;
 
-  nes->ppu.v = nes->ppu.t;
+  if (nes->ppu.control2 & 0x18) nes->ppu.v = nes->ppu.t;
 
   nes->scanline = 0; 
 }
@@ -177,24 +187,25 @@ void Wr6502 (register word Addr, register byte Value)
 	  nes.ppu.control1 = Value;
 	  nes.ppu.ppu_writemode = (Value & 0x04) ? PPUWRITE_VERT : PPUWRITE_HORIZ;
           nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
-	  
+          
+          if (trace_ppu_writes)
+              printf("%u.%u: CR1 write: ppu.t = %04X (selected nametable %i)\n", 
+                     frame_number, nes.scanline, nes.ppu.t, Value&3);
+
 	  if (superverbose) 
-	    {
+          {
 	      nes_printtime ();
               printf("PPU 2000: ");
 	      PrintBin (Value);
 	      printf(" next PC=$%04X, ",nes.cpu.PC.W);	      
 	      if (Value & 0x80) printf ("NMI ON  ");
-	      if (Value & 0x10) printf ("bg1 ");
-	      else printf ("bg0 ");
-	      if (Value & 0x08) printf ("spr1 ");
-	      else printf ("spr0 ");
+	      if (Value & 0x10) printf ("bg1 "); else printf ("bg0 ");
+	      if (Value & 0x08) printf ("spr1 "); else printf ("spr0 ");
 	      /*                 if(Value & 0x20) printf("8x16 sprites "); else printf("8x8 sprites "); */
-	      if (Value & 0x04) printf ("Vertical write\n");
-	      else printf ("Horiz write.\n");
+	      if (Value & 0x04) printf ("Vertical write\n"); else printf ("Horiz write.\n");
 	      /*                 if(!in_vblank(&nes)) printf("PPU: CR1 written during frame\n"); */
 	      printf("\n");
-	    }
+          }
 	  break;
 
 	
@@ -243,19 +254,22 @@ void Wr6502 (register word Addr, register byte Value)
               nes.ppu.t |= (Value >> 3) << 5;
           }
           nes.ppu.ppu_addr_mode ^= 1;
+          if (trace_ppu_writes)
+              printf("%u.%u: ppu.t = %04X (wrote %02X to %s scroll)\n", 
+                     frame_number, nes.scanline, nes.ppu.t, Value, 
+                     nes.ppu.ppu_addr_mode ? "horizontal" : "vertical");
 	  break;
-
 
       case ppu_addr: /* 2006 */
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
               nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);            
           } else {
-	    nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
-            nes.ppu.v = nes.ppu.t;
+              nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
+              nes.ppu.v = nes.ppu.t;
+              if (trace_ppu_writes)
+                  printf("%u.%u: ppu.v = %04X ($2006, latched from ppu.t)\n", frame_number, nes.scanline, nes.ppu.v);
 	  }
           nes.ppu.ppu_addr_mode ^= 1;
-          if (trace_ppu_writes)
-              printf("%u.%u: ppu.v = %04X\n", frame_number, nes.scanline, nes.ppu.v);
 
 	  break;
 	
@@ -520,7 +534,21 @@ byte Loop6502 (register M6502 * R)
 
   if (nes.scanline == 0) nes.ppu.vblank_flag = 0;
 
-  if ((nes.scanline<256)) {
+  if (trace_ppu_writes && nes.scanline == 0)
+      printf("At frame start, hscroll=%03X vscroll=%03X\n", 
+             ppu_current_hscroll(), ppu_current_vscroll());
+
+  if ((nes.scanline<240)) {
+      
+      if (nes.ppu.control2 & 0x18) {
+          nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
+          // Experiment:
+          //nes.ppu.v = (nes.ppu.v & ~0xC1F) | (nes.ppu.t & 0xC1F);
+
+          // Weird. TMNT2 is sensitive to this (and "fixes" scrolling):
+          //nes.ppu.v = nes.ppu.t;
+      }
+
       lineinfo[nes.scanline].v = nes.ppu.v;
       lineinfo[nes.scanline].t = nes.ppu.t;
       lineinfo[nes.scanline].x = nes.ppu.x;
