@@ -22,6 +22,8 @@ int vid_fullscreen = 0;
 int vid_width = 256;  /* These may increse if pixel filtering is enabled */
 int vid_height = 240; /* "                                             " */
 
+int tv_scanline = 0;
+
 SDL_Surface *surface=NULL, *window_surface=NULL, *post_surface=NULL;
 void (*vid_filter) (SDL_Surface *surface)=NULL;
 

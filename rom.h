@@ -22,6 +22,7 @@ struct nes_rom
   byte flags; /* mirroring, etc. */
   int mirror_mode;
   int onescreen_page;
+  struct mapperinfo *mapper_info;
 };
 
 struct nes_rom load_nes_rom (char *filename);

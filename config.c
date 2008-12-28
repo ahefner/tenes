@@ -42,6 +42,7 @@ void cfg_parseargs (int argc, char **argv)
       }
       if (!strcmp (txt, "-fullscreen"))
 	vid_fullscreen = 1;
+        vid_filter = rescale_2x;
       if (!strcmp (txt, "-r_scanline"))
 	vid_renderer = 0;
       else if (!strcmp (txt, "-r_simple"))

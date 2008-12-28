@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 int mapper0_init(void)
 {
    nes.mapper_data=malloc(0x8000);
@@ -56,7 +55,7 @@ int mapper0_scanline (void)
     return 0;
 }
 
-struct mapper_functions mapper_None = {
+struct mapper_methods mapper_None = {
    mapper0_init,
    mapper0_shutdown,
    mapper_noprgwrite,

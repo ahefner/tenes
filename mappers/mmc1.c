@@ -1,6 +1,4 @@
-/* This is a rewrite of the MMC1 mapper.
-   Apparently this isn't the first one, either.   
-*/
+/* MMC1 mapper */
 
 int mmc1_prg_pages; /* 16k */
 int mmc1_chr_pages; /* 4k */
@@ -31,12 +29,13 @@ int mmc1_init(void)
 
     if (mmc1_chr_pages) memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr,0x2000);
 
-    mmc1_reg[0] = 0x0C;  /* we boot in 16KB switching HIGH bank, and 4KB CHROM pages */
+    mmc1_reg[0] = 0x0C;  /* we boot in 16KB switching LOW bank, and 4KB CHROM pages */
     mmc1_reg[1] = 0;
     mmc1_reg[2] = 0;
     mmc1_reg[3] = 0;
-    BANK=mmc1_prg_pages-1; /* init to last page of rom */
-    mmc1_last_page_ptr=nes.rom.prg+BANK*KB(16);
+    //BANK = mmc1_prg_pages-1; /* init to last page of rom */
+    BANK = 0;
+    mmc1_last_page_ptr = nes.rom.prg + (mmc1_prg_pages-1)*KB(16);
 
     mmc1_large_bank=0;
     mmc1_large_bank_mask=0;
@@ -55,11 +54,15 @@ void mmc1_write_reg (unsigned reg, unsigned val)
 {
     int pagebase;
     assert(reg<4);
+
+    //printf("mmc1_write: %02X to register %i\n", val, reg);
+    
     switch (reg)
     {
     case 0:
         mmc1_reg[0]=val;
-        printf("%s %s %s %s\n", 
+        if (0)
+        printf("mmc1: %s %s %s %s\n", 
                mmc1_reg[0] & REG0_SWITCH_HIGH_LOW ? "Switching LOW" : "Switching HIGH",
                mmc1_reg[0] & REG0_SIZE_32K_16K ? "16k" : "32k",
                mmc1_reg[0] & REG0_MIRROR_MODE ? "Vertical" : "Horizontal",
@@ -76,6 +79,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
             if (!(mmc1_reg[0] & REG0_CHROM_8KB_4KB) && (pagebase < mmc1_chr_pages-1))
                 memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x2000);
             else memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x1000);
+            vid_tilecache_dirty = 1;
         }
         break;
     case 2:
@@ -86,26 +90,33 @@ void mmc1_write_reg (unsigned reg, unsigned val)
             memcpy((void *)nes.ppu.vram + 0x1000,
                    (void *)nes.rom.chr + 0x1000 * pagebase,
                    0x1000);
+            vid_tilecache_dirty = 1;
         }
         break;
     case 3:
-        /* printf("-> bank req %i so %i of %i\n",val,val%mmc1_prg_pages,mmc1_prg_pages); */
-        mmc1_reg[3]=val%mmc1_prg_pages;
+        // Wild guess.
+        if (!(mmc1_reg[0] & REG0_SIZE_32K_16K)) val &= ~1;
+        //if (!(mmc1_reg[0] & REG0_SIZE_32K_16K)) printf("**** 32k mode *****\n");
+        //printf("mmc1: -> bank req %i so %i of %i\n", val, val % mmc1_prg_pages, mmc1_prg_pages);
+        mmc1_reg[3] = val % mmc1_prg_pages;
         break;
     }
 }
 
-void mmc1_write (register word addr,register byte value)
+void mmc1_write (register word addr, register byte value)
 {
     static unsigned accum=0, counter=0;
     unsigned n = (addr & 0x6000) >> 13;
-    int *reg=mmc1_reg;  
+    int *reg = mmc1_reg;
 
     if (GETBIT(7,value)) /* mmc1 reset */
     {
+        byte reset = (reg[0] & 0x10) | 12;
         /* Are the other registers reset here? Does it matter? */
-        reg[0]=PBIT(4,reg[0]) + 12;
-        accum=counter=0;
+        //printf("mmc1: reset\n");
+        reg[0] = reset;
+        accum = 0;
+        counter = 0;
       
     }
     else
@@ -113,6 +124,7 @@ void mmc1_write (register word addr,register byte value)
         accum=(accum>>1)+(GETBIT(0,value)<<4);
         /* accum=accum | (GETBIT(0,value)<<counter); */
         counter++;
+        //printf("mmc1: wrote bit. accum=%02X, counter=%i\n", accum, counter);
         if (counter==5)
         {
             /* printf("$%02X -> register %i ($%04X)\n",accum,n,addr); */
@@ -136,34 +148,37 @@ byte mmc1_read (register word addr)
     }
       
   
-    large_offset&=mmc1_large_bank_mask;
-    large_offset*=KB(256);
+    large_offset &= mmc1_large_bank_mask;
+    large_offset *= KB(256);
   
     if (reg[0] & REG0_SIZE_32K_16K)
     { /* 16KB switching mode */
         if (GETBIT(14,addr)^GETBIT(2,reg[0])) 
         { /* Read from the switching page */
+            //printf("  read %04X -- bank %i\n", addr, BANK);
             return prg[BANK*KB(16)+large_offset+offset];
         }
         else
         { /* Read from hardwired page */
             if (reg[0] & REG0_SWITCH_HIGH_LOW)
             { /* Hardwired 0xC000 bank */
+                //printf("  read $%04X (last page, hardwired at $C000)\n", addr);
                 return mmc1_last_page_ptr[offset];
             }
             else
             { /* Hardwired 0x8000 bank */
+                //printf("  read $%04X (first page, hardwired at $8000)\n", addr);
                 return prg[offset];
             }
         }
     }
     else
     { /* 32KB switching mode */
-        return prg[KB(32)*(BANK>>1)+large_offset+addr-0x8000];
+        return prg[KB(32)*(BANK>>1) + large_offset + (addr & 0x7FFF)];
     }
 }
 
-struct mapper_functions mapper_MMC1 = {
+struct mapper_methods mapper_MMC1 = {
     mmc1_init,
     mmc1_shutdown,
     mmc1_write,

@@ -24,7 +24,9 @@
 
 
 
-/*#define DEBUG*/             /* Compile debugging version  */
+/* Compile debugging version  */
+/* #define DEBUG */
+
 #define LSB_FIRST              /* Compile for low-endian CPU */
 
                                /* Loop6502() returns:        */

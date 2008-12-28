@@ -7,7 +7,7 @@ void mmc3_write (register word addr, register byte value);
 byte mmc3_read (register word addr);
 int mmc3_scanline (void);
 
-struct mapper_functions mapper_MMC3 = {
+struct mapper_methods mapper_MMC3 = {
     mmc3_init,
     mmc3_shutdown,
     mmc3_write,
@@ -40,6 +40,7 @@ void mmc3_select_chr (int dest, int n)
     if (mmc3_chrpages) {
         while (n >= mmc3_chrpages) n -= mmc3_chrpages;
         memcpy (nes.ppu.vram + dest*0x400, nes.rom.chr + 0x400 * n, 0x400);
+        vid_tilecache_dirty = 1;
     }
 }
 
@@ -104,7 +105,7 @@ void mmc3_write (register word addr, register byte value)
                 break;
             }
             if (trace_ppu_writes)
-            printf ("%u.%u: MMC3: switching %s VROM. page=%i, chose %i (%i banks at %i)\n", frame_number, nes.scanline, mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value, num, dest);
+                printf ("%u.%u: MMC3: switching %s VROM. page=%i, chose %i (%i banks at %i)\n", frame_number, nes.scanline, mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value, num, dest);
             if (mmc3_8000 & 0x80) dest = dest ^ 4;
             for (i=0; i<num; i++) mmc3_select_chr (dest+i, value+i);
 
@@ -166,20 +167,17 @@ int mmc3_scanline (void)
     const int latched_offset = 2;
     // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3_countdown, mmc3_latched, mmc3_latch_trigger);
 
-    if (mmc3_latch_trigger) {
+    /* If this interpretation proves to be right, we can eliminate the latch trigger and simply zero the counter. */
+    if (mmc3_latch_trigger || !mmc3_countdown) {
         mmc3_countdown = mmc3_latched + latched_offset;
         mmc3_latch_trigger = 0;
-    }
+    } else if (mmc3_countdown) mmc3_countdown--;
 
-    if (mmc3_countdown) {
-        mmc3_countdown--;
-        if (!mmc3_countdown && mmc3_irq_enabled) {
-            printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
-
-            mmc3_countdown = mmc3_latched + latched_offset;
-
-            return 1;
-        }
+    if ((mmc3_countdown == 0) && mmc3_irq_enabled) {
+        //printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
+        // Don't need to do this here anymore:
+        //mmc3_countdown = mmc3_latched + latched_offset;
+        return 1;
     }
     return 0;
 }

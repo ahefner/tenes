@@ -18,17 +18,17 @@ struct nes_rom load_nes_rom (char *filename)
 
   in = fopen (filename, "rb");
   if (in == NULL) {
-    printf ("Could not open file.\n");
-    exit (1);
+    printf("Could not open file.\n");
+    exit(1);
   }
 
-  stat (filename, &statbuf);
-  printf ("%s\n", filename);
-  printf ("Rom image size is %i bytes.\n", statbuf.st_size);
-  fread ((void *) header, 16, 1, in);
+  stat(filename, &statbuf);
+  printf("%s\n", filename);
+  printf("Rom image size is %i bytes.\n", (int)statbuf.st_size);
+  fread((void *) header, 16, 1, in);
   if ((header[0] != 'N') || (header[1] != 'E') || (header[2] != 'S')
       || (header[3] != 0x1A)) {
-    printf ("Invalid header.\n");
+    printf("Invalid header.\n");
     exit (1);
   }
 
@@ -38,29 +38,33 @@ struct nes_rom load_nes_rom (char *filename)
   rom.mapper = ((header[6] & 0xF0) >> 4) | (header[7] & 0xF0);
 
   /* This is a hack for roms with bogus headers */
-  if (rom.mapper > 35) {
-    printf ("This rom probably has a corrupt header.\n");
-    rom.mapper &= 0x3F;
+  if ((header[7] == 'D') && (header[8] == 'i')) {
+    printf ("This rom appears to have a corrupt header.\n");
+    rom.mapper &= 0x0F;
   }
-  strcpy (rom.title, filename);
-  strcpy (rom.filename, filename);
 
-  rom.prg = (byte *) malloc (rom.prg_size);
-  rom.chr = (byte *) malloc (rom.chr_size);
+  rom.mapper_info = mapper_find(rom.mapper);
+
+  strcpy(rom.title, filename);
+  strcpy(rom.filename, filename);
+
+  rom.prg = (byte *)malloc(rom.prg_size);
+  rom.chr = (byte *)malloc(rom.chr_size);
+
   if ((rom.prg == NULL) || (rom.chr == NULL)) {
-    printf ("Cannot allocate memory for rom data.\n");
+    printf("Cannot allocate memory for rom data.\n");
     exit (1);
   }
 
-  fread ((void *) rom.prg, rom.prg_size, 1, in);
-  fread ((void *) rom.chr, rom.chr_size, 1, in);
+  fread((void *)rom.prg, rom.prg_size, 1, in);
+  fread((void *)rom.chr, rom.chr_size, 1, in);
 
-  memset ((void *)rom.save, 0, 0x2000);
+  memset((void *)rom.save, 0, 0x2000);
 
-  printf ("PRG ROM is %i bytes\n", rom.prg_size);
-  printf ("CHR ROM is %i bytes\n", rom.chr_size);
-  printf ("Mapper is %i (%s)\n", rom.mapper, ((rom.mapper < MAPTABLESIZE) ? MapTable[rom.mapper].name : "corrupt rom header or mapper out of range"));
-  printf ("%s mirroring    %s    %s    %s\n", (rom.flags & 1) ? "Vertical" : "Horizontal", (rom.flags & 2) ? "SRAM" : "", (rom.flags & 4) ? "Trainer" : "", (rom.flags & 8) ? "4-Screen VRAM" : "");
+  printf("PRG ROM is %i bytes\n", rom.prg_size);
+  printf("CHR ROM is %i bytes\n", rom.chr_size);  
+  printf("Mapper is %i (%s)\n", rom.mapper, rom.mapper_info? rom.mapper_info->name : "corrupt rom header or unknown mapper");
+  printf("%s mirroring    %s    %s    %s\n", (rom.flags & 1) ? "Vertical" : "Horizontal", (rom.flags & 2) ? "SRAM" : "", (rom.flags & 4) ? "Trainer" : "", (rom.flags & 8) ? "4-Screen VRAM" : "");
   printf ("\n");
 
   rom.mirror_mode = rom.flags & 1 ? MIRROR_VERT : MIRROR_HORIZ;

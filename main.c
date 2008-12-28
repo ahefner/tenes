@@ -11,7 +11,7 @@
 
 
 int keyboard_controller = 0;
-int runflag = 1;
+int running = 1;
 
 void dump_instruction_trace (void)
 {
@@ -45,7 +45,7 @@ void dump_instruction_trace (void)
 void process_key_event (SDL_KeyboardEvent * key)
 {
     int idx;
-    int symtable[8] = { SDLK_LMETA, SDLK_LCTRL, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN,
+    int symtable[8] = { SDLK_s, SDLK_a, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN,
                         SDLK_LEFT, SDLK_RIGHT
     };
     for (idx = 0; idx < 8; idx++) {
@@ -66,7 +66,7 @@ void process_key_event (SDL_KeyboardEvent * key)
     } else if (key->type==SDL_KEYUP) {
         switch (key->keysym.sym) {
         case SDLK_ESCAPE:
-            runflag = 0;
+            running = 0;
             break;
 
 #ifdef INSTRUCTION_TRACING
@@ -101,6 +101,16 @@ void process_key_event (SDL_KeyboardEvent * key)
                 nes.rom.mirror_mode ^= 1;
                 printf("Toggled mirror mode. New mode=%i\n", nes.rom.mirror_mode);
             }
+            break;
+
+        case SDLK_c:
+            if (key->keysym.mod & KMOD_CTRL) running = 0;
+            break;
+
+        case SDLK_t:
+            nes.cpu.Trace ^= 1;
+            break;
+
           
         default: break;
         }
@@ -132,76 +142,66 @@ void process_joystick (int controller)
 
 int main (int argc, char **argv)
 {
-  int framecount = 0, frameskip = 1, i;
+    int i;
+    cfg_parseargs (argc, argv);
 
-  cfg_parseargs (argc, argv);
-
-  nes.rom = load_nes_rom (romfilename);
-  if (nes.rom.prg == NULL) {
-/*	printf("Couldn't load rom.\n"); */
-    return 1;
-  }
-
-  sys_init();
-  snd_init();
-
-  init_nes(&nes);
-  reset_nes(&nes);
-  nes.cpu.Trace = cputrace;
-
-  printf ("starting execution.\n");
-
-/*   for(i=0;i<60*4;i++) */
-  while (runflag) {
-    SDL_Event event;
-
-    for (i=0; i<numsticks; i++) {
-      if (joystick[i]) process_joystick (i);
+    nes.rom = load_nes_rom (romfilename);
+    if (nes.rom.prg == NULL) {
+        printf("Unable to load rom.\n");
+        return 1;
     }
 
-    gettimeofday(&time_frame_start, 0);
-    nes_runframe();   
+    sys_init();
+    snd_init();    
+    init_nes(&nes);
+    reset_nes(&nes);
+    nes.cpu.Trace = cputrace;
 
-/*	vid_draw_cache_page(0,0,0,0);   
-	vid_draw_cache_page(1,0,160,0);
-	vid_drawpalette(256,0);
-	vid_render_frame(192,64); */
-    if (!framecount) {
-      vid_render_frame (0, 0);
+    printf ("starting execution.\n");
 
-      if (cfg_diagnostic) vid_drawpalette (0, 256);
+    while (running) {
+        SDL_Event event;
 
-      if (vid_filter) vid_filter(post_surface);
+        for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick (i);
+        gettimeofday(&time_frame_start, 0);
 
-      if (post_surface != window_surface) {
-	SDL_BlitSurface(post_surface,NULL,window_surface,NULL);
-      }
+        render_clear();
+        nes_runframe();   
+
+        //vid_render_frame(0, 0);
+        //if (nes.ppu.control2 & 0x10) vid_draw_sprites(0,0);
+
+        if (cfg_diagnostic) vid_drawpalette (0, 256);
+        
+        if (vid_filter) vid_filter(post_surface);
+        
+        if (post_surface != window_surface) {
+            SDL_BlitSurface(post_surface,NULL,window_surface,NULL);
+        }
      
-      SDL_Flip (window_surface);
-      sys_framesync();
-    }
-    while (SDL_PollEvent (&event)) {
-      switch (event.type) {
-      case SDL_QUIT:
-	runflag = 0;
-	break;
+        SDL_Flip (window_surface);
+        sys_framesync();
 
-      case SDL_KEYDOWN:
-	  process_key_event (&event.key);
-	  break;
+        while (SDL_PollEvent (&event)) {
+            switch (event.type) {
+            case SDL_QUIT:
+                running = 0;
+                break;
+                
+            case SDL_KEYDOWN:
+                process_key_event (&event.key);
+                break;
+                
+            case SDL_KEYUP:
+                process_key_event (&event.key);
+                break;
+                
+            default:
+                break;
+            }
+        }
 
-      case SDL_KEYUP:
-	  process_key_event (&event.key);
-	  break;
-
-      default:
-	break;
-      }
-    }
-
-    frame_number++;
-    framecount++;
-    if (framecount == frameskip) framecount = 0;
+        frame_number++;
   }
 
   nes.mapper->mapper_shutdown ();

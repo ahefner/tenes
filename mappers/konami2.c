@@ -26,7 +26,7 @@ void mapper2_write(register word Addr,register byte Value)
    memcpy(nes.mapper_data,(void *)(nes.rom.prg+tmp),0x4000);
 }
 
-struct mapper_functions mapper_konami = {
+struct mapper_methods mapper_konami = {
    mapper2_init,
    mapper2_shutdown,
    mapper2_write,

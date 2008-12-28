@@ -112,7 +112,7 @@ struct nes_machine
   byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
   int scanline;
   
-  struct mapper_functions *mapper;
+  struct mapper_methods *mapper;
   struct joypad_info joypad;
 };
 
@@ -125,6 +125,7 @@ struct scanline_info
 {
     byte control1, control2, x;
     word v, t;
+    byte palette[32];
 };
 
 #define LOG_LENGTH 256

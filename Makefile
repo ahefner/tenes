@@ -1,13 +1,13 @@
 # Makefile
 
 CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags`
+CFLAGS= -Wall -O3 -g `sdl-config --cflags` -std=c99
 
 OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o
 INCLUDEDIRS= -IM6502
 DEFINES=
 LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs`
-MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c
+MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c
 
 COBJ=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
 CAPP=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)

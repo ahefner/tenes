@@ -15,47 +15,67 @@
 #include "mappers/vromswitch.c"
 #include "mappers/konami2.c"
 #include "mappers/mmc3.c"
+#include "mappers/axrom.c"
+#include "mappers/camerica.c"
 
-/* MapTable - contains mapper id/support level
-   Entry in maptable should match iNes Mapper # (id) */
+/* Mapper table - contains iNES mapper number, name, and pointer to
+ * mapper_methods struct (if implemented). 
+ */
 
-struct mapperinfo MapTable[MAPTABLESIZE] = {
+struct mapperinfo MapTable[] = {
 
-  {0, "None", 1, &mapper_None},
-  {1, "MMC1", 1, &mapper_MMC1},
-  {2, "Konami 74HC161/74HC32", 1, &mapper_konami},
-  {3, "VROM Switch", 1, &mapper_VROM},
-  {4, "MMC3", 0, &mapper_MMC3},
-  {5, "MMC5", 0, NULL},
-  {6, "Front Far East F4", 0, NULL},
-  {7, "Rom Switch", 0, NULL},
-  {8, "Front Far East F3", 0, NULL},
-  {9, "MMC2", 0, NULL},
-  {10, "MMC4", 0, NULL},
-  {11, "Color Dreams Mapper", 0, NULL},
-  {12, "Front Far East F6", 0, NULL},
-  {13, "Unknown", 0, NULL},
-  {14, "Unknown", 0, NULL},
-  {15, "100-in-1", 0, NULL},
-  {16, "Bandai", 0, NULL},
-  {17, "Front Far East F8", 0, NULL},
-  {18, "Jaleco SS8806", 0, NULL},
-  {19, "Namcot 106", 0, NULL},
-  {20, "Famicom Disk System", 0, NULL},
-  {21, "Konami VRC4", 0, NULL},
-  {22, "Konami VRC2 v1", 0, NULL},
-  {23, "Konami VRC2 v2", 0, NULL},
-  {24, "Konami VRC6", 0, NULL},
-  {25, "Unknown", 0, NULL},
-  {26, "Unknown", 0, NULL},
-  {27, "Unknown", 0, NULL},
-  {28, "Unknown", 0, NULL},
-  {29, "Unknown", 0, NULL},
-  {30, "Unknown", 0, NULL},
-  {31, "Unknown", 0, NULL},
-  {32, "Irem G-101", 0, NULL},
-  {33, "Taito TC0190/TC0350", 0, NULL},
-  {34, "iNES Mapper #34", 0, NULL}};
+  {0,  "None", &mapper_None},
+  {1,  "MMC1", &mapper_MMC1},
+  {2,  "Konami 74HC161/74HC32", &mapper_konami},
+  {3,  "VROM Switch", &mapper_VROM},
+  {4,  "MMC3", &mapper_MMC3},
+  {5,  "MMC5", NULL},
+  {6,  "Front Far East F4", NULL},
+  {7,  "Rom Switch", &mapper_axrom},
+  {8,  "Front Far East F3", NULL},
+  {9,  "MMC2", NULL},
+  {10, "MMC4", NULL},
+  {11, "Color Dreams Mapper", NULL},
+  {12, "Front Far East F6", NULL},
+  {13, "Unknown", NULL},
+  {14, "Unknown", NULL},
+  {15, "100-in-1", NULL},
+  {16, "Bandai", NULL},
+  {17, "Front Far East F8", NULL},
+  {18, "Jaleco SS8806", NULL},
+  {19, "Namcot 106", NULL},
+  {20, "Famicom Disk System", NULL},
+  {21, "Konami VRC4", NULL},
+  {22, "Konami VRC2 v1", NULL},
+  {23, "Konami VRC2 v2", NULL},
+  {24, "Konami VRC6", NULL},
+  {25, "Unknown", NULL},
+  {26, "Unknown", NULL},
+  {27, "Unknown", NULL},
+  {28, "Unknown", NULL},
+  {29, "Unknown", NULL},
+  {30, "Unknown", NULL},
+  {31, "Unknown", NULL},
+  {32, "Irem G-101", NULL},
+  {33, "Taito TC0190/TC0350", NULL},
+  {34, "iNES Mapper #34", NULL},
+  {71, "Camerica", &mapper_camerica}};
+
+static int mapper_table_size (void) 
+{
+    return sizeof(MapTable) / sizeof(MapTable[0]);
+}
+
+struct mapperinfo *
+mapper_find (int ines_number)
+{
+    int i;
+    for (i=0; i<mapper_table_size(); i++)
+        if (MapTable[i].id == ines_number) return MapTable+i;
+    
+    return NULL;
+}
+
 
 
 /* EOF */
