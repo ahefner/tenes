@@ -10,6 +10,11 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <limits.h>
+
 #include "nespal.h"
 #include "nes.h"
 #include "config.h"
@@ -36,7 +41,7 @@ void sys_framesync (void)
     //if (now-target) printf("framesync: off by %lli microseconds\n", now - target);
 }
 
-SDL_Color palette[128];
+SDL_Color palette[129];
 SDL_Joystick *joystick[4];
 int numsticks = 0;
 
@@ -85,6 +90,7 @@ void sys_init (void)
       SDL_FillRect(post_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_FillRect(surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
+      SDL_ShowCursor(SDL_DISABLE);
 
       tmp = SDL_NumJoysticks();
       if (!cfg_disable_joysticks) {
@@ -115,6 +121,34 @@ void sys_init (void)
       } else printf("Joysticks are disabled.\n");
 }
 
+
+char config_dir[PATH_MAX];
+char *ensure_config_dir (void)
+{
+    struct passwd *pwd = getpwuid(getuid());
+
+    if (getenv("HOME")) {
+        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", getenv("HOME"));
+    } else if (!pwd) {
+        snprintf(config_dir, sizeof(config_dir), "/tmp/nes-emulator-%i", (int)getuid());
+    } else {
+        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", pwd->pw_dir);
+    }
+
+    mkdir(config_dir, 0777);
+    return config_dir;
+}
+
+char save_dir[PATH_MAX];
+char *ensure_save_dir (void)
+{
+    snprintf(save_dir, sizeof(save_dir), "%s/sram", ensure_config_dir());
+    mkdir(save_dir, 0777);
+    return save_dir;
+}
+
+
+
 void sys_shutdown (void)
 {
     int i;
@@ -127,3 +161,4 @@ void sys_shutdown (void)
     SDL_FreeSurface (window_surface);
     SDL_Quit (); 
 }
+

@@ -202,8 +202,11 @@ int main (int argc, char **argv)
         }
 
         frame_number++;
+        /* Automatically save SRAM to disk once per minute. */
+        if ((frame_number > 0) && !(frame_number % 3600)) save_sram(&nes.rom, 0);
   }
 
+  save_sram(&nes.rom, 1);
   nes.mapper->mapper_shutdown ();
   free_rom (&nes.rom);
   printf ("Rom freed.\n");

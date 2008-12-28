@@ -178,6 +178,9 @@ int sprite_evaluation (struct sprite_unit sprites[8], int scanline)
             n++;
         }
 
+        /* We could emulate the sprite overflow flag here rather than
+         * breaking, but the NES PPU itself seems to be buggy with
+         * respect to this, and so far it hasn't seemed important. */
         if (n == 8) break;
     }
 
@@ -235,7 +238,7 @@ void scanline_render_sprites (byte *dest)
             } else combined_output = nes.ppu.vram[0x3F10 + (sprite_output & 15)];
         }
 
-        if (!(nes.ppu.control1 & 4) && (x < 8)) combined_output = background;
+        if (!(nes.ppu.control2 & 4) && (x < 8)) combined_output = background;
         dest[x] = combined_output;
     }
     

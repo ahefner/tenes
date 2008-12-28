@@ -48,6 +48,7 @@ void init_nes (struct nes_machine *nes)
 void shutdown_nes (struct nes_machine *nes)
 {
   nes->mapper->mapper_shutdown ();
+  
 }
 
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
