@@ -121,24 +121,12 @@ extern
 #endif
 struct nes_machine nes;
 
-struct scanline_info
-{
-    byte control1, control2, x;
-    word v, t;
-    byte palette[32];
-};
-
-#define LOG_LENGTH 256
-extern struct scanline_info lineinfo[LOG_LENGTH];
-
 void init_nes(struct nes_machine *nes);
 void shutdown_nes(struct nes_machine *nes);
 void reset_nes(struct nes_machine *nes);
 void nes_runframe(void);
 
 
-/* This is dumb. Why didn't I just make this a method in the mapper?
- */
 static inline word ppu_mirrored_nt_addr (word paddr)
 {
     //word paddr_hbit = (paddr & 0x400) >> 10;

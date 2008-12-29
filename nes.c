@@ -16,8 +16,6 @@ int waitingforhit;
 /*            after this, an nes_reset is all it should take to start the first frame.       */
 void init_nes (struct nes_machine *nes)
 {
-    struct mapper_info *info;
-
 #ifdef INSTUCTION_TRACING
   memset(tracing_counts,0,sizeof(tracing_counts));
 #endif
@@ -298,9 +296,7 @@ void Wr6502 (register word Addr, register byte Value)
                           printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.v);
                       }
                   } else { 
-                      /* Palette write - we mirror the write of the
-                         background color here for the sake of the
-                         video code, but Rd6502 doesn't require it. */
+                      /* Palette write */
                       word tmp = nes.ppu.v;
                       vid_tilecache_dirty = 1;
                       tmp &= 0x1F;
@@ -311,6 +307,10 @@ void Wr6502 (register word Addr, register byte Value)
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
                           nes.ppu.vram[0x3F0C] = Value;
+                          nes.ppu.vram[0x3F10] = Value;
+                          nes.ppu.vram[0x3F14] = Value;
+                          nes.ppu.vram[0x3F18] = Value;
+                          nes.ppu.vram[0x3F1C] = Value;
                       } else nes.ppu.vram[tmp] = Value;
                   }
               } else {
@@ -413,7 +413,6 @@ byte Rd6502 (register word Addr)
 	//	return nes.ppu.control2;
       case ppu_addr:
       case spr_addr:
-      case spr_data:
       case ppu_status:
       {
 	  byte tmp = 
@@ -443,9 +442,18 @@ byte Rd6502 (register word Addr)
 	  return tmp;
       }
 
+      case spr_data:
+          return nes.ppu.spriteram[nes.ppu.sprite_address];
+
       case ppu_data:
       {
-	  byte ret = nes.ppu.read_latch;
+	  byte ret;
+          
+          /* Palette reads aren't buffered? */
+          if (nes.ppu.v >= 0x3f00) nes.ppu.read_latch =  nes.ppu.vram[0x3f00 | (nes.ppu.v & 0x1f)];
+
+          ret = nes.ppu.read_latch;
+          
 
           nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.v & 0x3FFF)];
           // TODO: Manual scanline twiddle for IRQ counter?
@@ -509,31 +517,6 @@ byte Debug6502 (register M6502 * R)
 byte Loop6502 (register M6502 * R)
 {
     byte ret = INT_NONE;                        
-    struct scanline_info *line;
-
-  /*  if (superverbose) printf("scanline %i\n",nes.scanline);  */
-    /*
-  if (nes.scanline == nes.ppu.spriteram[0]) {
-      nes.ppu.hit_flag = 1;
-    if (superverbose) printf ("Sprite 0 hit on line %i (s0y=%i, s0t=%i)\n", (int)nes.scanline, (int)nes.ppu.spriteram[0],(int)nes.ppu.spriteram[1]);
-  } 
-    */
-  
-  /* This is more correct, but there's a bug in it... */
-  /*  if ( (nes.scanline>=nes.ppu.spriteram[0]) && (((int)nes.scanline)<(((int)nes.ppu.spriteram[0])+8))) {
-    unsigned *chr = (unsigned *) ((unsigned char *)nes.ppu.vram + ((nes.ppu.control1 & 8)<<9));
-    int i = 0;
-    chr += 16 * nes.ppu.spriteram[1];
-    while (i <= (nes.scanline - nes.ppu.spriteram[0])) {
-      if (chr[i*2+0] || chr[i*2+1]) {
-	nes.ppu.hit_flag = 1;
-	waitingforhit = 0;
-	printf ("Sprite 0 hit on line %i (s0y=%i, s0t=%i)\n", (int)nes.scanline, (int)nes.ppu.spriteram[0],(int)nes.ppu.spriteram[1]);
-	break;
-      } else i++;
-    }
-    }*/
-      
 
   if (nes.scanline == 0) nes.ppu.vblank_flag = 0;  
 
@@ -542,19 +525,8 @@ byte Loop6502 (register M6502 * R)
              ppu_current_hscroll(), ppu_current_vscroll());
 
   if ((nes.scanline<240)) {
-      line = lineinfo + nes.scanline;
       //if (trace_ppu_writes) printf("  %i: vscroll = %3i V=%04X\n", nes.scanline, ppu_current_vscroll(), nes.ppu.v);
-      if (nes.ppu.control2 & 0x18) {
-          nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-      }
-
-      line->v = nes.ppu.v;
-      line->t = nes.ppu.t;
-      line->x = nes.ppu.x;
-      line->control1 = nes.ppu.control1;
-      line->control2 = nes.ppu.control2;
-      memcpy(line->palette, nes.ppu.vram+0x3F00, 32);
-
+      if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
       render_scanline();
       tv_scanline++;
   }
@@ -591,12 +563,13 @@ void nes_runframe (void)
   }
 }
 
-/** Debugging utilities: The idea is that rather than writing a 6502
+/* Debugging utilities: The idea is that rather than writing a 6502
  * debugger as part of the emulator, we can debug from the host's GDB
  * using watchpoints and inspecting the emulator data structures
  * directly. These are here to aid in that approach (e.g. "display
- * list()")
- **/
+ * list()"). In practice this is a huge pain in the ass, but it has
+ * worked well enough so far.
+ */
 
 word getword (word addr)
 {
