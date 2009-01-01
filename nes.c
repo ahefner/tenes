@@ -10,8 +10,6 @@
 #include "config.h"
 #include "global.h"
 
-int waitingforhit;
-
 /* init_nes - initializes a nes_machine struct that already had it's rom member set properly */
 /*            after this, an nes_reset is all it should take to start the first frame.       */
 void init_nes (struct nes_machine *nes)
@@ -40,6 +38,7 @@ void init_nes (struct nes_machine *nes)
 
   nes->joypad.connected = 1;
   nes->mapper->mapper_init ();
+  nes->last_sound_cycle = 0;
   printf ("NES initialized.\n");
 }
 
@@ -94,7 +93,6 @@ void nes_initframe (struct nes_machine *nes)
   nes->ppu.vblank_flag=0; /* set to 0 at frame start, I think */
   nes->ppu.spritecount_flag = 0;
   nes->ppu.sprite_address = 0;
-  waitingforhit = 1;
 
   if (nes->ppu.control2 & 0x18) nes->ppu.v = nes->ppu.t;
 
@@ -543,6 +541,9 @@ byte Loop6502 (register M6502 * R)
 
   if ((!in_vblank(&nes)) && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
 
+  /* This is excessive, but screw it. */
+  snd_catchup();
+
   return ret;
 }
 
@@ -550,12 +551,9 @@ void nes_runframe (void)
 {
   nes.cpu.IPeriod = cfg_linecycles;
   nes_initframe (&nes);
-  if (superverbose) {
-    printf ("ppu @ $%04X\n", (unsigned)nes.ppu.v);
-  }
+  if (superverbose) printf ("ppu @ $%04X\n", (unsigned)nes.ppu.v);  
   Run6502 (&nes.cpu);
   if (superverbose) printf ("\n\n");
-  snd_frameend();
 
   if (superverbose) {
     printf("ppu=%X\n",nes.ppu.control1&0x40); 
@@ -567,8 +565,8 @@ void nes_runframe (void)
  * debugger as part of the emulator, we can debug from the host's GDB
  * using watchpoints and inspecting the emulator data structures
  * directly. These are here to aid in that approach (e.g. "display
- * list()"). In practice this is a huge pain in the ass, but it has
- * worked well enough so far.
+ * list()"). In practice this is a pain in the ass, but it has worked
+ * well enough so far.
  */
 
 word getword (word addr)

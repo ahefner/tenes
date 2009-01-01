@@ -8,10 +8,16 @@
 #include "sys.h"
 #include "config.h"
 #include "nes.h"
+#include "sound.h"
 
-/* TODO: Interleave audio with CPU emulation. This should tighten things up.
+/* TODO: Move audio state out of random global variables and into the NES struct.   
+   
+   FIXME? I was really a lot better off when the audio was generated
+   on demand within the audio callback. Now I've got this huge
+   headache of having to introduce extra buffering and struggling to
+   keep the emulator thread producing at just the right rate.
 
-   FIXME: Audio frequencies are off by a bit due to rounding of CLOCK/44100.
+   FIXME: Audio frequencies are off by a bit due to rounding of CLOCK/48000.
 
    FIXME: Interrupt acknowledgement. Right now we fire interrupts once, rather
           than emulating the real behavior of the interrupt signals, so it's
@@ -20,24 +26,32 @@
 */
 
 #define AUDIO_BUFFER_SIZE 4096
+#define BUFFER_PTR_MASK   (AUDIO_BUFFER_SIZE-1)
 
-int sound_waiting = 0;		/* does an audio buffer needs to be filled? */
-Sint16 audio_buffer[AUDIO_BUFFER_SIZE];
+/* Audio is output to a mirrored circular buffer with low/high water mark */
+volatile int buffer_low = 0;
+volatile int buffer_high = 0;
+static Sint16 audio_buffer[AUDIO_BUFFER_SIZE*2];
+
+int rate_governor = 0; /* tuned for my laptop */
 
 int sound_initialized = 0;
-int sound_enabled = 1;
+volatile int sound_enabled = 1;
 
-void audio_callback (void *udata, Sint16 * stream, int len);
-void snd_fillbuffer (unsigned char *regs, Sint16 * buf, unsigned length);
+static void buffer_init (void);
+static void audio_callback (void *udata, Sint16 * stream, int len);
+static void snd_fillbuffer (Sint16 * buf, unsigned index, unsigned length);
 
-SDL_AudioSpec desired, obtained;
+static SDL_AudioSpec desired, obtained;
 
 int snd_init (void)
 {
     if (sound_globalenabled) {
-        memset ((void *) audio_buffer, 0, AUDIO_BUFFER_SIZE * 2);
+        int i;
 
-        desired.freq = 44100;
+        buffer_init();
+
+        desired.freq = 48000;
         desired.format = AUDIO_S16 /* | AUDIO_MONO */ ;
         desired.samples = 512; /* Desired buffer size */
         desired.callback = audio_callback;
@@ -49,9 +63,11 @@ int snd_init (void)
             printf ("SDL_OpenAudio failed: %s", SDL_GetError ());
             return -1;
         } else {
-            printf ("SDL audio initialized. Buffer size = %i\n", obtained.samples);
+            printf ("SDL audio initialized. Buffer size = %i. Sample rate = %i\n", obtained.samples, obtained.freq);
+            if (obtained.samples > AUDIO_BUFFER_SIZE) 
+                printf("Obtained audio buffer size is too large! Sound will be garbled.\n");
             sound_initialized = 1;
-            SDL_PauseAudio (0);
+            SDL_PauseAudio(0);
 
             return 0;
         }
@@ -63,20 +79,105 @@ int snd_init (void)
 
 void snd_shutdown (void)
 {
+    /* Setting sound_enabled breaks audio_callback out of its wait loop. */
+    sound_enabled = 0;
     if (sound_initialized) SDL_CloseAudio();
+
 }
 
-void audio_callback (void *udata, Sint16 *stream, int len)
+/* buffer_samples: Returns used space in the audio buffer */
+static int buffer_samples (void)
+{
+    return buffer_high - buffer_low;
+}
+
+/* buffer_space: Returns available space in the audio buffer */
+static int buffer_space (void)
+{
+    assert(buffer_samples() <= AUDIO_BUFFER_SIZE);
+    assert(buffer_samples() >= 0);
+    return AUDIO_BUFFER_SIZE - buffer_samples();
+}
+
+static void buffer_init (void)
+{
+    memset((void *) audio_buffer, 0, AUDIO_BUFFER_SIZE*2);    
+
+    buffer_low = 0;
+    buffer_high = AUDIO_BUFFER_SIZE / 2;
+}
+
+const int desired_buffer_ahead = 1200;
+int first_buffer = 1;
+int delta_log[16];
+int fill_log[16];
+int delta_log_idx = 0;
+
+
+static void audio_callback (void *udata, Sint16 *stream, int len)
 { 
-    if (len > AUDIO_BUFFER_SIZE*2) { 
-        printf("Underrun! %i %i\n", len, AUDIO_BUFFER_SIZE*2);
-        len = AUDIO_BUFFER_SIZE*2;
+    int req = len >> 1, num = buffer_samples(), consumed = req, need = num-req > 0? 0 : req-num;
+    int ideal_buffer_length = req + desired_buffer_ahead;
+    static int last = 0;
+
+    /* There appears to be some considerable delay between starting up
+     * the audio system and the first invocation of the callback, such
+     * that there is more audio buffered than you'd expect. Therefore,
+     * snap to the end of the buffer, minus however much we'd prefer
+     * to keep as a safety margin. */
+    if (first_buffer) {
+        while (buffer_samples() < ideal_buffer_length) { /* Wait. */ }
+        buffer_low = buffer_high - ideal_buffer_length - 300;
+        num = buffer_samples();
+        first_buffer = 0;
+        memset(delta_log, 0, sizeof(delta_log));
+        memset(fill_log, 0, sizeof(delta_log));
+    } else {
+        int i, avg_x = 0, avg_dx = 0;
+        delta_log[delta_log_idx] = num - last;
+        fill_log[delta_log_idx] = num;
+        delta_log_idx = (delta_log_idx + 1) % 16;
+
+        for (i=0; i<16; i++) { avg_dx += delta_log[i]; avg_x += fill_log[i]; }
+        avg_x /= i;
+        avg_dx /= i;
+        if (!delta_log_idx) {
+            //printf("Average drift: %4i, average fill: %4i (gov=%i), frob=%i\n", avg_dx, avg_x, rate_governor, ((avg_x - ideal_buffer_length) / 24));
+            //rate_governor += max(-3,min(3,((avg_x - ideal_buffer_length) / 64)));
+            //rate_governor += (avg_dx / 32);
+
+        }
     }
 
-    if (sound_enabled) {
-        memcpy ((void *) stream, (void *) audio_buffer, len);
-        snd_fillbuffer (nes.snd.regs, audio_buffer, len/2);
+    if (num < (ideal_buffer_length - req/4)) rate_governor--;
+    if (num > (ideal_buffer_length + req/4)) rate_governor++;
+
+    /* Maybe we can get away with this.. */
+    //while (sound_enabled && (buffer_samples() < req)) ;
+    //printf("Waiting! requested %i, %i available\n", req, buffer_samples());
+
+    //printf("Audio callback requested %i. %i available (%i free)\n", req, buffer_samples(), buffer_space());
+    //printf("%i\n", num - last);
+    last = num;
+    
+    if (num == AUDIO_BUFFER_SIZE) {
+        //rate_governor++;
+        printf("Buffer full. Rate governor is %i.\n", rate_governor);
     }
+
+    if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
+
+    if (req > num) {
+        //consumed = num / 2;     /* Why not? */
+        consumed = 0;
+        //if (rate_governor) rate_governor--;
+        memset(delta_log, 0, sizeof(delta_log));
+        printf("Underrun! requested %i, %i available. Rate governor adjusted to %i\n", req, num, rate_governor);
+    }
+
+    buffer_low += consumed;
+    //printf("consumed %i samples (%i/%i).\n", consumed, buffer_low, buffer_high);
+    
 }
 
 /* the pAPU loads the length counter with some pretty strange things.. */
@@ -101,11 +202,8 @@ int wavelength[5]={0,0,0,0,0}; /* controls ptimer */
 int out_counter[3]={0,0,0}; /* for square and triangle channels.. */
 const int out_counter_mask[3]={0x0F,0x0F,0x1F}; 
 
-void snd_frameend (void) 
-{
-}
-
-void frameseq_clock (void);
+void frameseq_clock_divider (void);
+void frameseq_clock_sequencer (void);
 void length_counters_clock (void);
 void sweep_clock (void);
 void envelope_clock (void);
@@ -116,8 +214,8 @@ void linear_counter_clock (void);
     length counters, sweep unit, and 60 Hz interrupts.    
 **/
 
-const int frameseq_divider_reset = 183; /* 44100 Hz / 240 Hz */
-int frameseq_divider = 183; // frameseq_divider_reset
+const int frameseq_divider_reset = 200; /* 48000 Hz / 240 Hz */
+int frameseq_divider = 200; //frameseq_divider_reset;
 int frameseq_sequencer = 0;
 int frameseq_mode_5 = 0;
 int frameseq_irq_disable = 1;
@@ -128,18 +226,23 @@ int frameseq_irq_disable = 1;
 
 int frameseq_patterns[2][5] = { { 1, 3, 1, 7, 0}, { 3, 1, 3, 1, 0} };
 
-/* Clock the frame sequencer. Should be called at 44100 Hz. */
-void frameseq_clock (void) {
+/* Clock the frameseq divider. Should be called at 48000 Hz. */
+void frameseq_clock_divider (void) {
     if (!frameseq_divider) {
+        frameseq_clock_sequencer();
+    } else frameseq_divider--;
+}
+
+/* Clock the sequencer. Called when divider counts down. */
+void frameseq_clock_sequencer (void)
+{
         int output;
         frameseq_divider = frameseq_divider_reset;
-        frameseq_sequencer++;
-        if ((frameseq_sequencer == 5) ||
-            ((frameseq_sequencer == 4) && !frameseq_mode_5)) frameseq_sequencer = 0;
+
         output = frameseq_patterns[frameseq_mode_5][frameseq_sequencer];
         if ((output & FRAMESEQ_CLOCK_IRQ) && !frameseq_irq_disable) {
             nes.snd.regs[0x15] |= 0x40;
-            //printf("%u: frame sequencer interrupt.\n", frame_number);
+            //printf("%u.%u: frame sequencer interrupt.\n", frame_number, nes.scanline);
             Int6502(&nes.cpu, INT_IRQ);
         }
 
@@ -152,8 +255,10 @@ void frameseq_clock (void) {
             envelope_clock();
             linear_counter_clock();
         }
-    }
-    else frameseq_divider--;
+
+        frameseq_sequencer++;
+        if ((frameseq_sequencer == 5) ||
+            ((frameseq_sequencer == 4) && !frameseq_mode_5)) frameseq_sequencer = 0;
 }
 
 /** Length counters count down unless the hold bit is set. **/
@@ -346,7 +451,7 @@ void dmc_clock (void)
 
 void clock_dmc_ptimer (void)
 {
-    ptimer[4] -= CLOCK / 44100;
+    ptimer[4] -= CLOCK / 48000;
     while (ptimer[4] < 0) {
         dmc_clock();
         ptimer[4] += (wavelength[4]+1);
@@ -366,11 +471,15 @@ unsigned translate_dmc_period (unsigned period)
 void snd_write (unsigned addr, unsigned char value)
 {
     int chan = addr >> 2;
-    if (addr == 0x16) return;
-    
 
-    //printf("%u: snd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", frame_number, addr, value,
-    // lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
+    /* Generate audio up to the current point in time before modifying
+     * register contents. */
+    snd_catchup();
+
+    if (addr == 0x16) return;
+
+    if ((addr < 4) || (addr == 0x15))
+        printf("%u.%u: snd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", frame_number, nes.scanline, addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
 
     switch (addr) {
     case 0x15: /* channel enable register */
@@ -384,15 +493,11 @@ void snd_write (unsigned addr, unsigned char value)
         frameseq_sequencer = 0;
         frameseq_mode_5 = value & 0x80 ? 1 : 0;
         frameseq_irq_disable = value & 0x40;
+        if (value & 0x40) nes.snd.regs[0x15] &= 0xBF; /* clear frameseq irq flag */
         
         if (frameseq_mode_5) {
-            /* Heh. If you set mode 5, but hit this every frame (for
-               instance when strobing the joypad port), the counters
-               essentially run at the normal rate. */
-            frameseq_clock();
-
-            /* Kludge to make Blargg's APU test pass. Not sure if the above should be removed.*/
-            length_counters_clock();
+            /* Okay, I think what he meant was that the *sequencer* should be clocked (not the divider) */
+            frameseq_clock_sequencer();
         }
         break;
 
@@ -459,6 +564,7 @@ void snd_write (unsigned addr, unsigned char value)
 
     case 0x11:
         dmc_dac = value & 0x7F;
+        //printf("Direct write to DMC DAC: %i. Enabled? %i\n", value, nes.snd.regs[0x15] & BIT(4));
         break;
 
     case 0x12:
@@ -475,6 +581,7 @@ unsigned char snd_read_status_reg (void)
 {
     unsigned char result = 0;
     int i;
+    snd_catchup();
     for (i=0; i<4; i++) if (lcounter[i] > 0) result |= (1 << i);
     if (dmc_counter) result |= BIT(4);
     result |= nes.snd.regs[0x15] & 0xE0;
@@ -486,9 +593,9 @@ unsigned char snd_read_status_reg (void)
 
 inline void clock_ptimer (int channel, int mask)
 {
-    ptimer[channel] -= CLOCK/44100;
+    ptimer[channel] -= CLOCK/48000;
     while (ptimer[channel] < 0) {
-        /* +1 here is definitely the right thing. You can here it when
+        /* +1 here is definitely the right thing. You can hear it when
            the pitch gets very high, like the 1-up melody in SMB1. */
         ptimer[channel] += (wavelength[channel]+1);
         out_counter[channel]++;
@@ -509,14 +616,40 @@ inline void clock_lfsr (void)
 
 inline void clock_noise_ptimer (void)
 {
-    ptimer[3] -= CLOCK/44100;
+    ptimer[3] -= CLOCK/48000;
     while (ptimer[3] < 0) {
         ptimer[3] += (wavelength[3]+1);
         clock_lfsr();
     }
 }
 
-void snd_fillbuffer (unsigned char *r, Sint16 * buf, unsigned length)
+void snd_catchup (void)
+{
+    int delta = nes.cpu.Cycles - nes.last_sound_cycle;
+    int cpu_per_sample = 4474 ; //+ max(-1000, rate_governor); /* 447.443 = 21.47727 MHz / 48000 Hz */
+    int samples = delta / cpu_per_sample;
+    int prev_space = -1;
+    /* Awesome, now we have two passes of rounding error affecting the audio frequency.. */
+
+    //printf("catchup: %i cycles since last call (%i samples).\n", delta, samples);
+    if (samples > 0) {
+        if (!sound_enabled) buffer_low = buffer_high = 0;
+
+        while (samples) {
+            unsigned space = buffer_space(), nfill = space;
+            //if (prev_space != -1) printf("waiting (%i samples, space=%i, prev_space=%i)..\n", samples, space, prev_space);
+            if (nfill > samples) nfill = samples;
+            //printf("sound delta: %i cycles: %i samples. %i free in buffer. filling %i. low=%i, high=%i\n", delta, samples, space, nfill, buffer_low, buffer_high);
+            snd_fillbuffer(audio_buffer, buffer_high & BUFFER_PTR_MASK, nfill);
+            samples -= nfill;
+            buffer_high = buffer_high + nfill;
+            nes.last_sound_cycle += nfill * cpu_per_sample;
+            prev_space = space;
+        }
+    }
+}
+
+static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
 {
     //const int dc_table[4] = { 14, 12, 8, 4 };
     static float f_tri = 0.0, f_tri_param = 0.7;
@@ -524,12 +657,13 @@ void snd_fillbuffer (unsigned char *r, Sint16 * buf, unsigned length)
         { { 0, 1, 0, 0, 0, 0, 0, 0 },
           { 0, 1, 1, 0, 0, 0, 0, 0 },
           { 0, 1, 1, 1, 1, 0, 0, 0 },
-          { 1, 0, 0, 1, 1, 1, 1, 1 } };
-    int i;
+          { 1, 0, 0, 1, 1, 1, 1, 1 } };    
+    int fin = index + length;
 
-    for (i=0; i<length; i++) {
+    while (index < fin) {
         int sq1 = 0, sq2 = 0, tri = 0, noise = 0, dmc = 0;
-        frameseq_clock();
+        Sint16 samp;
+        frameseq_clock_divider();
 
         clock_ptimer(0, 0x0F);
         if (dc_table[nes.snd.regs[0]>>6][out_counter[0]>>1] && 
@@ -552,18 +686,24 @@ void snd_fillbuffer (unsigned char *r, Sint16 * buf, unsigned length)
         }
 
         clock_dmc_ptimer();
-        if (nes.snd.regs[0x15] & BIT(4)) dmc = dmc_dac;
-
+        /* Not that bit 4 only disable the DMA unit, not the DAC. */
+        dmc = dmc_dac;
+        
         //f_tri = f_tri*f_tri_param + ((float)tri)*(1.0-f_tri_param);
+        
+        samp = 30000.0 * ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
+                                                     ((float)noise) / 12241.0 +
+                                                     ((float)dmc) / 22638.0)))
+                          +
+                          ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
+        // Alternatively, without fancy (and slow) channel mixing:
+        // samp = (sq1 + sq2 + tri + noise) * 512;
 
-        buf[i] = 30000.0 * 
-            ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
-                                        ((float)noise) / 12241.0 +
-                                        ((float)dmc) / 22638.0)))
-             +
-             ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
+        samp = sq1  * 1000;
 
-        //buf[i] = (sq1 + sq2 + tri + noise) * 512;
+        buf[index & ~AUDIO_BUFFER_SIZE] = samp;
+        buf[index | AUDIO_BUFFER_SIZE] = samp;
+        index++;
 
         //printf("%X %X %02X %X %02X => %5i\n", sq1, sq2, tri, noise, dmc, buf[i]);
              

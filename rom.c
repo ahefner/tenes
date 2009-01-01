@@ -145,7 +145,7 @@ void save_sram (struct nes_rom *rom, int verbose)
             }
 
             if (n && verbose) printf("Saved game to %s\n", sram_filename(rom));
-            else printf("Error writing save ram.\n");
+            else if (!n) printf("Error writing save ram.\n");
             
         }
     }

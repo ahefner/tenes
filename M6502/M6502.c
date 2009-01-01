@@ -101,7 +101,7 @@ INLINE byte Op6502(register word A) { return(Page[A>>13][A&0x1FFF]); }
 
 #define M_PUSH(Rg)	Wr6502(0x0100|R->S,Rg);R->S--
 #define M_POP(Rg)	R->S++;Rg=Op6502(0x0100|R->S)
-#define M_JR		R->PC.W+=(offset)Op6502(R->PC.W)+1;R->ICount--
+#define M_JR		R->PC.W+=(offset)Op6502(R->PC.W)+1;R->ICount--;R->Cycles+=MASTER_CLOCK_DIVIDER
 
 /* This code was removed from the M_ADC macro below. The NES cpu ignores the decimal flag. */
 /*  if(R->P&D_FLAG) \
@@ -194,9 +194,13 @@ word Exec6502(M6502 *R)
 {
   register pair J,K;
   register byte I;
+  byte cycles;
 
-  I=Op6502(R->PC.W++);
-  R->ICount-=Cycles[I];
+  I = Op6502(R->PC.W++);
+  cycles = Cycles[I];
+  R->ICount -= cycles;
+  R->Cycles += cycles * MASTER_CLOCK_DIVIDER;
+      
   switch(I)
   {
 #include "Codes.h"
@@ -217,7 +221,8 @@ void Int6502(M6502 *R,byte Type)
 
   if((Type==INT_NMI)||((Type==INT_IRQ)&&!(R->P&I_FLAG)))
   {
-    R->ICount-=7;
+    R->ICount -= 7;
+    R->Cycles += 7 * MASTER_CLOCK_DIVIDER;
     M_PUSH(R->PC.B.h);
     M_PUSH(R->PC.B.l);
     M_PUSH(R->P&~B_FLAG);
@@ -250,6 +255,8 @@ word Run6502(M6502 *R)
 
     I=Op6502(R->PC.W++);
     R->ICount-=Cycles[I];
+    R->Cycles+=Cycles[I] * MASTER_CLOCK_DIVIDER;
+
     switch(I)
     {
 #include "Codes.h"

@@ -86,7 +86,6 @@ struct ppu_struct
     int vblank_flag;
     int hit_flag;
     int spritecount_flag; /* more than 8 sprites on current scanline ? */
-   
 };
 
 struct sound_struct
@@ -111,6 +110,7 @@ struct nes_machine
   struct sound_struct snd;
   byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
   int scanline;
+  unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
   
   struct mapper_methods *mapper;
   struct joypad_info joypad;

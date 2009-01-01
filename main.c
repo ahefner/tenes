@@ -212,8 +212,8 @@ int main (int argc, char **argv)
   printf ("Rom freed.\n");
 
   printf ("Shutting down audio.\n");
-  snd_shutdown ();
+  snd_shutdown();
   printf ("Shutting down system.\n");
-  sys_shutdown ();
+  sys_shutdown();
   return 0;
 }
