@@ -22,7 +22,7 @@
    FIXME: Interrupt acknowledgement. Right now we fire interrupts once, rather
           than emulating the real behavior of the interrupt signals, so it's
           possible to lose interrupts if e.g. the frameseq and DMC IRQs occur
-          simultaneously.
+          simultaneously, or (more likely) maskable interrupts are disabled.
 */
 
 #define AUDIO_BUFFER_SIZE 4096
@@ -33,8 +33,6 @@ volatile int buffer_low = 0;
 volatile int buffer_high = 0;
 static Sint16 audio_buffer[AUDIO_BUFFER_SIZE*2];
 
-int rate_governor = 0; /* tuned for my laptop */
-
 int sound_initialized = 0;
 volatile int sound_enabled = 1;
 
@@ -44,8 +42,12 @@ static void snd_fillbuffer (Sint16 * buf, unsigned index, unsigned length);
 
 static SDL_AudioSpec desired, obtained;
 
+SDL_mutex *producer_mutex;
+
 int snd_init (void)
 {
+    producer_mutex = SDL_CreateMutex();
+
     if (sound_globalenabled) {
         int i;
 
@@ -82,6 +84,7 @@ void snd_shutdown (void)
     /* Setting sound_enabled breaks audio_callback out of its wait loop. */
     sound_enabled = 0;
     if (sound_initialized) SDL_CloseAudio();
+    SDL_DestroyMutex(producer_mutex);
 
 }
 
@@ -107,18 +110,40 @@ static void buffer_init (void)
     buffer_high = AUDIO_BUFFER_SIZE / 2;
 }
 
-const int desired_buffer_ahead = 1200;
+const int desired_buffer_ahead = 1600;
 int first_buffer = 1;
 int delta_log[16];
 int fill_log[16];
+long long time_log[16];
 int delta_log_idx = 0;
 
+/* This is not exactly accurate. */
+int apu_interrupt_pending = 0;
+
+static void signal_dmc_interrupt (void)
+{
+    apu_interrupt_pending = 1;
+}
+
+static void signal_frameseq_interrupt (void)
+{
+    apu_interrupt_pending = 1;
+}
+
+void service_interrupts (void)
+{
+    if (apu_interrupt_pending) Int6502(&nes.cpu, INT_IRQ);
+    apu_interrupt_pending = 0;
+}
 
 static void audio_callback (void *udata, Sint16 *stream, int len)
 { 
-    int req = len >> 1, num = buffer_samples(), consumed = req, need = num-req > 0? 0 : req-num;
-    int ideal_buffer_length = req + desired_buffer_ahead;
+    int ideal_buffer_length = desired_buffer_ahead;
+    int req = len >> 1, num = buffer_samples(), consumed = req;
     static int last = 0;
+    static long long last_time = 0;
+    long long current_time = usectime(), delta_time = current_time - last_time;
+    last_time = current_time;
 
     /* There appears to be some considerable delay between starting up
      * the audio system and the first invocation of the callback, such
@@ -126,54 +151,50 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
      * snap to the end of the buffer, minus however much we'd prefer
      * to keep as a safety margin. */
     if (first_buffer) {
-        while (buffer_samples() < ideal_buffer_length) { /* Wait. */ }
-        buffer_low = buffer_high - ideal_buffer_length - 300;
+        while (buffer_samples() < ideal_buffer_length) { /* Wait? */ }
+        buffer_low = buffer_high - ideal_buffer_length;
         num = buffer_samples();
         first_buffer = 0;
         memset(delta_log, 0, sizeof(delta_log));
-        memset(fill_log, 0, sizeof(delta_log));
+        memset(fill_log, 0, sizeof(fill_log));
+        memset(time_log, 0, sizeof(time_log));        
     } else {
         int i, avg_x = 0, avg_dx = 0;
+        long long avg_time = 0;
+        time_log[delta_log_idx] = delta_time;
         delta_log[delta_log_idx] = num - last;
+        last = num;
         fill_log[delta_log_idx] = num;
         delta_log_idx = (delta_log_idx + 1) % 16;
 
-        for (i=0; i<16; i++) { avg_dx += delta_log[i]; avg_x += fill_log[i]; }
+        for (i=0; i<16; i++) { avg_dx += delta_log[i]; avg_x += fill_log[i]; avg_time += time_log[i]; }
         avg_x /= i;
         avg_dx /= i;
-        if (!delta_log_idx) {
-            //printf("Average drift: %4i, average fill: %4i (gov=%i), frob=%i\n", avg_dx, avg_x, rate_governor, ((avg_x - ideal_buffer_length) / 24));
-            //rate_governor += max(-3,min(3,((avg_x - ideal_buffer_length) / 64)));
-            //rate_governor += (avg_dx / 32);
+        avg_time /= (long long)i;
+        if (0) {            
+            printf("Average drift: %4i, average fill: %4i, avg time = %5lli (expecting %5f)\n", avg_dx, avg_x, 
+                   avg_time, 1000000.0 / (48000.0 / len * 2.0));
 
         }
     }
 
-    if (num < (ideal_buffer_length - req/4)) rate_governor--;
-    if (num > (ideal_buffer_length + req/4)) rate_governor++;
+    //printf("delta=%4f ms   fill=%4i   req=%4i\n", delta_time / 1000.0, num, req);
 
-    /* Maybe we can get away with this.. */
-    //while (sound_enabled && (buffer_samples() < req)) ;
-    //printf("Waiting! requested %i, %i available\n", req, buffer_samples());
-
-    //printf("Audio callback requested %i. %i available (%i free)\n", req, buffer_samples(), buffer_space());
-    //printf("%i\n", num - last);
     last = num;
     
     if (num == AUDIO_BUFFER_SIZE) {
-        //rate_governor++;
-        printf("Buffer full. Rate governor is %i.\n", rate_governor);
+        printf("Audio buffer full :(\n");
+    }
+
+    if (req > num) {
+        SDL_mutexP(producer_mutex);
+        snd_render_samples(1, (req - num) + 512);
+        SDL_mutexV(producer_mutex);
+        memset(delta_log, 0, sizeof(delta_log));
+        printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
-
-    if (req > num) {
-        //consumed = num / 2;     /* Why not? */
-        consumed = 0;
-        //if (rate_governor) rate_governor--;
-        memset(delta_log, 0, sizeof(delta_log));
-        printf("Underrun! requested %i, %i available. Rate governor adjusted to %i\n", req, num, rate_governor);
-    }
 
     buffer_low += consumed;
     //printf("consumed %i samples (%i/%i).\n", consumed, buffer_low, buffer_high);
@@ -243,7 +264,7 @@ void frameseq_clock_sequencer (void)
         if ((output & FRAMESEQ_CLOCK_IRQ) && !frameseq_irq_disable) {
             nes.snd.regs[0x15] |= 0x40;
             //printf("%u.%u: frame sequencer interrupt.\n", frame_number, nes.scanline);
-            Int6502(&nes.cpu, INT_IRQ);
+            signal_frameseq_interrupt();
         }
 
         if (output & FRAMESEQ_CLOCK_LEN_SWEEP) {
@@ -423,7 +444,7 @@ void dmc_read_next (void)
             if (nes.snd.regs[0x10] & 0x40) dmc_configure();
             else if (nes.snd.regs[0x10] & 0x80) {
                 nes.snd.regs[0x15] |= 0x80;
-                Int6502(&nes.cpu, INT_IRQ);
+                signal_dmc_interrupt();
             }
         }
     }
@@ -476,9 +497,9 @@ void snd_write (unsigned addr, unsigned char value)
      * register contents. */
     snd_catchup();
 
-    if (addr == 0x16) return;
+    SDL_mutexP(producer_mutex);
 
-    if ((addr < 4) || (addr == 0x15))
+    if (0 && ((addr < 4) || (addr == 0x15)))
         printf("%u.%u: snd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", frame_number, nes.scanline, addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
 
     switch (addr) {
@@ -536,7 +557,13 @@ void snd_write (unsigned addr, unsigned char value)
         nes.snd.regs[addr] = value;
         wavelength[chan]=(wavelength[chan]&0x0FF) | ((value&0x07)<<8);
         env_reset[chan] = 1;
-        /* Don't reset the output counters. It creates clicks/pops in the audio. */
+
+        /* We must reset the output counter, otherwise various
+         * "counting down" effects (such as at the end of a level in
+         * SMB3, and the fairy pools in Zelda 1) don't sound right. */
+        if (chan < 2) out_counter[chan] = 0;
+        
+
         if (nes.snd.regs[0x15] & BIT(chan)) {
             lcounter[chan] = translate_length(value);
             /*printf("%u: Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
@@ -575,19 +602,25 @@ void snd_write (unsigned addr, unsigned char value)
 
     default: break;
     }
+
+    SDL_mutexV(producer_mutex);
 }
 
 unsigned char snd_read_status_reg (void)
 {
     unsigned char result = 0;
     int i;
+    
     snd_catchup();
+
+    SDL_mutexP(producer_mutex);
     for (i=0; i<4; i++) if (lcounter[i] > 0) result |= (1 << i);
     if (dmc_counter) result |= BIT(4);
     result |= nes.snd.regs[0x15] & 0xE0;
     /* apu_reg.txt says to clear frameseq interrupt flag on read.
        It doesn't say anything about the DMC interrupt flag here.    */
     nes.snd.regs[0x15] &= 0xBF; 
+    SDL_mutexV(producer_mutex);
     return result;
 }
 
@@ -623,13 +656,24 @@ inline void clock_noise_ptimer (void)
     }
 }
 
-void snd_catchup (void)
+/* The correct factor here would be: 447.443 = 21.47727 MHz / 48000 Hz 
+   
+   However, our clock rate is slightly off due to rounding up the
+   scanline length.
+   
+   Our actual CPU clock rate is this: 60 * 262 * 144 = 1,792,080 Hz      
+   In units of system clocks, that gives us 448.02 clocks per sample.
+   
+   The actual unit of measure here is 10x the system clock
+   frequency, or 120x the CPU clock.
+*/
+const int clocks_per_sample = 4480;
+
+
+/* Generate audio. Call this with the producer lock held. */
+void snd_render_samples (int emergency_mode, int samples)
 {
-    int delta = nes.cpu.Cycles - nes.last_sound_cycle;
-    int cpu_per_sample = 4474 ; //+ max(-1000, rate_governor); /* 447.443 = 21.47727 MHz / 48000 Hz */
-    int samples = delta / cpu_per_sample;
     int prev_space = -1;
-    /* Awesome, now we have two passes of rounding error affecting the audio frequency.. */
 
     //printf("catchup: %i cycles since last call (%i samples).\n", delta, samples);
     if (samples > 0) {
@@ -643,10 +687,24 @@ void snd_catchup (void)
             snd_fillbuffer(audio_buffer, buffer_high & BUFFER_PTR_MASK, nfill);
             samples -= nfill;
             buffer_high = buffer_high + nfill;
-            nes.last_sound_cycle += nfill * cpu_per_sample;
+            if (!emergency_mode) nes.last_sound_cycle += nfill * clocks_per_sample;
             prev_space = space;
         }
     }
+}
+
+void snd_catchup (void)
+{
+    SDL_mutexP(producer_mutex);
+
+    int delta = nes.cpu.Cycles - nes.last_sound_cycle;
+    int samples = delta / clocks_per_sample;
+
+    if (samples && (delta > 0)) snd_render_samples(0, samples);
+
+    service_interrupts();
+    
+    SDL_mutexV(producer_mutex);
 }
 
 static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
@@ -699,7 +757,7 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
         // Alternatively, without fancy (and slow) channel mixing:
         // samp = (sq1 + sq2 + tri + noise) * 512;
 
-        samp = sq1  * 1000;
+        //samp = sq1  * 1000;
 
         buf[index & ~AUDIO_BUFFER_SIZE] = samp;
         buf[index | AUDIO_BUFFER_SIZE] = samp;

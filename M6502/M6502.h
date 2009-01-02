@@ -25,7 +25,7 @@
 #define MASTER_CLOCK_DIVIDER 120
 
 /* Compile debugging version  */
-/* #define DEBUG */
+#define DEBUG
 
 #define LSB_FIRST              /* Compile for low-endian CPU */
 

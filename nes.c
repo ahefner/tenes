@@ -143,9 +143,14 @@ byte joypad_read (word Addr)
   return retval;
 }
 
+int scanline_cycles (void)
+{
+    return nes.cpu.IPeriod - nes.cpu.ICount;
+}
+
 void nes_printtime (void)
 {
-  printf ("%i.%i ", nes.scanline, (int) nes.cpu.IPeriod - nes.cpu.ICount);
+    printf ("%i.%i.%3i ", frame_number, nes.scanline, (int) scanline_cycles());
 }
 
 void mapper_twiddle (void)
@@ -434,7 +439,7 @@ byte Rd6502 (register word Addr)
           
 	  nes.ppu.vblank_flag = 0;
 	  /*	  nes.ppu.hit_flag = 0; */
-	  /*	  nes.ppu.scroll_mode= DUAL_HIGH;*/
+
 	  nes.ppu.ppu_addr_mode = DUAL_HIGH;
 	  nes.ppu.control1 &= (0xFF - 4);
 	  return tmp;
@@ -505,6 +510,7 @@ byte Debug6502 (register M6502 * R)
     tmp[2] = Rd6502 (R->PC.W + 2);
     tmp[3] = Rd6502 (R->PC.W + 3);
     DAsm (buffer, tmp, R->PC.W);
+    nes_printtime ();
     printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %s\n", 
             (unsigned)R->PC.W, (unsigned)R->A, 
             (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S,
@@ -512,36 +518,42 @@ byte Debug6502 (register M6502 * R)
     return 1;
 }
 
+/* Called once per emulated scanline. Determines overall machine timing. */
 byte Loop6502 (register M6502 * R)
 {
-    byte ret = INT_NONE;                        
+    byte ret = INT_NONE;
+    
+    if (nes.scanline == 0) {
+        /* Finished initial (dummy) scanline */
+        if (trace_ppu_writes)
+            printf("At frame start, hscroll=%03X vscroll=%03X\n", 
+                   ppu_current_hscroll(), ppu_current_vscroll());
+        if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
+        if ((nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
 
-  if (nes.scanline == 0) nes.ppu.vblank_flag = 0;  
+    } else if (nes.scanline  < 241) {
+        /* Render 240 visible lines */
+        if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
+        if (trace_ppu_writes)
+            printf("%i: render tv_scanline %i: hscroll=%03X vscroll=%03X\n", 
+                   tv_scanline, nes.scanline, ppu_current_hscroll(), ppu_current_vscroll());
+        render_scanline();
 
-  if (trace_ppu_writes && nes.scanline == 0)
-      printf("At frame start, hscroll=%03X vscroll=%03X\n", 
-             ppu_current_hscroll(), ppu_current_vscroll());
+        tv_scanline++;
+        if ((nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
+    } else if (nes.scanline == 241) {
+        /* This is the wasted line just before vblank. */
+        nes_vblankstate(&nes);
+        if (nes.ppu.control1 & 0x80) ret = INT_NMI; /* trigger VBlank NMI if enabled in PPU */ 
 
-  if ((nes.scanline<240)) {
-      //if (trace_ppu_writes) printf("  %i: vscroll = %3i V=%04X\n", nes.scanline, ppu_current_vscroll(), nes.ppu.v);
-      if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-      render_scanline();
-      tv_scanline++;
-  }
-
-  if (nes.scanline == cfg_framelines) {
-    //if (nes.ppu.control2 & 0x10) vid_draw_sprites(0,0);
-    nes_vblankstate (&nes);
-    if (nes.ppu.control1 & 0x80) ret = INT_NMI; /* trigger VBlank NMI if enabled in PPU */
-  } else if (nes.scanline == (cfg_framelines + cfg_vblanklines - 1))
-    ret = INT_QUIT;
+    } else if (nes.scanline == 261) {
+        /* End of vblank */
+        ret = INT_QUIT;
+    }
 
 /*   printf("line %i  vblank=%i flag=%i ppu.v=%04X\n",nes.scanline,in_vblank(&nes),nes.ppu.vblank_flag,(int)nes.ppu.v); */  
   nes.scanline++;
-
-  if ((!in_vblank(&nes)) && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
-
-  /* This is excessive, but screw it. */
+  /* This is excessive, but.. screw it. */
   snd_catchup();
 
   return ret;
@@ -560,6 +572,8 @@ void nes_runframe (void)
     printf("nametable=%i\n",nes.ppu.control1&3);
   }
 }
+
+
 
 /* Debugging utilities: The idea is that rather than writing a 6502
  * debugger as part of the emulator, we can debug from the host's GDB

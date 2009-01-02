@@ -13,5 +13,7 @@ void sys_shutdown(void);
 void sys_framesync (void);
 char *ensure_config_dir (void);
 char *ensure_save_dir (void);
+long long usectime (void);
+
 
 #endif

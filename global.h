@@ -52,7 +52,7 @@ extern void (*vid_filter) (SDL_Surface *surface);
 
 extern int superverbose;
 extern int trace_ppu_writes;
-extern struct timeval time_frame_start;
+extern long long time_frame_start;
 
 extern unsigned frame_number;
 

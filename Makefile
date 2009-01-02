@@ -1,7 +1,7 @@
 # Makefile
 
 CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags` -std=c99
+CFLAGS= -Wall -O3 `sdl-config --cflags` -std=c99
 
 OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o
 INCLUDEDIRS= -IM6502
@@ -12,10 +12,10 @@ MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c
 COBJ=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
 CAPP=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 
-all: emu
+all: nesemu
 clean:
 	rm -f *.o
-	rm -f emu
+	rm -f nesemu
 
 romloadtest: rom.o romloadtest.c
 	$(CAPP) romloadtest.c -o romloadtest
@@ -23,8 +23,8 @@ romloadtest: rom.o romloadtest.c
 listmappers:
 	$(CAPP) listmappers.c -o listmappers
 
-emu: Makefile $(OBJECTS) main.c
-	$(CAPP) main.c -o emu
+nesemu: Makefile $(OBJECTS) main.c
+	$(CAPP) main.c -o nesemu
 
 dasm.o: Makefile dasm.c
 	$(COBJ) dasm.c

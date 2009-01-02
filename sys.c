@@ -19,22 +19,29 @@
 #include "nes.h"
 #include "config.h"
 
-long long tv_to_micros (struct timeval *tv)
+static long long tv_to_micros (struct timeval *tv)
 {
     return (((long long)tv->tv_sec) * 1000000ll) + ((long long)tv->tv_usec);
 }
 
-void sys_framesync (void)
+long long usectime (void)
 {
     struct timeval tv;
-    long long start = tv_to_micros(&time_frame_start);
-    long long target = start  + (1000000ll / 60ll);
+    if (gettimeofday(&tv, 0)) {
+        perror("gettimeofday");
+        exit(1);
+    }
+    return tv_to_micros(&tv);
+}
+
+void sys_framesync (void)
+{
+    long long target = time_frame_start + (1000000ll / 60ll);
     long long now;
 
     do {
-        if (gettimeofday(&tv, 0)) return;
-        now = tv_to_micros(&tv);
-        assert((target - now) < 1000000);
+        now = usectime();
+        assert((target - now) < 1000000ll);
         if (target-now > 10000) usleep(5000);
     } while (now < target);
     

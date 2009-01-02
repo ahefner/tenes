@@ -7,6 +7,10 @@
 #include "nes.h"
 #include "global.h"
 
+/* TODO: The tile cache is at this point probably a pessimization on
+ * all but the simplest games, and I'd be better off eliminating the
+ * last use of it.*/
+
 int vid_tilecache_dirty = 1;
 
 void render_clear (void)
@@ -210,7 +214,7 @@ void scanline_render_sprites (byte *dest)
     unsigned x, i, num_sprites;
     struct sprite_unit sprites[8];
     
-    num_sprites = sprite_evaluation(sprites, nes.scanline);
+    num_sprites = sprite_evaluation(sprites, tv_scanline);
 
     for (x=0; x<256; x++) {
         byte background = dest[x];
@@ -222,9 +226,13 @@ void scanline_render_sprites (byte *dest)
          * palette-translated, but we're sneaky and mirrored the
          * palette so we can encode foreground versus background pixel
          * in bit 6, allowing rendering of sprites in a separate pass. */
-        if ((background & 0x40) && (sprite_output & 3) && !sprites[0].number) {
+        /* Supposedly we should ignore column 255? */
+        if ((background & 0x40) && (sprite_output & 3) && (x < 255) && !sprites[0].number) {
             nes.ppu.hit_flag = 1;
-            if (trace_ppu_writes) printf("%i.%i: Sprite 0 hit!\n", frame_number, nes.scanline);
+            if (trace_ppu_writes) {
+                nes_printtime();
+                printf("Sprite 0 hit at x=%i!\n", x);
+            }
         }
 
         for (i=1; i<num_sprites; i++) {
@@ -334,7 +342,7 @@ void render_scanline (void)
             v = incr_v_horizontal(v);
         }
         dest += 248;
-        
+
         name = nametable_read(v);
         attribute = nt_attr((v & 0xFFF) | 0x2000);
         data = tilecache[tcpage][name][attribute] + 8*y_offset;

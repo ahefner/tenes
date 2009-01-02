@@ -30,11 +30,11 @@ void (*vid_filter) (SDL_Surface *surface)=NULL;
 int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};
 
-struct timeval time_frame_start;
+long long time_frame_start;
 
 /* timing config - move inside nes_machine if PAL support is added */
 int cfg_framelines = 240; 
-int cfg_vblanklines = 23;
+int cfg_vblanklines = 20;
 int cfg_linecycles = 114;
 
 #ifdef INSTRUCTION_TRACING

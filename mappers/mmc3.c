@@ -174,9 +174,7 @@ int mmc3_scanline (void)
     } else if (mmc3_countdown) mmc3_countdown--;
 
     if ((mmc3_countdown == 0) && mmc3_irq_enabled) {
-        //printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
-        // Don't need to do this here anymore:
-        //mmc3_countdown = mmc3_latched + latched_offset;
+        if (trace_ppu_writes) printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
         return 1;
     }
     return 0;

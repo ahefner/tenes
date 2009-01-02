@@ -13,6 +13,8 @@
 int keyboard_controller = 0;
 int running = 1;
 
+extern unsigned buffer_high;
+
 void dump_instruction_trace (void)
 {
 #ifdef INSTUCTION_TRACING
@@ -126,7 +128,7 @@ void process_joystick (int controller)
   y = SDL_JoystickGetAxis (joy, 1);  
   
   for (i=0; i<4; i++) {
-    nes.joypad.pad[controller][i] = SDL_JoystickGetButton (joy, cfg_buttonmap[controller][i]);
+    nes.joypad.pad[controller][i] = SDL_JoystickGetButton(joy, cfg_buttonmap[controller][i]);
   }
 
   for (i=4; i<8; i++) nes.joypad.pad[controller][i] = 0;
@@ -143,6 +145,8 @@ void process_joystick (int controller)
 int main (int argc, char **argv)
 {
     int i;
+    unsigned frame_start_cycles = 0;
+    unsigned frame_start_samples = 0;
     cfg_parseargs (argc, argv);
 
     nes.rom = load_nes_rom (romfilename);
@@ -152,7 +156,7 @@ int main (int argc, char **argv)
     }
 
     sys_init();
-    snd_init();    
+    snd_init();
     init_nes(&nes);
     reset_nes(&nes);
     nes.cpu.Trace = cputrace;
@@ -163,7 +167,8 @@ int main (int argc, char **argv)
         SDL_Event event;
 
         for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick (i);
-        gettimeofday(&time_frame_start, 0);
+        time_frame_start = usectime();
+        frame_start_samples = buffer_high;
 
         render_clear();
         nes_runframe();   
@@ -181,6 +186,14 @@ int main (int argc, char **argv)
      
         SDL_Flip (window_surface);
         sys_framesync();
+
+        if (0)
+        printf("Frame cycles: %i (expect %i samples, actually generated %i samples)\n",
+               (nes.cpu.Cycles - frame_start_cycles)/120,
+               (nes.cpu.Cycles - frame_start_cycles)/4480, 
+               buffer_high - frame_start_samples);
+
+        frame_start_cycles = nes.cpu.Cycles;
 
         while (SDL_PollEvent (&event)) {
             switch (event.type) {

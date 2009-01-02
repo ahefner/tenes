@@ -218,7 +218,7 @@ word Exec6502(M6502 *R)
 void Int6502(M6502 *R,byte Type)
 {
   register pair J;
-
+  
   if((Type==INT_NMI)||((Type==INT_IRQ)&&!(R->P&I_FLAG)))
   {
     R->ICount -= 7;
@@ -276,7 +276,8 @@ word Run6502(M6502 *R)
       else
       {
         I=Loop6502(R);            /* Call the periodic handler */
-        R->ICount=R->IPeriod;     /* Reset the cycle counter   */
+        R->ICount+=R->IPeriod;    /* Reset the cycle counter   */
+        if(!I) I=R->IRequest;     /* Realize pending interrupt */
       }
 
       if(I==INT_QUIT) return(R->PC.W); /* Exit if INT_QUIT     */
