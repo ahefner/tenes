@@ -12,10 +12,8 @@
 
 /* TODO: Move audio state out of random global variables and into the NES struct.   
    
-   FIXME? I was really a lot better off when the audio was generated
-   on demand within the audio callback. Now I've got this huge
-   headache of having to introduce extra buffering and struggling to
-   keep the emulator thread producing at just the right rate.
+   FIXME: Buffer underruns. I've made them inaudible with the emergency catchup
+   sample generation, but this really isn't ideal.
 
    FIXME: Audio frequencies are off by a bit due to rounding of CLOCK/48000.
 
@@ -263,7 +261,6 @@ void frameseq_clock_sequencer (void)
         output = frameseq_patterns[frameseq_mode_5][frameseq_sequencer];
         if ((output & FRAMESEQ_CLOCK_IRQ) && !frameseq_irq_disable) {
             nes.snd.regs[0x15] |= 0x40;
-            //printf("%u.%u: frame sequencer interrupt.\n", frame_number, nes.scanline);
             signal_frameseq_interrupt();
         }
 
@@ -500,7 +497,7 @@ void snd_write (unsigned addr, unsigned char value)
     SDL_mutexP(producer_mutex);
 
     if (0 && ((addr < 4) || (addr == 0x15)))
-        printf("%u.%u: snd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", frame_number, nes.scanline, addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
+        printf("%ssnd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", nes_time_string(), addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
 
     switch (addr) {
     case 0x15: /* channel enable register */

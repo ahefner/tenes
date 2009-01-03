@@ -73,7 +73,7 @@ typedef struct
 
   int IPeriod,ICount; /* Set IPeriod to number of CPU cycles */
                       /* between calls to Loop6502()         */
-  unsigned Cycles;    /* Total machine cycles (master clock) */
+  int Cycles;         /* Total machine cycles (master clock) */
   byte IRequest;      /* Set to the INT_IRQ when pending IRQ */
   byte AfterCLI;      /* Private, don't touch                */
   int IBackup;        /* Private, don't touch                */

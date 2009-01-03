@@ -7,7 +7,7 @@
 
 void render_clear (void);
 void vid_drawpalette(int x,int y);
-void vid_render_frame(int x,int y);
+void render_scanline (void);
 
 extern int vid_tilecache_dirty;
 

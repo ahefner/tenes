@@ -103,17 +103,18 @@ struct joypad_info
 
 struct nes_machine
 {
-  struct nes_rom rom;
-  M6502 cpu;
-  void *mapper_data;  /* private to code for current mapper */
-  struct ppu_struct ppu;
-  struct sound_struct snd;
-  byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
-  int scanline;
-  unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
-  
-  struct mapper_methods *mapper;
-  struct joypad_info joypad;
+    struct nes_rom rom;
+    M6502 cpu;
+    void *mapper_data;  /* private to code for current mapper */
+    struct ppu_struct ppu;
+    struct sound_struct snd;
+    byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
+    int scanline;
+    unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
+    unsigned scanline_start_cycle;
+    
+    struct mapper_methods *mapper;
+    struct joypad_info joypad;
 };
 
 #ifndef global_c
@@ -126,6 +127,8 @@ void shutdown_nes(struct nes_machine *nes);
 void reset_nes(struct nes_machine *nes);
 void nes_runframe(void);
 
+char *nes_time_string (void);
+void nes_printtime (void);
 
 static inline word ppu_mirrored_nt_addr (word paddr)
 {

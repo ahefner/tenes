@@ -100,10 +100,11 @@ void nes_initframe (struct nes_machine *nes)
 }
 
 /* nes_vblankstate - sets things that change when a vblank occurs */
-void nes_vblankstate (struct nes_machine *nes)
+void nes_vblankstate (void)
 {
-  nes->ppu.vblank_flag = 1;
-  nes->ppu.hit_flag = 0;
+  nes.ppu.vblank_flag = 1;
+  nes.ppu.hit_flag = 0;
+  if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI); /* trigger VBlank NMI if enabled in PPU */ 
 }
 
 void joypad_write (word Addr)
@@ -145,12 +146,19 @@ byte joypad_read (word Addr)
 
 int scanline_cycles (void)
 {
-    return nes.cpu.IPeriod - nes.cpu.ICount;
+    return (nes.cpu.Cycles - nes.scanline_start_cycle) / MASTER_CLOCK_DIVIDER;
+}
+
+char *nes_time_string (void)
+{
+    static char buf[128];
+    sprintf(buf, "%i/%i.%3i   ", frame_number, nes.scanline, (int) scanline_cycles());
+    return buf;
 }
 
 void nes_printtime (void)
 {
-    printf ("%i.%i.%3i ", frame_number, nes.scanline, (int) scanline_cycles());
+    fputs(nes_time_string(), stdout);
 }
 
 void mapper_twiddle (void)
@@ -186,8 +194,8 @@ void Wr6502 (register word Addr, register byte Value)
           nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
           
           if (trace_ppu_writes)
-              printf("%u.%u: CR1 write: ppu.t = %04X (selected nametable %i)\n", 
-                     frame_number, nes.scanline, nes.ppu.t, Value&3);
+              printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n", 
+                     nes_time_string(), nes.ppu.t, Value&3);
 
 	  if (superverbose) 
           {
@@ -251,10 +259,12 @@ void Wr6502 (register word Addr, register byte Value)
               nes.ppu.t |= (Value >> 3) << 5;
           }
           nes.ppu.ppu_addr_mode ^= 1;
-          if (trace_ppu_writes)
-              printf("%u.%u: ppu.t = %04X (wrote %02X to %s scroll)\n", 
-                     frame_number, nes.scanline, nes.ppu.t, Value, 
+          if (trace_ppu_writes) {
+              nes_printtime();
+              printf("ppu.t = %04X (wrote %02X to %s scroll)\n", 
+                     nes.ppu.t, Value, 
                      nes.ppu.ppu_addr_mode ? "horizontal" : "vertical");
+          }
 	  break;
 
       case ppu_addr: /* 2006 */
@@ -263,8 +273,10 @@ void Wr6502 (register word Addr, register byte Value)
           } else {
               nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
               nes.ppu.v = nes.ppu.t;
-              if (trace_ppu_writes)
-                  printf("%u.%u: ppu.v = %04X ($2006, latched from ppu.t)\n", frame_number, nes.scanline, nes.ppu.v);
+              if (trace_ppu_writes) {
+                  nes_printtime();
+                  printf("ppu.v = %04X ($2006, latched from ppu.t)\n", nes.ppu.v);
+              }
 	  }
           nes.ppu.ppu_addr_mode ^= 1;
 
@@ -286,10 +298,11 @@ void Wr6502 (register word Addr, register byte Value)
                       if (nes.ppu.v < 0x3000) {	/* name/attribute table write */
                           int maddr = ppu_mirrored_nt_addr(nes.ppu.v);
                           
-                          if (trace_ppu_writes)
-                              printf("%u.%u: ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
-                                     frame_number, nes.scanline, 
+                          if (trace_ppu_writes) {
+                              nes_printtime();
+                              printf("ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
                                      nes.ppu.v, maddr, Value, nes.ppu.ppu_writemode);
+                          }
 
                           nes.ppu.vram[maddr & 0x3FFF] = Value;
                       } else {
@@ -518,59 +531,92 @@ byte Debug6502 (register M6502 * R)
     return 1;
 }
 
-/* Called once per emulated scanline. Determines overall machine timing. */
 byte Loop6502 (register M6502 * R)
 {
-    byte ret = INT_NONE;
-    
-    if (nes.scanline == 0) {
-        /* Finished initial (dummy) scanline */
-        if (trace_ppu_writes)
-            printf("At frame start, hscroll=%03X vscroll=%03X\n", 
-                   ppu_current_hscroll(), ppu_current_vscroll());
-        if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-        if ((nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
+    return INT_QUIT;
+}
 
-    } else if (nes.scanline  < 241) {
-        /* Render 240 visible lines */
-        if (nes.ppu.control2 & 0x18) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-        if (trace_ppu_writes)
-            printf("%i: render tv_scanline %i: hscroll=%03X vscroll=%03X\n", 
-                   tv_scanline, nes.scanline, ppu_current_hscroll(), ppu_current_vscroll());
-        render_scanline();
+void run_cycles (int num_cycles)
+{
+    nes.cpu.IPeriod = num_cycles;
+    Run6502 (&nes.cpu);
+}
 
-        tv_scanline++;
-        if ((nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
-    } else if (nes.scanline == 241) {
-        /* This is the wasted line just before vblank. */
-        nes_vblankstate(&nes);
-        if (nes.ppu.control1 & 0x80) ret = INT_NMI; /* trigger VBlank NMI if enabled in PPU */ 
+inline int ppu_is_rendering (void)
+{
+    return (nes.ppu.control2 & 0x18);
+}
 
-    } else if (nes.scanline == 261) {
-        /* End of vblank */
-        ret = INT_QUIT;
-    }
+inline void note_video_scanline (void)
+{
+    if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();  
+}
 
-/*   printf("line %i  vblank=%i flag=%i ppu.v=%04X\n",nes.scanline,in_vblank(&nes),nes.ppu.vblank_flag,(int)nes.ppu.v); */  
-  nes.scanline++;
-  /* This is excessive, but.. screw it. */
-  snd_catchup();
+inline void ppu_latch_v (void)
+{
+    if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
+}
 
-  return ret;
+inline void note_scanline_start (void)
+{
+    nes.scanline_start_cycle = nes.cpu.Cycles;
 }
 
 void nes_runframe (void)
 {
-  nes.cpu.IPeriod = cfg_linecycles;
-  nes_initframe (&nes);
-  if (superverbose) printf ("ppu @ $%04X\n", (unsigned)nes.ppu.v);  
-  Run6502 (&nes.cpu);
-  if (superverbose) printf ("\n\n");
+    int line_cycles = 114;
+    int hblank_cycles = 29;
+    int scan_cycles = line_cycles - hblank_cycles;
+    int vscroll;
 
-  if (superverbose) {
-    printf("ppu=%X\n",nes.ppu.control1&0x40); 
-    printf("nametable=%i\n",nes.ppu.control1&3);
-  }
+    // Initialize for frame. Clears PPU flags.
+    nes_initframe (&nes);
+
+    // Dummy scanline:
+    note_scanline_start();
+    ppu_latch_v();
+    run_cycles(scan_cycles);
+    note_video_scanline();
+    run_cycles(hblank_cycles);
+
+    vscroll = ppu_current_vscroll() - 1;
+    if (trace_ppu_writes)
+        printf("At frame start, hscroll=%03i vscroll=%03i\n", 
+               ppu_current_hscroll(), ppu_current_vscroll());
+
+    // This is the visible frame:
+    for (nes.scanline = 1; nes.scanline < 241; nes.scanline++)
+    {
+        note_scanline_start();
+        ppu_latch_v();
+
+        if (trace_ppu_writes && (nes.ppu.control2 & 0x08) && (ppu_current_vscroll() != vscroll+1)) {
+            nes_printtime();
+            printf("split detected. %03i/%03i\n", ppu_current_hscroll(), ppu_current_vscroll());
+        }
+        vscroll = ppu_current_vscroll();
+
+        render_scanline();
+        tv_scanline++;
+        run_cycles(scan_cycles);
+        note_video_scanline();  /* Fire MMC3 IRQ */
+        run_cycles(hblank_cycles);
+        snd_catchup();
+    }
+
+    // One wasted line after the frame:
+    note_scanline_start();
+    run_cycles(line_cycles);
+    nes.scanline++;
+
+    // Enter vertical blank
+    nes_vblankstate();
+    for (; nes.scanline < 262; nes.scanline++) {
+        note_scanline_start();
+        run_cycles(line_cycles);
+    }
+
+    snd_catchup();
 }
 
 
