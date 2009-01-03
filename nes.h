@@ -112,6 +112,8 @@ struct nes_machine
     int scanline;
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
+    unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
+    unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
     
     struct mapper_methods *mapper;
     struct joypad_info joypad;

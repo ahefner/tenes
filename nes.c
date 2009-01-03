@@ -52,11 +52,11 @@ void shutdown_nes (struct nes_machine *nes)
 void reset_nes (struct nes_machine *nes)
 {
   memset ((void *) nes->ram, 0, 0x800);
-  Reset6502 (&nes->cpu);
+  Reset6502(&nes->cpu);
   if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
   else nes->cpu.TrapBadOps = 0;
 
-  memset ((void *) (nes->ppu.vram + 0x2000), 0, 0x2000);
+  memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
   nes->ppu.control1 = 0;
   nes->ppu.control2 = 0;
   nes->ppu.v = 0;
@@ -93,6 +93,7 @@ void nes_initframe (struct nes_machine *nes)
   nes->ppu.vblank_flag=0; /* set to 0 at frame start, I think */
   nes->ppu.spritecount_flag = 0;
   nes->ppu.sprite_address = 0;
+  nes->sprite0_detected = 0;
 
   if (nes->ppu.control2 & 0x18) nes->ppu.v = nes->ppu.t;
 
@@ -431,6 +432,12 @@ byte Rd6502 (register word Addr)
       case spr_addr:
       case ppu_status:
       {
+
+          if (nes.sprite0_detected && ((nes.cpu.Cycles - nes.sprite0_hit_cycle) > 0)) {
+              nes.ppu.hit_flag = 1;
+              nes.sprite0_detected = 0;
+          }
+
 	  byte tmp = 
               (nes.ppu.vblank_flag << 7) |
               (nes.ppu.hit_flag << 6) | 
@@ -538,7 +545,7 @@ byte Loop6502 (register M6502 * R)
 
 void run_cycles (int num_cycles)
 {
-    nes.cpu.IPeriod = num_cycles;
+    nes.cpu.BreakCycle += num_cycles * MASTER_CLOCK_DIVIDER;
     Run6502 (&nes.cpu);
 }
 
@@ -559,7 +566,8 @@ inline void ppu_latch_v (void)
 
 inline void note_scanline_start (void)
 {
-    nes.scanline_start_cycle = nes.cpu.Cycles;
+    nes.scanline_start_cycle = nes.cpu.Cycles;  
+    nes.sprite0_detected = 0;
 }
 
 void nes_runframe (void)
@@ -578,6 +586,9 @@ void nes_runframe (void)
     run_cycles(scan_cycles);
     note_video_scanline();
     run_cycles(hblank_cycles);
+
+    render_scanline();
+    tv_scanline = 0;
 
     vscroll = ppu_current_vscroll() - 1;
     if (trace_ppu_writes)
