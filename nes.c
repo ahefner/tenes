@@ -309,22 +309,23 @@ void Wr6502 (register word Addr, register byte Value)
                            * to see a game require this before I enable it. */
                           printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.v);
                       }
-                  } else { 
+                  } else {
                       /* Palette write */
                       word tmp = nes.ppu.v;
                       vid_tilecache_dirty = 1;
                       tmp &= 0x1F;
                       tmp |= 0x3F00;
+                      Value &= 63;
 
-                      if (!(tmp & 0x0F)) {
+                      if (!(tmp & 0x0F) && (tmp < 0x3F10)) {
                           nes.ppu.vram[0x3F00] = Value;
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
                           nes.ppu.vram[0x3F0C] = Value;
-                          nes.ppu.vram[0x3F10] = Value;
+/*                          nes.ppu.vram[0x3F10] = Value;
                           nes.ppu.vram[0x3F14] = Value;
                           nes.ppu.vram[0x3F18] = Value;
-                          nes.ppu.vram[0x3F1C] = Value;
+                          nes.ppu.vram[0x3F1C] = Value;*/
                       } else nes.ppu.vram[tmp] = Value;
                   }
               } else {
