@@ -35,12 +35,12 @@ int mmc1_init(void)
     mmc1_reg[3] = 0;
 
     BANK = 0;
-    mmc1_last_page_ptr = nes.rom.prg + (mmc1_prg_pages-1)*KB(16);
+    mmc1_last_page_ptr = nes.rom.prg + ((mmc1_prg_pages-1) & 15)*KB(16);
 
     mmc1_large_bank=0;
     mmc1_large_bank_mask=0;
     if (nes.rom.prg_size==KB(512)) mmc1_large_bank_mask=1;
-    else if (nes.rom.prg_size==KB(1024)) mmc1_large_bank_mask=1; /* Not 3? */
+    else if (nes.rom.prg_size==KB(1024)) mmc1_large_bank_mask=1; /* Fiction? */
 
     mmc1_print_status();
 
@@ -90,7 +90,6 @@ void mmc1_write_reg (unsigned reg, unsigned val)
         mmc1_reg[1]=val;
         pagebase = val & 0x1F;
 
-        if (mmc1_large_bank != (val >> 4) & 1) printf("MMC1: Changed large bank to %i\n", (val >> 4) & 1);
         mmc1_large_bank = (val >> 4) & 1;
 
         if (trace_ppu_writes)
@@ -118,7 +117,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
         // Wild guess.
         if (!(mmc1_reg[0] & REG0_SIZE_32K_16K)) val &= ~1;
         //if (!(mmc1_reg[0] & REG0_SIZE_32K_16K)) printf("**** 32k mode *****\n");
-//        if (nes.cpu.Trace)
+        if (nes.cpu.Trace)
             printf("MMC1: -> bank req %i so %i of %i\n", val, val % mmc1_prg_pages, mmc1_prg_pages);
         mmc1_reg[3] = val % mmc1_prg_pages;
         break;
@@ -163,13 +162,7 @@ byte mmc1_read (register word addr)
     int *reg = mmc1_reg;
     unsigned large_offset = 0;
 
-    if (nes.rom.prg_size==KB(512))
-    {
-        //large_offset=GETBIT(4,reg[1]);
-    }
-    
     large_offset = mmc1_large_bank;
-  
     large_offset &= mmc1_large_bank_mask;
     large_offset *= KB(256);
   
@@ -185,12 +178,12 @@ byte mmc1_read (register word addr)
             if (reg[0] & REG0_SWITCH_HIGH_LOW)
             { /* Hardwired 0xC000 bank */
                 //printf("  read $%04X (last page, hardwired at $C000)\n", addr);
-                return mmc1_last_page_ptr[offset];
+                return mmc1_last_page_ptr[offset + large_offset];
             }
             else
             { /* Hardwired 0x8000 bank */
                 //printf("  read $%04X (first page, hardwired at $8000)\n", addr);
-                return prg[offset];
+                return prg[offset + large_offset];
             }
         }
     }
