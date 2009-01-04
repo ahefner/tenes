@@ -22,9 +22,11 @@
 /* #define FAST_RDOP
 */
 
+#define MASTER_CLOCK_DIVIDER 120
 
+/* Compile debugging version  */
+#define DEBUG
 
-/*#define DEBUG*/             /* Compile debugging version  */
 #define LSB_FIRST              /* Compile for low-endian CPU */
 
                                /* Loop6502() returns:        */
@@ -69,11 +71,9 @@ typedef struct
   byte A,P,X,Y,S;     /* CPU registers and program counter   */
   pair PC;
 
-  int IPeriod,ICount; /* Set IPeriod to number of CPU cycles */
-                      /* between calls to Loop6502()         */
+  int Cycles;         /* Total machine cycles (master clock) */
+  int BreakCycle;     /* Cycle to break at (master clock)    */
   byte IRequest;      /* Set to the INT_IRQ when pending IRQ */
-  byte AfterCLI;      /* Private, don't touch                */
-  int IBackup;        /* Private, don't touch                */
   void *User;         /* Arbitrary user data (ID,RAM*,etc.)  */
   byte TrapBadOps;    /* Set to 1 to warn of illegal opcodes */
   word Trap;          /* Set Trap to address to trace from   */

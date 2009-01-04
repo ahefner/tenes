@@ -3,10 +3,8 @@
 
 int mapper3_init(void)
 {
-   nes.mapper_data=(malloc(0x8000));
-   memcpy(nes.mapper_data,(void *)nes.rom.prg,0x8000);
-   memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr,0x2000);
-   return 1;
+    mapper0_init();
+    return 1;
 }
 
 void mapper3_shutdown(void)
@@ -16,15 +14,18 @@ void mapper3_shutdown(void)
 
 void mapper3_write(register word Addr,register byte Value)
 {   
-   unsigned tmp=Value*0x2000;
-   if(tmp>(nes.rom.chr_size-0x2000)) tmp%=nes.rom.chr_size;
+   unsigned tmp = Value*0x2000;
+   //printf("mapper 3: selected bank %i\n", Value);
+   if (tmp > (nes.rom.chr_size-0x2000)) tmp %= nes.rom.chr_size;
    memcpy((void *)nes.ppu.vram,(void *)(nes.rom.chr+tmp),0x2000);
+   vid_tilecache_dirty = 1;
 }
 
 
-struct mapper_functions mapper_VROM = {
+struct mapper_methods mapper_VROM = {
    mapper3_init,
-     mapper3_shutdown,
-     mapper3_write,
-     mapper0_read
+   mapper3_shutdown,
+   mapper3_write,
+   mapper0_read,
+   mapper0_scanline
 };

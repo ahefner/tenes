@@ -7,7 +7,7 @@ void mmc3_write (register word addr, register byte value);
 byte mmc3_read (register word addr);
 int mmc3_scanline (void);
 
-struct mapper_functions mapper_MMC3 = {
+struct mapper_methods mapper_MMC3 = {
     mmc3_init,
     mmc3_shutdown,
     mmc3_write,
@@ -40,6 +40,7 @@ void mmc3_select_chr (int dest, int n)
     if (mmc3_chrpages) {
         while (n >= mmc3_chrpages) n -= mmc3_chrpages;
         memcpy (nes.ppu.vram + dest*0x400, nes.rom.chr + 0x400 * n, 0x400);
+        vid_tilecache_dirty = 1;
     }
 }
 
@@ -104,15 +105,15 @@ void mmc3_write (register word addr, register byte value)
                 break;
             }
             if (trace_ppu_writes)
-            printf ("%u.%u: MMC3: switching %s VROM. page=%i, chose %i (%i banks at %i)\n", frame_number, nes.scanline, mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value, num, dest);
+                printf ("%sMMC3: switching %s VROM. page=%i, chose %i (%i banks at %i)\n", nes_time_string(), mmc3_8000 & 0x80 ? "inverted" : "normal", cmd, value, num, dest);
             if (mmc3_8000 & 0x80) dest = dest ^ 4;
             for (i=0; i<num; i++) mmc3_select_chr (dest+i, value+i);
 
         } else {   /* PRG-ROM switch */
             int bank = mmc3_8000 & 1; /* LSB of 6 or 7 */
-            if (0)
-                printf ("%u: MMC3: Switching program - bank %u (mode %i) to page %u.\n", 
-                        frame_number, (unsigned)bank, ((unsigned)mmc3_8000 & 0x40)>>6, 
+            if (nes.cpu.Trace)
+                printf ("%sMMC3: Switching program - bank %u (mode %i) to page %u.\n", 
+                        nes_time_string(), (unsigned)bank, ((unsigned)mmc3_8000 & 0x40)>>6, 
                         (unsigned)value);
                
             mmc3_ram[bank] = mmc3_getprgpage(value);
@@ -120,21 +121,22 @@ void mmc3_write (register word addr, register byte value)
         break;
 
     case 0xA000:
-        //printf("MMC3: mirroring select: %i\n", value&1);
         nes.rom.mirror_mode = value&1? MIRROR_HORIZ : MIRROR_VERT;
         break;
 
     case 0xA001:
-        //printf ("MMC3: Saveram toggle.\n");
+        //printf ("MMC3: Saveram toggle?\n");
         break;
 
     case 0xC000:
-        //printf ("%u.%u: MMC3: IRQ countdown temporary = %i\n", frame_number, nes.scanline, (int)value);
+        if (trace_ppu_writes)
+            printf ("%sMMC3: IRQ countdown temporary = %i\n", nes_time_string(), (int)value);
         mmc3_latched = value;
         break;
 
     case 0xC001:
-        //printf ("%u.%u: MMC3: IRQ latch request (wrote %i)\n", frame_number, nes.scanline, (int)value);
+        if (trace_ppu_writes)
+            printf ("%sMMC3: IRQ latch request (wrote %i)\n", nes_time_string(), (int)value);
         mmc3_latch_trigger = 1;
         break;
 
@@ -158,26 +160,24 @@ void mmc3_write (register word addr, register byte value)
  * the mapper. */
 int mmc3_scanline (void)
 {
-    /* Note this offset. It seems reasonable that the actual countdown
-     * be at least one greater than the written value. Interestingly,
-     * I found that adding the 'reload on zero' behavior broke TMNT2,
-     * and the minimal offset to get it working again was 2.
-     */
-    const int latched_offset = 2;
+    /* The timing here is a real pain in the ass. A value of zero
+     * fixes the scrolling minigame in SMB3, but introduces a glitch
+     * in TMNT2. Documentation suggests 1 is the correct value. */
+    const int latched_offset = 1;
     // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3_countdown, mmc3_latched, mmc3_latch_trigger);
 
-    if (mmc3_latch_trigger) {
+    /* If this interpretation proves to be right, we can eliminate the
+       latch trigger and simply zero the counter.  But I don't think
+       that would be right.
+    */
+
+    if (mmc3_latch_trigger || !mmc3_countdown) {
         mmc3_countdown = mmc3_latched + latched_offset;
         mmc3_latch_trigger = 0;
-    }
-
-    if (mmc3_countdown) {
+    } else if (mmc3_countdown) {
         mmc3_countdown--;
-        if (!mmc3_countdown && mmc3_irq_enabled) {
-            printf("%u.%u: MMC3 IRQ\n", frame_number, nes.scanline);
-
-            mmc3_countdown = mmc3_latched + latched_offset;
-
+        if ((mmc3_countdown == 0) && mmc3_irq_enabled) {
+            if (trace_ppu_writes) printf("%sMMC3 IRQ\n", nes_time_string());
             return 1;
         }
     }

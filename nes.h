@@ -6,6 +6,8 @@
 #include "global.h"
 #include "rom.h"
 
+#define PPU_CLOCK_DIVIDER (MASTER_CLOCK_DIVIDER/3)
+
 /***  PPU registers  ***/
 
 #define ppu_cr1         0x2000
@@ -86,7 +88,6 @@ struct ppu_struct
     int vblank_flag;
     int hit_flag;
     int spritecount_flag; /* more than 8 sprites on current scanline ? */
-   
 };
 
 struct sound_struct
@@ -104,16 +105,20 @@ struct joypad_info
 
 struct nes_machine
 {
-  struct nes_rom rom;
-  M6502 cpu;
-  void *mapper_data;  /* private to code for current mapper */
-  struct ppu_struct ppu;
-  struct sound_struct snd;
-  byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
-  int scanline;
-  
-  struct mapper_functions *mapper;
-  struct joypad_info joypad;
+    struct nes_rom rom;
+    M6502 cpu;
+    void *mapper_data;  /* private to code for current mapper */
+    struct ppu_struct ppu;
+    struct sound_struct snd;
+    byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
+    int scanline;
+    unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
+    unsigned scanline_start_cycle;
+    unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
+    unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
+    
+    struct mapper_methods *mapper;
+    struct joypad_info joypad;
 };
 
 #ifndef global_c
@@ -121,23 +126,14 @@ extern
 #endif
 struct nes_machine nes;
 
-struct scanline_info
-{
-    byte control1, control2, x;
-    word v, t;
-};
-
-#define LOG_LENGTH 256
-extern struct scanline_info lineinfo[LOG_LENGTH];
-
 void init_nes(struct nes_machine *nes);
 void shutdown_nes(struct nes_machine *nes);
 void reset_nes(struct nes_machine *nes);
 void nes_runframe(void);
 
+char *nes_time_string (void);
+void nes_printtime (void);
 
-/* This is dumb. Why didn't I just make this a method in the mapper?
- */
 static inline word ppu_mirrored_nt_addr (word paddr)
 {
     //word paddr_hbit = (paddr & 0x400) >> 10;

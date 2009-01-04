@@ -14,7 +14,7 @@
 /* #define INSTRUCTION_TRACING */
 
 #define BIT(x) (1<<(x))
-#define PBIT(n,datum)  ((1<<(n))&datum)
+#define PBIT(n,datum)  ((1<<(n))&(datum))
 #define GETBIT(n,datum)     (PBIT(n,datum)>>(n))
 /* Creates a bitmask for nbits starting from the msb */
 #define SUBMASK(msb,nbits) (((1<<(msb+1))-1)-((1<<(msb+1-nbits))-1))
@@ -43,6 +43,7 @@ extern int window_height;
 extern int vid_fullscreen;
 extern int vid_width;
 extern int vid_height;
+extern int tv_scanline;
 extern SDL_Surface *window_surface; /* Window surface */
 extern SDL_Surface *post_surface; /*  This is what is finally blitted to window_surface */
 extern SDL_Surface *surface; /* Video output surface, possibly the same as the above two */
@@ -51,7 +52,7 @@ extern void (*vid_filter) (SDL_Surface *surface);
 
 extern int superverbose;
 extern int trace_ppu_writes;
-extern struct timeval time_frame_start;
+extern long long time_frame_start;
 
 extern unsigned frame_number;
 

@@ -10,15 +10,10 @@
 #include "config.h"
 #include "global.h"
 
-int waitingforhit;
-
 /* init_nes - initializes a nes_machine struct that already had it's rom member set properly */
 /*            after this, an nes_reset is all it should take to start the first frame.       */
 void init_nes (struct nes_machine *nes)
 {
-  int i, idx = -1;
-  struct mapper_functions *info = NULL;
-
 #ifdef INSTUCTION_TRACING
   memset(tracing_counts,0,sizeof(tracing_counts));
 #endif
@@ -26,44 +21,42 @@ void init_nes (struct nes_machine *nes)
   if (forcemapper!=-1) {
     printf ("Forcing mapper to %i\n", forcemapper);
     nes->rom.mapper = forcemapper;
+    nes->rom.mapper_info = mapper_find(forcemapper);
   }
 
-  for (i = 0; i < MAPTABLESIZE; i++) {
-    if (MapTable[i].id == nes->rom.mapper) {
-      idx = i;
-      info = MapTable[i].info;
+  if (nes->rom.mapper_info) {
+    printf ("Mapper is \"%s\"\n", nes->rom.mapper_info->name);
+    if (nes->rom.mapper_info->methods) nes->mapper = nes->rom.mapper_info->methods;
+    else {
+        printf("Warning: This mapper is not currently implemented.\n");
+        nes->mapper = &mapper_None;        
     }
-  }
-  if (idx != -1) {
-    printf ("Mapper is \"%s\"\n", MapTable[idx].name);
   } else {
-    printf ("Unknown mapper (%i).\n", nes->rom.mapper);
+      printf ("Unknown mapper (%i). Defaulting to mapper 0.\n", nes->rom.mapper);
+      nes->mapper = &mapper_None;
   }
-  if (info == NULL) {
-    printf ("Defaulting to mapper 0.\n");
-    info = MapTable[0].info;
-  }
-  nes->joypad.connected = 1;
 
-  nes->mapper = info;
+  nes->joypad.connected = 1;
   nes->mapper->mapper_init ();
+  nes->last_sound_cycle = 0;
   printf ("NES initialized.\n");
 }
 
 void shutdown_nes (struct nes_machine *nes)
 {
   nes->mapper->mapper_shutdown ();
+  
 }
 
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
 void reset_nes (struct nes_machine *nes)
 {
   memset ((void *) nes->ram, 0, 0x800);
-  Reset6502 (&nes->cpu);
+  Reset6502(&nes->cpu);
   if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
   else nes->cpu.TrapBadOps = 0;
 
-  memset ((void *) (nes->ppu.vram + 0x2000), 0, 0x2000);
+  memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
   nes->ppu.control1 = 0;
   nes->ppu.control2 = 0;
   nes->ppu.v = 0;
@@ -100,7 +93,7 @@ void nes_initframe (struct nes_machine *nes)
   nes->ppu.vblank_flag=0; /* set to 0 at frame start, I think */
   nes->ppu.spritecount_flag = 0;
   nes->ppu.sprite_address = 0;
-  waitingforhit = 1;
+  nes->sprite0_detected = 0;
 
   if (nes->ppu.control2 & 0x18) nes->ppu.v = nes->ppu.t;
 
@@ -108,10 +101,10 @@ void nes_initframe (struct nes_machine *nes)
 }
 
 /* nes_vblankstate - sets things that change when a vblank occurs */
-void nes_vblankstate (struct nes_machine *nes)
+void nes_vblankstate (void)
 {
-  nes->ppu.vblank_flag = 1;
-  nes->ppu.hit_flag = 0;
+  nes.ppu.vblank_flag = 1;
+  nes.ppu.hit_flag = 0;
 }
 
 void joypad_write (word Addr)
@@ -151,9 +144,21 @@ byte joypad_read (word Addr)
   return retval;
 }
 
+int scanline_cycles (void)
+{
+    return (nes.cpu.Cycles - nes.scanline_start_cycle) / MASTER_CLOCK_DIVIDER;
+}
+
+char *nes_time_string (void)
+{
+    static char buf[128];
+    sprintf(buf, "%i/%3i.%3i   ", frame_number, nes.scanline, (int) scanline_cycles());
+    return buf;
+}
+
 void nes_printtime (void)
 {
-  printf ("%i.%i ", nes.scanline, (int) nes.cpu.IPeriod - nes.cpu.ICount);
+    fputs(nes_time_string(), stdout);
 }
 
 void mapper_twiddle (void)
@@ -163,7 +168,7 @@ void mapper_twiddle (void)
 
 /*  CPU/Hardware interface.  */
 
-inline int in_vblank (struct nes_machine *nes)
+static inline int in_vblank (struct nes_machine *nes)
 {
     return (nes->scanline >= cfg_framelines) ? 1 : 0;
 }
@@ -189,8 +194,8 @@ void Wr6502 (register word Addr, register byte Value)
           nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
           
           if (trace_ppu_writes)
-              printf("%u.%u: CR1 write: ppu.t = %04X (selected nametable %i)\n", 
-                     frame_number, nes.scanline, nes.ppu.t, Value&3);
+              printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n", 
+                     nes_time_string(), nes.ppu.t, Value&3);
 
 	  if (superverbose) 
           {
@@ -237,7 +242,7 @@ void Wr6502 (register word Addr, register byte Value)
 
 
       case spr_data: /* 2004 */
-          printf("Sprite[%i] = %i\n", (unsigned)nes.ppu.sprite_address, (unsigned)Value);
+          //printf("Sprite[%i] = %i\n", (unsigned)nes.ppu.sprite_address, (unsigned)Value);
 	  nes.ppu.spriteram[nes.ppu.sprite_address++] = Value;
           nes.ppu.sprite_address &= 0xFF;
 	  break;
@@ -254,10 +259,12 @@ void Wr6502 (register word Addr, register byte Value)
               nes.ppu.t |= (Value >> 3) << 5;
           }
           nes.ppu.ppu_addr_mode ^= 1;
-          if (trace_ppu_writes)
-              printf("%u.%u: ppu.t = %04X (wrote %02X to %s scroll)\n", 
-                     frame_number, nes.scanline, nes.ppu.t, Value, 
+          if (trace_ppu_writes) {
+              nes_printtime();
+              printf("ppu.t = %04X (wrote %02X to %s scroll)\n", 
+                     nes.ppu.t, Value, 
                      nes.ppu.ppu_addr_mode ? "horizontal" : "vertical");
+          }
 	  break;
 
       case ppu_addr: /* 2006 */
@@ -266,8 +273,10 @@ void Wr6502 (register word Addr, register byte Value)
           } else {
               nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
               nes.ppu.v = nes.ppu.t;
-              if (trace_ppu_writes)
-                  printf("%u.%u: ppu.v = %04X ($2006, latched from ppu.t)\n", frame_number, nes.scanline, nes.ppu.v);
+              if (trace_ppu_writes) {
+                  nes_printtime();
+                  printf("ppu.v = %04X ($2006, latched from ppu.t)\n", nes.ppu.v);
+              }
 	  }
           nes.ppu.ppu_addr_mode ^= 1;
 
@@ -278,9 +287,7 @@ void Wr6502 (register word Addr, register byte Value)
 
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
 	      nes_printtime ();
-	      printf ("hblank wrote %02X ", (int) Value);
-	      if (!(nes.ppu.control2 & 0x08)) printf ("\tBG OFF");
-	      printf ("\n");
+	      printf ("hblank wrote %02X\n", (int) Value);
 	  } else {
               // TODO: Manual scanline twiddle for IRQ counter?
 
@@ -289,10 +296,11 @@ void Wr6502 (register word Addr, register byte Value)
                       if (nes.ppu.v < 0x3000) {	/* name/attribute table write */
                           int maddr = ppu_mirrored_nt_addr(nes.ppu.v);
                           
-                          if (trace_ppu_writes)
-                              printf("%u.%u: ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
-                                     frame_number, nes.scanline, 
+                          if (trace_ppu_writes) {
+                              nes_printtime();
+                              printf("ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
                                      nes.ppu.v, maddr, Value, nes.ppu.ppu_writemode);
+                          }
 
                           nes.ppu.vram[maddr & 0x3FFF] = Value;
                       } else {
@@ -301,14 +309,22 @@ void Wr6502 (register word Addr, register byte Value)
                            * to see a game require this before I enable it. */
                           printf ("ppu: Write to unused vram at 0x%04X\n", (int) nes.ppu.v);
                       }
-                  } else { /* palette write - palette mirroring must be done in read function */
+                  } else { 
+                      /* Palette write */
                       word tmp = nes.ppu.v;
                       vid_tilecache_dirty = 1;
                       tmp &= 0x1F;
                       tmp |= 0x3F00;
 
-                      if ((tmp == 0x3F00) || (tmp == 0x3F10)) {
+                      if (!(tmp & 0x0F)) {
                           nes.ppu.vram[0x3F00] = Value;
+                          nes.ppu.vram[0x3F04] = Value;
+                          nes.ppu.vram[0x3F08] = Value;
+                          nes.ppu.vram[0x3F0C] = Value;
+                          nes.ppu.vram[0x3F10] = Value;
+                          nes.ppu.vram[0x3F14] = Value;
+                          nes.ppu.vram[0x3F18] = Value;
+                          nes.ppu.vram[0x3F1C] = Value;
                       } else nes.ppu.vram[tmp] = Value;
                   }
               } else {
@@ -335,8 +351,12 @@ void Wr6502 (register word Addr, register byte Value)
 	  word i, tmp = nes.ppu.sprite_address;
           /* Sprite DMA should start from the current sprite ram address
              on the PPU. It seems unlikely that the CPU is designed to 
-             first reset the address register. */
-	  // for (i = 0x100 * Value; i < (0x100 * Value + 0x100); i++) {
+             first reset the address register. It costs 513 CPU cycles.
+          */
+          /* (If that's really the case, why not use it for other things?) */
+
+          nes.cpu.Cycles += 513 * MASTER_CLOCK_DIVIDER;
+
           //printf("Sprite DMA from page %i to sprite+%02X\n", Value, tmp);
           for (i = 0; i < 256; i++) {
 	    nes.ppu.spriteram[tmp] = Rd6502 (0x100 * Value + i);
@@ -411,9 +431,14 @@ byte Rd6502 (register word Addr)
 	//	return nes.ppu.control2;
       case ppu_addr:
       case spr_addr:
-      case spr_data:
       case ppu_status:
       {
+
+          if (nes.sprite0_detected && ((nes.cpu.Cycles - nes.sprite0_hit_cycle) > 0)) {
+              nes.ppu.hit_flag = 1;
+              nes.sprite0_detected = 0;
+          }
+
 	  byte tmp = 
               (nes.ppu.vblank_flag << 7) |
               (nes.ppu.hit_flag << 6) | 
@@ -435,15 +460,24 @@ byte Rd6502 (register word Addr)
           
 	  nes.ppu.vblank_flag = 0;
 	  /*	  nes.ppu.hit_flag = 0; */
-	  /*	  nes.ppu.scroll_mode= DUAL_HIGH;*/
+
 	  nes.ppu.ppu_addr_mode = DUAL_HIGH;
 	  nes.ppu.control1 &= (0xFF - 4);
 	  return tmp;
       }
 
+      case spr_data:
+          return nes.ppu.spriteram[nes.ppu.sprite_address];
+
       case ppu_data:
       {
-	  byte ret = nes.ppu.read_latch;
+	  byte ret;
+          
+          /* Palette reads aren't buffered? */
+          if (nes.ppu.v >= 0x3f00) nes.ppu.read_latch =  nes.ppu.vram[0x3f00 | (nes.ppu.v & 0x1f)];
+
+          ret = nes.ppu.read_latch;
+          
 
           nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.v & 0x3FFF)];
           // TODO: Manual scanline twiddle for IRQ counter?
@@ -482,7 +516,7 @@ byte Rd6502 (register word Addr)
   case 0x8000:
   case 0xA000:
   case 0xC000:
-  case 0xE000: return nes.mapper->mapper_read (Addr);  
+  case 0xE000: return nes.mapper->mapper_read(Addr);
   }
 
   return 0;
@@ -490,110 +524,131 @@ byte Rd6502 (register word Addr)
 
 byte Debug6502 (register M6502 * R)
 {
-  char buffer[64];
-  byte tmp[4];
-  tmp[0] = Rd6502 (R->PC.W);
-  tmp[1] = Rd6502 (R->PC.W + 1);
-  tmp[2] = Rd6502 (R->PC.W + 2);
-  tmp[3] = Rd6502 (R->PC.W + 3);
-  DAsm (buffer, tmp, R->PC.W);
-  printf ("PC $%04X %s \tA=%02X X=%02X Y=%02X S=%02X\n", 
-          (unsigned)R->PC.W, buffer, 
-          (unsigned)R->A, (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S);
-  return 1;
+    char buffer[64];
+    byte tmp[4];
+    tmp[0] = Rd6502 (R->PC.W);
+    tmp[1] = Rd6502 (R->PC.W + 1);
+    tmp[2] = Rd6502 (R->PC.W + 2);
+    tmp[3] = Rd6502 (R->PC.W + 3);
+    DAsm (buffer, tmp, R->PC.W);
+    nes_printtime ();
+    printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %17s   ", 
+            (unsigned)R->PC.W, (unsigned)R->A, 
+            (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S,
+            buffer);
+    mmc1_short_status();
+    printf("\n");
+    return 1;
 }
-
-
-
 
 byte Loop6502 (register M6502 * R)
 {
-  byte ret = INT_NONE;
+    return INT_QUIT;
+}
 
-  /*  if (superverbose) printf("scanline %i\n",nes.scanline);  */
-  if (nes.scanline == nes.ppu.spriteram[0]) {
-      nes.ppu.hit_flag = 1;
-    if (superverbose) printf ("Sprite 0 hit on line %i (s0y=%i, s0t=%i)\n", (int)nes.scanline, (int)nes.ppu.spriteram[0],(int)nes.ppu.spriteram[1]);
-  } 
-  
-  /* This is more correct, but there's a bug in it... */
-  /*  if ( (nes.scanline>=nes.ppu.spriteram[0]) && (((int)nes.scanline)<(((int)nes.ppu.spriteram[0])+8))) {
-    unsigned *chr = (unsigned *) ((unsigned char *)nes.ppu.vram + ((nes.ppu.control1 & 8)<<9));
-    int i = 0;
-    chr += 16 * nes.ppu.spriteram[1];
-    while (i <= (nes.scanline - nes.ppu.spriteram[0])) {
-      if (chr[i*2+0] || chr[i*2+1]) {
-	nes.ppu.hit_flag = 1;
-	waitingforhit = 0;
-	printf ("Sprite 0 hit on line %i (s0y=%i, s0t=%i)\n", (int)nes.scanline, (int)nes.ppu.spriteram[0],(int)nes.ppu.spriteram[1]);
-	break;
-      } else i++;
-    }
-    }*/
-      
+void run_cycles (int num_cycles)
+{
+    nes.cpu.BreakCycle += num_cycles * MASTER_CLOCK_DIVIDER;
+    Run6502 (&nes.cpu);
+}
 
-  if (nes.scanline == 0) nes.ppu.vblank_flag = 0;
+static inline int ppu_is_rendering (void)
+{
+    return (nes.ppu.control2 & 0x18);
+}
 
-  if (trace_ppu_writes && nes.scanline == 0)
-      printf("At frame start, hscroll=%03X vscroll=%03X\n", 
-             ppu_current_hscroll(), ppu_current_vscroll());
+static inline void note_video_scanline (void)
+{
+    if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();  
+}
 
-  if ((nes.scanline<240)) {
-      
-      if (nes.ppu.control2 & 0x18) {
-          nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-          // Experiment:
-          //nes.ppu.v = (nes.ppu.v & ~0xC1F) | (nes.ppu.t & 0xC1F);
+static inline void ppu_latch_v (void)
+{
+    if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
+}
 
-          // Weird. TMNT2 is sensitive to this (and "fixes" scrolling):
-          //nes.ppu.v = nes.ppu.t;
-      }
-
-      lineinfo[nes.scanline].v = nes.ppu.v;
-      lineinfo[nes.scanline].t = nes.ppu.t;
-      lineinfo[nes.scanline].x = nes.ppu.x;
-      lineinfo[nes.scanline].control1 = nes.ppu.control1;
-      lineinfo[nes.scanline].control2 = nes.ppu.control2;
-  } 
-
-  if (nes.scanline == cfg_framelines) {
-    nes_vblankstate (&nes);
-    if (nes.ppu.control1 & 0x80) ret = INT_NMI; /* trigger VBlank NMI if enabled in PPU */
-  } else if (nes.scanline == (cfg_framelines + cfg_vblanklines - 1))
-    ret = INT_QUIT;
-
-/*   printf("line %i  vblank=%i flag=%i ppu.v=%04X\n",nes.scanline,in_vblank(&nes),nes.ppu.vblank_flag,(int)nes.ppu.v); */  
-  nes.scanline++;
-
-  if ((!in_vblank(&nes)) && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
-
-  return ret;
+static inline void note_scanline_start (void)
+{
+    /* This is wrong! It introduces jitter in the PPU timing, as it's
+     * unlike the CPU completed an instruction exactly at the start of
+     * the PPU scanline. So fix it. */
+    nes.scanline_start_cycle = nes.cpu.Cycles;  
+    nes.sprite0_detected = 0;
 }
 
 void nes_runframe (void)
 {
-  nes.cpu.IPeriod = cfg_linecycles;
-  nes_initframe (&nes);
-  if (superverbose) {
-    printf ("ppu @ $%04X\n", (unsigned)nes.ppu.v);
-  }
-  Run6502 (&nes.cpu);
-  if (superverbose)
-    printf ("\n\n\n");
-  snd_frameend ();
+    int line_cycles = 114;
+    int hblank_cycles = 29;
+    int scan_cycles = line_cycles - hblank_cycles;
+    int vblank_kludge_cycles = 3;
+    int vscroll;
 
-  if (superverbose) {
-    printf("ppu=%X\n",nes.ppu.control1&0x40); 
-    printf("nametable=%i\n",nes.ppu.control1&3);
-  }
+    // Initialize for frame. Clears PPU flags.
+    nes_initframe (&nes);
+
+    // Dummy scanline:
+    note_scanline_start();
+    ppu_latch_v();
+    run_cycles(scan_cycles);
+    note_video_scanline();
+    run_cycles(hblank_cycles);
+
+    render_scanline();
+    tv_scanline = 0;
+
+    vscroll = ppu_current_vscroll() - 1;
+    if (trace_ppu_writes)
+        printf("At frame start, hscroll=%03i vscroll=%03i\n", 
+               ppu_current_hscroll(), ppu_current_vscroll());
+
+    // This is the visible frame:
+    for (nes.scanline = 1; nes.scanline < 241; nes.scanline++)
+    {
+        note_scanline_start();
+        ppu_latch_v();
+
+        if (trace_ppu_writes && (nes.ppu.control2 & 0x08) && (ppu_current_vscroll() != vscroll+1)) {
+            nes_printtime();
+            printf("split detected. %03i/%03i\n", ppu_current_hscroll(), ppu_current_vscroll());
+        }
+        vscroll = ppu_current_vscroll();
+
+        render_scanline();
+        tv_scanline++;
+        run_cycles(scan_cycles);
+        note_video_scanline();  /* Fire MMC3 IRQ */
+        run_cycles(hblank_cycles);
+        snd_catchup();
+    }
+
+    // One wasted line after the frame:
+    note_scanline_start();
+    run_cycles(line_cycles);
+    nes.scanline++;
+
+    // Enter vertical blank
+    nes_vblankstate();
+    run_cycles(vblank_kludge_cycles);
+    if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI);
+    for (; nes.scanline < 262; nes.scanline++) {
+        note_scanline_start();
+        run_cycles(line_cycles - vblank_kludge_cycles);
+        vblank_kludge_cycles = 0;
+    }
+
+    snd_catchup();
 }
 
-/** Debugging utilities: The idea is that rather than writing a 6502
+
+
+/* Debugging utilities: The idea is that rather than writing a 6502
  * debugger as part of the emulator, we can debug from the host's GDB
  * using watchpoints and inspecting the emulator data structures
  * directly. These are here to aid in that approach (e.g. "display
- * list()")
- **/
+ * list()"). In practice this is a pain in the ass, but it has worked
+ * well enough so far.
+ */
 
 word getword (word addr)
 {

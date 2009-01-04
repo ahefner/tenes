@@ -101,7 +101,7 @@ INLINE byte Op6502(register word A) { return(Page[A>>13][A&0x1FFF]); }
 
 #define M_PUSH(Rg)	Wr6502(0x0100|R->S,Rg);R->S--
 #define M_POP(Rg)	R->S++;Rg=Op6502(0x0100|R->S)
-#define M_JR		R->PC.W+=(offset)Op6502(R->PC.W)+1;R->ICount--
+#define M_JR		R->PC.W+=(offset)Op6502(R->PC.W)+1;R->Cycles+=MASTER_CLOCK_DIVIDER
 
 /* This code was removed from the M_ADC macro below. The NES cpu ignores the decimal flag. */
 /*  if(R->P&D_FLAG) \
@@ -179,10 +179,10 @@ void Reset6502(M6502 *R)
   R->P=Z_FLAG|R_FLAG;
   R->S=0xFF;
   R->PC.B.l=Rd6502(0xFFFC);
-  R->PC.B.h=Rd6502(0xFFFD);   
-  R->ICount=R->IPeriod;
+  R->PC.B.h=Rd6502(0xFFFD);
+  R->Cycles = 0;
+  R->BreakCycle = 0;
   R->IRequest=INT_NONE;
-  R->AfterCLI=0;
 }
 
 /** Exec6502() ***********************************************/
@@ -194,9 +194,12 @@ word Exec6502(M6502 *R)
 {
   register pair J,K;
   register byte I;
+  byte cycles;
 
-  I=Op6502(R->PC.W++);
-  R->ICount-=Cycles[I];
+  I = Op6502(R->PC.W++);
+  cycles = Cycles[I];
+  R->Cycles += cycles * MASTER_CLOCK_DIVIDER;
+      
   switch(I)
   {
 #include "Codes.h"
@@ -214,10 +217,13 @@ word Exec6502(M6502 *R)
 void Int6502(M6502 *R,byte Type)
 {
   register pair J;
-
+  
   if((Type==INT_NMI)||((Type==INT_IRQ)&&!(R->P&I_FLAG)))
   {
-    R->ICount-=7;
+    if (R->Trace) printf("Interrupt type %i\n", Type);
+
+    R->Cycles += 7 * MASTER_CLOCK_DIVIDER;    
+
     M_PUSH(R->PC.B.h);
     M_PUSH(R->PC.B.l);
     M_PUSH(R->P&~B_FLAG);
@@ -228,52 +234,35 @@ void Int6502(M6502 *R,byte Type)
   }
 }
 
-/** Run6502() ************************************************/
-/** This function will run 6502 code until Loop6502() call  **/
-/** returns INT_QUIT. It will return the PC at which        **/
-/** emulation stopped, and current register values in R.    **/
-/*************************************************************/
+/** Run6502() ************************************************
+ ** This function will run 6502 code until R->Cycles exceeds *
+ ** R->BreakCycle. These are counted in master clock cycles, *
+ ** which are related to CPU cycles by dividing by           *
+ ** MASTER_CLOCK_DIVIDER.                                    *
+ *************************************************************/
+
+
 word Run6502(M6502 *R)
 {
   register pair J,K;
   register byte I;
 
-  for(;;)
+  while ((R->BreakCycle - R->Cycles) > 0)
   {
 #ifdef DEBUG
     /* Turn tracing on when reached trap address */
-    if(R->PC.W==R->Trap) R->Trace=1;
+    /* if(R->PC.W==R->Trap) R->Trace=1; */
     /* Call single-step debugger, exit if requested */
     if(R->Trace)
       if(!Debug6502(R)) return(R->PC.W);
 #endif
 
     I=Op6502(R->PC.W++);
-    R->ICount-=Cycles[I];
+    R->Cycles+=Cycles[I] * MASTER_CLOCK_DIVIDER;
+
     switch(I)
     {
 #include "Codes.h"
-    }
-
-    /* If cycle counter expired... */
-    if(R->ICount<=0)
-    {
-      /* If we have come after CLI, get INT_? from IRequest */
-      /* Otherwise, get it from the loop handler            */
-      if(R->AfterCLI)
-      {
-        I=R->IRequest;            /* Get pending interrupt     */
-        R->ICount+=R->IBackup-1;  /* Restore the ICount        */
-        R->AfterCLI=0;            /* Done with AfterCLI state  */
-      }
-      else
-      {
-        I=Loop6502(R);            /* Call the periodic handler */
-        R->ICount=R->IPeriod;     /* Reset the cycle counter   */
-      }
-
-      if(I==INT_QUIT) return(R->PC.W); /* Exit if INT_QUIT     */
-      if(I) Int6502(R,I);              /* Interrupt if needed  */ 
     }
   }
 

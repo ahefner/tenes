@@ -61,13 +61,12 @@ case 0x00:
 
 /* CLI */
 case 0x58:
-  if((R->IRequest!=INT_NONE)&&(R->P&I_FLAG))
-  {
-    R->AfterCLI=1;
-    R->IBackup=R->ICount;
-    R->ICount=1;
-  }
   R->P&=~I_FLAG;
+  if((R->IRequest!=INT_NONE)/*&&(R->P&I_FLAG)*/)
+  {
+      Int6502(R,R->IRequest);
+      R->IRequest = INT_NONE;
+  }
   break;
 
 /* PLP */
@@ -75,9 +74,8 @@ case 0x28:
   M_POP(I);
   if((R->IRequest!=INT_NONE)&&((I^R->P)&~I&I_FLAG))
   {
-    R->AfterCLI=1;
-    R->IBackup=R->ICount;
-    R->ICount=1;
+      Int6502(R,R->IRequest);
+      R->IRequest = INT_NONE;
   }
   R->P=I|R_FLAG;
   break;
@@ -247,7 +245,7 @@ default:
   if(R->TrapBadOps)
     printf
     (
-      "[M6502 %lX] Unrecognized instruction: $%02X at PC=$%04X\n",
-      R->User,Op6502(R->PC.W-1),(word)(R->PC.W-1)
+      "[M6502] Unrecognized instruction: $%02X at PC=$%04X\n",
+      Op6502(R->PC.W-1),(word)(R->PC.W-1)
     );
   break;

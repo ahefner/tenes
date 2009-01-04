@@ -4,6 +4,7 @@
 *.o
 roms
 emu
-log
+nesemu
+log*
 diffs
 
