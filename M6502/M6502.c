@@ -220,7 +220,10 @@ void Int6502(M6502 *R,byte Type)
   
   if((Type==INT_NMI)||((Type==INT_IRQ)&&!(R->P&I_FLAG)))
   {
-    R->Cycles += 7 * MASTER_CLOCK_DIVIDER;
+    if (R->Trace) printf("Interrupt type %i\n", Type);
+
+    R->Cycles += 7 * MASTER_CLOCK_DIVIDER;    
+
     M_PUSH(R->PC.B.h);
     M_PUSH(R->PC.B.l);
     M_PUSH(R->P&~B_FLAG);
@@ -248,7 +251,7 @@ word Run6502(M6502 *R)
   {
 #ifdef DEBUG
     /* Turn tracing on when reached trap address */
-    if(R->PC.W==R->Trap) R->Trace=1;
+    /* if(R->PC.W==R->Trap) R->Trace=1; */
     /* Call single-step debugger, exit if requested */
     if(R->Trace)
       if(!Debug6502(R)) return(R->PC.W);

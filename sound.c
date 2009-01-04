@@ -37,6 +37,7 @@ volatile int sound_enabled = 1;
 static void buffer_init (void);
 static void audio_callback (void *udata, Sint16 * stream, int len);
 static void snd_fillbuffer (Sint16 * buf, unsigned index, unsigned length);
+void snd_render_samples (int emergency_mode, int samples);
 
 static SDL_AudioSpec desired, obtained;
 
@@ -47,7 +48,6 @@ int snd_init (void)
     producer_mutex = SDL_CreateMutex();
 
     if (sound_globalenabled) {
-        int i;
 
         buffer_init();
 
@@ -283,7 +283,7 @@ void frameseq_clock_sequencer (void)
 
 int lcounter[4]={0,0,0,0}; /* 7 bit down counter */
 
-inline int tick (int value) { return value? value-1 : 0; }
+static inline int tick (int value) { return value? value-1 : 0; }
 
 void length_counters_clock (void)
 {
@@ -365,11 +365,18 @@ int env_reset[4] = {0,0,0,0};
  * of output. */
 int volume[4] = {0,0,0,0};
 
-inline void envelope_counter_clock (int channel)
+static inline void envelope_compute_output_volume (int channel)
+{
+    int const_vol = (nes.snd.regs[channel<<2] & BIT(4));
+    if (!const_vol) volume[channel] = envc[channel];
+    else volume[channel] = nes.snd.regs[channel<<2] & 0x0F;
+}
+
+static inline void envelope_counter_clock (int channel)
 {
     if (envc[channel]) envc[channel]--;
-    else if (nes.snd.regs[channel<<2] & 0x20) envc[channel] = 15;    
-    if (!(nes.snd.regs[channel<<2] & 0x10)) volume[channel] = envc[channel];
+    else if (nes.snd.regs[channel<<2] & 0x20) envc[channel] = 15; /* Loop envelope */
+    envelope_compute_output_volume(channel);
 }
 
 void envelope_clock (void)
@@ -423,7 +430,7 @@ int dmc_shift_register = 0;
 
 /* We don't have a separate 'silent flag'. I think checking
  * !dmc_counter suffices. */
-inline int dmc_silent_p (void) { return !dmc_counter; }
+static inline int dmc_silent_p (void) { return !dmc_counter; }
 
 void dmc_configure (void)
 {
@@ -496,8 +503,8 @@ void snd_write (unsigned addr, unsigned char value)
 
     SDL_mutexP(producer_mutex);
 
-    if (0 && ((addr < 4) || (addr == 0x15)))
-        printf("%ssnd %2X <- %02X  (%2x/%2x/%2x/%2x) status=%02X\n", nes_time_string(), addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15]); 
+    if (0)
+        printf("%ssnd %2X <- %02X  length(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15], volume[0], volume[1], volume[3]); 
 
     switch (addr) {
     case 0x15: /* channel enable register */
@@ -521,8 +528,9 @@ void snd_write (unsigned addr, unsigned char value)
 
     /* Configure volume / envelope */
     case 0: case 4: case 12:
-        if (value & BIT(4)) volume[chan] = value & 0x0F;
+        //if (value & BIT(4)) volume[chan] = value & 0x0F; /* Disable envelope decay */
         nes.snd.regs[addr] = value;
+        envelope_compute_output_volume(chan);
         /*    printf("snd_write: reg %i val %02X\t\t volume %s%i, volume decay %s, volume looping %s\n", 
               addr, value, PBIT(4,value) ? "" : "decay rate ", LDB(3,4,value),
               PBIT(4,value) ? "disabled" : "enabled", 
@@ -621,7 +629,7 @@ unsigned char snd_read_status_reg (void)
     return result;
 }
 
-inline void clock_ptimer (int channel, int mask)
+static inline void clock_ptimer (int channel, int mask)
 {
     ptimer[channel] -= CLOCK/48000;
     while (ptimer[channel] < 0) {
@@ -637,14 +645,14 @@ inline void clock_ptimer (int channel, int mask)
 
 unsigned lfsr = 1;
 
-inline void clock_lfsr (void)
+static inline void clock_lfsr (void)
 {
     if (!(nes.snd.regs[14] & 0x80))
         lfsr = (lfsr >> 1) | (((lfsr&1) ^ ((lfsr & 2)>>1))<<14);
     else lfsr = (lfsr >> 1) | (((lfsr&1) ^ ((lfsr>>6)&1))<<14);
 }
 
-inline void clock_noise_ptimer (void)
+static inline void clock_noise_ptimer (void)
 {
     ptimer[3] -= CLOCK/48000;
     while (ptimer[3] < 0) {
@@ -734,10 +742,10 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
 
         if (lcounter[2] && (wavelength[2] >=8 ) && linear_counter) clock_ptimer(2, 0x1F);
         tri = (out_counter[2] >= 0x10) ? out_counter[2]^0x1F : out_counter[2];
-        
+
         clock_noise_ptimer();
         if (lcounter[3]) {
-            if (lfsr & 1) noise = volume[3];
+            if (!(lfsr & 1)) noise = volume[3];
         }
 
         clock_dmc_ptimer();

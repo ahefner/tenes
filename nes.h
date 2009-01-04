@@ -6,6 +6,8 @@
 #include "global.h"
 #include "rom.h"
 
+#define PPU_CLOCK_DIVIDER (MASTER_CLOCK_DIVIDER/3)
+
 /***  PPU registers  ***/
 
 #define ppu_cr1         0x2000

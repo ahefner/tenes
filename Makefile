@@ -1,7 +1,7 @@
 # Makefile
 
 CC=gcc
-CFLAGS= -Wall -O3 `sdl-config --cflags` -std=c99
+CFLAGS= -Wall -O0 -g `sdl-config --cflags` -std=c99
 
 OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o
 INCLUDEDIRS= -IM6502

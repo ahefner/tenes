@@ -61,12 +61,12 @@ case 0x00:
 
 /* CLI */
 case 0x58:
-  if((R->IRequest!=INT_NONE)&&(R->P&I_FLAG))
+  R->P&=~I_FLAG;
+  if((R->IRequest!=INT_NONE)/*&&(R->P&I_FLAG)*/)
   {
       Int6502(R,R->IRequest);
       R->IRequest = INT_NONE;
   }
-  R->P&=~I_FLAG;
   break;
 
 /* PLP */

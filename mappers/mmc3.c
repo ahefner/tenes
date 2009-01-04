@@ -111,7 +111,7 @@ void mmc3_write (register word addr, register byte value)
 
         } else {   /* PRG-ROM switch */
             int bank = mmc3_8000 & 1; /* LSB of 6 or 7 */
-            if (0)
+            if (nes.cpu.Trace)
                 printf ("%sMMC3: Switching program - bank %u (mode %i) to page %u.\n", 
                         nes_time_string(), (unsigned)bank, ((unsigned)mmc3_8000 & 0x40)>>6, 
                         (unsigned)value);
@@ -160,11 +160,9 @@ void mmc3_write (register word addr, register byte value)
  * the mapper. */
 int mmc3_scanline (void)
 {
-    /* Note this offset. It seems reasonable that the actual countdown
-     * be at least one greater than the written value. Interestingly,
-     * I found that adding the 'reload on zero' behavior broke TMNT2,
-     * and the minimal offset to get it working again was 2.
-     */
+    /* The timing here is a real pain in the ass. A value of zero
+     * fixes the scrolling minigame in SMB3, but introduces a glitch
+     * in TMNT2. Documentation suggests 1 is the correct value. */
     const int latched_offset = 1;
     // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3_countdown, mmc3_latched, mmc3_latch_trigger);
 

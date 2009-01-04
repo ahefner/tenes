@@ -105,7 +105,6 @@ void nes_vblankstate (void)
 {
   nes.ppu.vblank_flag = 1;
   nes.ppu.hit_flag = 0;
-  if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI); /* trigger VBlank NMI if enabled in PPU */ 
 }
 
 void joypad_write (word Addr)
@@ -153,7 +152,7 @@ int scanline_cycles (void)
 char *nes_time_string (void)
 {
     static char buf[128];
-    sprintf(buf, "%i/%i.%3i   ", frame_number, nes.scanline, (int) scanline_cycles());
+    sprintf(buf, "%i/%3i.%3i   ", frame_number, nes.scanline, (int) scanline_cycles());
     return buf;
 }
 
@@ -169,7 +168,7 @@ void mapper_twiddle (void)
 
 /*  CPU/Hardware interface.  */
 
-inline int in_vblank (struct nes_machine *nes)
+static inline int in_vblank (struct nes_machine *nes)
 {
     return (nes->scanline >= cfg_framelines) ? 1 : 0;
 }
@@ -288,9 +287,7 @@ void Wr6502 (register word Addr, register byte Value)
 
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
 	      nes_printtime ();
-	      printf ("hblank wrote %02X ", (int) Value);
-	      if (!(nes.ppu.control2 & 0x08)) printf ("\tBG OFF");
-	      printf ("\n");
+	      printf ("hblank wrote %02X\n", (int) Value);
 	  } else {
               // TODO: Manual scanline twiddle for IRQ counter?
 
@@ -354,8 +351,12 @@ void Wr6502 (register word Addr, register byte Value)
 	  word i, tmp = nes.ppu.sprite_address;
           /* Sprite DMA should start from the current sprite ram address
              on the PPU. It seems unlikely that the CPU is designed to 
-             first reset the address register. */
-	  // for (i = 0x100 * Value; i < (0x100 * Value + 0x100); i++) {
+             first reset the address register. It costs 513 CPU cycles.
+          */
+          /* (If that's really the case, why not use it for other things?) */
+
+          nes.cpu.Cycles += 513 * MASTER_CLOCK_DIVIDER;
+
           //printf("Sprite DMA from page %i to sprite+%02X\n", Value, tmp);
           for (i = 0; i < 256; i++) {
 	    nes.ppu.spriteram[tmp] = Rd6502 (0x100 * Value + i);
@@ -531,10 +532,12 @@ byte Debug6502 (register M6502 * R)
     tmp[3] = Rd6502 (R->PC.W + 3);
     DAsm (buffer, tmp, R->PC.W);
     nes_printtime ();
-    printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %s\n", 
+    printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %17s   ", 
             (unsigned)R->PC.W, (unsigned)R->A, 
             (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S,
             buffer);
+    mmc1_short_status();
+    printf("\n");
     return 1;
 }
 
@@ -549,23 +552,26 @@ void run_cycles (int num_cycles)
     Run6502 (&nes.cpu);
 }
 
-inline int ppu_is_rendering (void)
+static inline int ppu_is_rendering (void)
 {
     return (nes.ppu.control2 & 0x18);
 }
 
-inline void note_video_scanline (void)
+static inline void note_video_scanline (void)
 {
     if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();  
 }
 
-inline void ppu_latch_v (void)
+static inline void ppu_latch_v (void)
 {
     if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
 }
 
-inline void note_scanline_start (void)
+static inline void note_scanline_start (void)
 {
+    /* This is wrong! It introduces jitter in the PPU timing, as it's
+     * unlike the CPU completed an instruction exactly at the start of
+     * the PPU scanline. So fix it. */
     nes.scanline_start_cycle = nes.cpu.Cycles;  
     nes.sprite0_detected = 0;
 }
@@ -575,6 +581,7 @@ void nes_runframe (void)
     int line_cycles = 114;
     int hblank_cycles = 29;
     int scan_cycles = line_cycles - hblank_cycles;
+    int vblank_kludge_cycles = 3;
     int vscroll;
 
     // Initialize for frame. Clears PPU flags.
@@ -622,9 +629,12 @@ void nes_runframe (void)
 
     // Enter vertical blank
     nes_vblankstate();
+    run_cycles(vblank_kludge_cycles);
+    if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI);
     for (; nes.scanline < 262; nes.scanline++) {
         note_scanline_start();
-        run_cycles(line_cycles);
+        run_cycles(line_cycles - vblank_kludge_cycles);
+        vblank_kludge_cycles = 0;
     }
 
     snd_catchup();
