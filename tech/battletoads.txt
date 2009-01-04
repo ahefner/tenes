@@ -1,0 +1,44 @@
+Disch
+
+
+
+Joined: 10 Nov 2004
+Posts: 1204
+
+       
+PostPosted: Tue Aug 23, 2005 1:07 pm    Post subject:   Reply with quote
+Battletoads relies on some pretty exact timing crap. To get it working properly, make sure:
+
+
+1) You execute 1 instruction between the start of VBlank (when $2002.7 is raised) and when an NMI is actually triggered. There appears to be some latency between the two. This doesn't apply to battletoads, but this latency also exists when you enable NMIs from a disabled state when $2002.7 is high (failure to handle this latency will make Lolo games crash and burn -- failure to handle NMI triggering when NMI's are enabled when 2002.7 is high will cause problems with Captain Skyhawk)
+
+2) PPU X address is incremented no earlier than every 4th cycle on the scanline (4, 12, 20, etc)
+
+3) PPU Y address is incremented on cycle 252
+
+4) PPU X address is reset on cycle 256
+
+Doing those 4 things should get Battletoads running without problems.
+
+
+
+Quietust
+
+
+
+Joined: 19 Sep 2004
+Posts: 1028
+
+       
+PostPosted: Tue Aug 23, 2005 2:15 pm    Post subject:   Reply with quote
+Disch wrote:
+2) PPU X address is incremented no earlier than every 4th cycle on the scanline (4, 12, 20, etc)
+
+3) PPU Y address is incremented on cycle 252
+
+4) PPU X address is reset on cycle 256
+
+
+The actual values for these are 3/11/19/etc., 251, and 257 (all zero-based), verified by doing extremely precise PPU testing using Kevin Horton's "3-in-1 tester".
+
+

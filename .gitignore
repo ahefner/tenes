@@ -4,4 +4,6 @@
 *.o
 roms
 emu
+log
+diffs
 
