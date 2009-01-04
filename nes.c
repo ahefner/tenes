@@ -322,10 +322,6 @@ void Wr6502 (register word Addr, register byte Value)
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
                           nes.ppu.vram[0x3F0C] = Value;
-/*                          nes.ppu.vram[0x3F10] = Value;
-                          nes.ppu.vram[0x3F14] = Value;
-                          nes.ppu.vram[0x3F18] = Value;
-                          nes.ppu.vram[0x3F1C] = Value;*/
                       } else nes.ppu.vram[tmp] = Value;
                   }
               } else {
