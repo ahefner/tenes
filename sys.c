@@ -42,10 +42,10 @@ void sys_framesync (void)
     do {
         now = usectime();
         assert((target - now) < 1000000ll);
-        if (target-now > 10000) usleep(5000);
+        if (target-now > 10000) usleep(1000);
     } while (now < target);
     
-    //if (now-target) printf("framesync: off by %lli microseconds\n", now - target);
+    if (now-target) printf("framesync: off by %lli microseconds\n", now - target);
 }
 
 SDL_Color palette[129];
@@ -54,28 +54,26 @@ int numsticks = 0;
 
 void sys_init (void)
 {
-  int i, tmp;
-  int surfaceflags = SDL_DOUBLEBUF | SDL_SWSURFACE | SDL_HWPALETTE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
+    int i, tmp;
+    int surfaceflags = SDL_DOUBLEBUF | SDL_SWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
 
-      if (SDL_Init (SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
-          printf ("Could not initialize SDL!\n");
-          exit (1);
-      }
+    if (SDL_Init (SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
+        printf ("Could not initialize SDL!\n");
+        exit (1);
+    }
+    
+    /* Initializes video fitering */
+    vid_filter();
 
-      if (vid_filter!=NULL) init_scaling();
-
-      window_width=max(window_width,vid_width);
-      window_height=max(window_height,vid_height);
+    window_width = max(window_width, vid_width);
+    window_height = max(window_height, vid_height);
       
       printf ("Initializing video... \n");
-      window_surface = SDL_SetVideoMode (window_width, window_height, 8, surfaceflags);
+      window_surface = SDL_SetVideoMode (window_width, window_height, vid_bpp, surfaceflags);
       if (window_surface == NULL) {
           printf ("Could not set desired display mode!\n");
           exit (1);
       }
-  
-      if (surface==NULL) surface = window_surface;
-      if (post_surface==NULL) post_surface = window_surface;
 
       SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
 
@@ -90,18 +88,14 @@ void sys_init (void)
       palette[128].b = 0;
       palette[128].unused = 0;
 
-      SDL_SetColors(window_surface, palette, 0, 129);
-      SDL_SetColors(post_surface, palette, 0, 129);  
-      SDL_SetColors(surface, palette, 0, 129);  
+      //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
-      SDL_FillRect(post_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
-      SDL_FillRect(surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
       SDL_ShowCursor(SDL_DISABLE);
 
       tmp = SDL_NumJoysticks();
       if (!cfg_disable_joysticks) {
-          printf ("Found %i joystick(s).\n", tmp);
+          printf("Found %i joystick%s.\n", tmp, tmp==1?"":"s");
           //  for (i=0; i<tmp; i++) printf ("  %i: %s\n",i,SDL_JoystickName(i));
           if (tmp) {
               numsticks = (tmp>4)?4:tmp;
@@ -128,7 +122,6 @@ void sys_init (void)
       } else printf("Joysticks are disabled.\n");
 }
 
-
 char config_dir[PATH_MAX];
 char *ensure_config_dir (void)
 {
@@ -154,7 +147,15 @@ char *ensure_save_dir (void)
     return save_dir;
 }
 
-
+char state_dir[PATH_MAX];
+char *ensure_state_dir (long long hash)
+{
+    snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir(), hash);
+    mkdir(state_dir, 0777);
+    snprintf(state_dir, sizeof(state_dir), "%s/state/%llX", ensure_config_dir(), hash);
+    mkdir(state_dir, 0777);
+    return state_dir;
+}
 
 void sys_shutdown (void)
 {
@@ -168,4 +169,3 @@ void sys_shutdown (void)
     SDL_FreeSurface (window_surface);
     SDL_Quit (); 
 }
-

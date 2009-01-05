@@ -2,6 +2,8 @@
 #define NES_C
 
 #include <assert.h>
+#include <sys/stat.h>
+#include <limits.h>
 #include "sys.h"
 #include "nes.h"
 #include "sound.h"
@@ -26,26 +28,39 @@ void init_nes (struct nes_machine *nes)
 
   if (nes->rom.mapper_info) {
     printf ("Mapper is \"%s\"\n", nes->rom.mapper_info->name);
-    if (nes->rom.mapper_info->methods) nes->mapper = nes->rom.mapper_info->methods;
+    if (nes->rom.mapper_info->methods) mapper = nes->rom.mapper_info->methods;
     else {
         printf("Warning: This mapper is not currently implemented.\n");
-        nes->mapper = &mapper_None;        
+        mapper = &mapper_None;        
     }
   } else {
       printf ("Unknown mapper (%i). Defaulting to mapper 0.\n", nes->rom.mapper);
-      nes->mapper = &mapper_None;
+      mapper = &mapper_None;
   }
 
   nes->joypad.connected = 1;
-  nes->mapper->mapper_init ();
+  mapper->mapper_init ();
   nes->last_sound_cycle = 0;
+
+  /* Load SRAM */
+  memset((void *)nes->save, 0, 0x2000);
+  if (nes->rom.flags & 2) {
+      FILE *in = fopen(sram_filename(&nes->rom), "rb");
+      if (in) {
+          if (!fread(nes->save, 0x2000, 1, in))
+              printf("Warning: Unable to read save file.\n");
+          else printf("Loaded save data from %s\n", sram_filename(&nes->rom));
+          fclose(in);
+      }
+  }
+
+
   printf ("NES initialized.\n");
 }
 
 void shutdown_nes (struct nes_machine *nes)
 {
-  nes->mapper->mapper_shutdown ();
-  
+    mapper->mapper_shutdown();  
 }
 
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
@@ -76,6 +91,90 @@ void reset_nes (struct nes_machine *nes)
   printf ("NES reset.\n");
 }
 
+char *sram_filename (struct nes_rom *rom)
+{
+    static char path[PATH_MAX];    
+    snprintf(path, sizeof(path), "%s/%llX", ensure_save_dir(), rom->hash);
+    return path;
+}
+
+char *state_filename (struct nes_rom *rom, unsigned index)
+{
+    static char path[PATH_MAX];    
+    snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
+    return path;
+}
+
+
+int write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
+{
+    char chunkname[64];
+    memset(chunkname, 0, sizeof(chunkname));
+    strncpy(chunkname, name, sizeof(chunkname));
+    if (fwrite(chunkname, sizeof(chunkname), 1, stream) != 1) return 0;
+    if (fwrite(&length, sizeof(length), 1, stream) != 1) return 0;
+    if (fwrite(data, length, 1, stream) != 1) return 0;
+    return 1;
+}
+
+int read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length)
+{
+    char chunkname[64];
+    Uint32 read_length;
+    if (fread(chunkname, sizeof(chunkname), 1, stream) != 1) return 0;
+    if (strncmp(chunkname, name, sizeof(chunkname))) { 
+        printf("Wrong state chunk: Read \"%s\", expected \"%s\"\n", chunkname, name);
+        return 0;
+    }
+    if (fread(&read_length, sizeof(read_length), 1, stream) != 1) return 0;
+    if (read_length != length) {
+        printf("Size of chunk \"%s\" is wrong. Expected %i, actually %i.", name, length, read_length); 
+        return 0;
+    }
+    if (fread(data_out, read_length, 1, stream) != 1) return 0;
+    return 1;
+}
+
+void save_state (void)
+{
+    char *filename = state_filename(&nes.rom, 0);
+    FILE *out = fopen(filename, "wb");
+    if (!out) printf("Unable to create state file %s\n", filename);
+    else {
+        if (!(write_state_chunk(out, "NES Machine", &nes, sizeof(nes)) &&
+              mapper->save_state(out))) {
+            printf("Error writing state file to %s\n", filename);
+        }
+        fclose(out);
+    }
+}
+
+int restore_state (void)
+{
+    struct nes_rom rom;
+    char *filename = state_filename(&nes.rom, 0);
+    FILE *in = fopen(filename, "rb");
+
+    /* Awesome kludge: preserve nes.rom structure */
+    memcpy(&rom, &nes.rom, sizeof(rom));
+
+    if (!in) printf("Unable to open state file %s\n", filename);    
+    else {
+        if (!(read_state_chunk(in, "NES Machine", &nes, sizeof(nes)) &&
+              mapper->restore_state(in))) {
+            printf("Error restoring state file from %s\n", filename);
+            fclose(in);
+            memcpy(&nes.rom, &rom, sizeof(rom));
+            return 0;
+        }
+        fclose(in);
+    }
+
+    memcpy(&nes.rom, &rom, sizeof(rom));
+    vid_tilecache_dirty = 1;
+    return 1;
+}
+
 int ppu_current_hscroll (void)
 {
     return nes.ppu.x + ((nes.ppu.v & 0x1F) << 3) + ((nes.ppu.v & 0x400) ? 256 : 0);
@@ -87,17 +186,18 @@ int ppu_current_vscroll (void)
 }
 
 /* nes_initframe - call at the start of every frame */
-void nes_initframe (struct nes_machine *nes)
+void nes_initframe (void)
 {
-  nes->ppu.hit_flag = 0;	/* set to 0 at frame start */
-  nes->ppu.vblank_flag=0; /* set to 0 at frame start, I think */
-  nes->ppu.spritecount_flag = 0;
-  nes->ppu.sprite_address = 0;
-  nes->sprite0_detected = 0;
+  nes.ppu.hit_flag = 0;	/* set to 0 at frame start */
+  nes.ppu.vblank_flag=0; /* set to 0 at frame start, I think */
+  nes.ppu.spritecount_flag = 0;
+  nes.ppu.sprite_address = 0;
+  nes.sprite0_detected = 0;
 
-  if (nes->ppu.control2 & 0x18) nes->ppu.v = nes->ppu.t;
+  if (nes.ppu.control2 & 0x18) nes.ppu.v = nes.ppu.t;
 
-  nes->scanline = 0; 
+  nes.scanline = 0;
+  emphasis_position = -1;
 }
 
 /* nes_vblankstate - sets things that change when a vblank occurs */
@@ -163,7 +263,7 @@ void nes_printtime (void)
 
 void mapper_twiddle (void)
 {
-    if (nes.mapper->scanline()) Int6502(&nes.cpu, INT_IRQ);
+    if (mapper->scanline()) Int6502(&nes.cpu, INT_IRQ);
 }
 
 /*  CPU/Hardware interface.  */
@@ -197,7 +297,7 @@ void Wr6502 (register word Addr, register byte Value)
               printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n", 
                      nes_time_string(), nes.ppu.t, Value&3);
 
-	  if (superverbose) 
+	  if (trace_ppu_writes)
           {
 	      nes_printtime ();
               printf("PPU 2000: ");
@@ -215,15 +315,17 @@ void Wr6502 (register word Addr, register byte Value)
 
 	
       case ppu_cr2: /* 2001 */
+          catchup_emphasis();
 	  nes.ppu.control2 = Value;
-	  if (superverbose) {
+	  if (trace_ppu_writes) {
             nes_printtime ();
              printf("PPU 2001: ");
 	    if (Value & 0x10) printf ("sprites ON  ");
 	    else printf ("sprites OFF  ");
 	    if (Value & 0x08) printf ("bg ON  ");
 	    else printf ("bg OFF  ");
-	    /*                 if(Value & 0x01) printf("MONO display mode\n"); else printf("Color display\n"); */
+            if (Value & 0x01) printf("MONO  "); 
+            if (Value & 0xE0) printf("Emphasis %i", Value >> 5);
 	    printf ("\n");
 	    /*                 if(!in_vblank(&nes)) printf("PPU: CR2 written during frame\n"); */
 	  }
@@ -317,7 +419,7 @@ void Wr6502 (register word Addr, register byte Value)
                       tmp |= 0x3F00;
                       Value &= 63;
 
-                      if (!(tmp & 0x0F) && (tmp < 0x3F10)) {
+                      if (!(tmp & 0x0F) /*&& (tmp < 0x3F10)*/) {
                           nes.ppu.vram[0x3F00] = Value;
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
@@ -378,14 +480,14 @@ void Wr6502 (register word Addr, register byte Value)
       /* Some games (e.g. SMB3) need SRAM even though they don't back
        * it with a battery, and the rom flags don't reflect this, so
        * give them their ram by default. */
-      nes.rom.save[Addr & 0x1FFF] = Value;
+      nes.save[Addr & 0x1FFF] = Value;
       break;
     
   case 0x8000:
   case 0xA000:
   case 0xC000:
   case 0xE000:    
-      nes.mapper->mapper_write (Addr, Value);
+      mapper->mapper_write (Addr, Value);
       break;    
   }
 }
@@ -508,12 +610,12 @@ byte Rd6502 (register word Addr)
       break;
 
   case 0x6000:
-      return nes.rom.save[Addr & 0x1FFF];
+      return nes.save[Addr & 0x1FFF];
 
   case 0x8000:
   case 0xA000:
   case 0xC000:
-  case 0xE000: return nes.mapper->mapper_read(Addr);
+  case 0xE000: return mapper->mapper_read(Addr);
   }
 
   return 0;
@@ -533,17 +635,11 @@ byte Debug6502 (register M6502 * R)
             (unsigned)R->PC.W, (unsigned)R->A, 
             (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S,
             buffer);
-    mmc1_short_status();
     printf("\n");
     return 1;
 }
 
-byte Loop6502 (register M6502 * R)
-{
-    return INT_QUIT;
-}
-
-void run_cycles (int num_cycles)
+static void run_cycles (int num_cycles)
 {
     nes.cpu.BreakCycle += num_cycles * MASTER_CLOCK_DIVIDER;
     Run6502 (&nes.cpu);
@@ -554,9 +650,11 @@ static inline int ppu_is_rendering (void)
     return (nes.ppu.control2 & 0x18);
 }
 
-static inline void note_video_scanline (void)
+static void finish_scanline (void)
 {
-    if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();  
+    catchup_emphasis_to_x(255);
+    filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
+    if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
 }
 
 static inline void ppu_latch_v (void)
@@ -564,13 +662,15 @@ static inline void ppu_latch_v (void)
     if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
 }
 
-static inline void note_scanline_start (void)
+static inline void begin_scanline (void)
 {
     /* This is wrong! It introduces jitter in the PPU timing, as it's
      * unlike the CPU completed an instruction exactly at the start of
      * the PPU scanline. So fix it. */
     nes.scanline_start_cycle = nes.cpu.Cycles;  
     nes.sprite0_detected = 0;
+    emphasis_position = -1;
+    memset(color_buffer, 0, sizeof(color_buffer));
 }
 
 void nes_runframe (void)
@@ -582,19 +682,19 @@ void nes_runframe (void)
     int vscroll;
 
     // Initialize for frame. Clears PPU flags.
-    nes_initframe (&nes);
+    nes_initframe();
 
     // Dummy scanline:
-    note_scanline_start();
+    begin_scanline();
     ppu_latch_v();
+    render_scanline();
     run_cycles(scan_cycles);
-    note_video_scanline();
+    finish_scanline();
     run_cycles(hblank_cycles);
 
-    render_scanline();
     tv_scanline = 0;
-
     vscroll = ppu_current_vscroll() - 1;
+
     if (trace_ppu_writes)
         printf("At frame start, hscroll=%03i vscroll=%03i\n", 
                ppu_current_hscroll(), ppu_current_vscroll());
@@ -602,7 +702,7 @@ void nes_runframe (void)
     // This is the visible frame:
     for (nes.scanline = 1; nes.scanline < 241; nes.scanline++)
     {
-        note_scanline_start();
+        begin_scanline();
         ppu_latch_v();
 
         if (trace_ppu_writes && (nes.ppu.control2 & 0x08) && (ppu_current_vscroll() != vscroll+1)) {
@@ -612,15 +712,15 @@ void nes_runframe (void)
         vscroll = ppu_current_vscroll();
 
         render_scanline();
-        tv_scanline++;
         run_cycles(scan_cycles);
-        note_video_scanline();  /* Fire MMC3 IRQ */
+        finish_scanline();  /* Fire MMC3 IRQ */
         run_cycles(hblank_cycles);
         snd_catchup();
+        tv_scanline++;
     }
 
     // One wasted line after the frame:
-    note_scanline_start();
+    begin_scanline();
     run_cycles(line_cycles);
     nes.scanline++;
 
@@ -629,7 +729,7 @@ void nes_runframe (void)
     run_cycles(vblank_kludge_cycles);
     if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI);
     for (; nes.scanline < 262; nes.scanline++) {
-        note_scanline_start();
+        begin_scanline();
         run_cycles(line_cycles - vblank_kludge_cycles);
         vblank_kludge_cycles = 0;
     }
@@ -649,7 +749,7 @@ void nes_runframe (void)
 
 word getword (word addr)
 {
-    //return ((int)nes.mapper->mapper_read(addr+1)<<8) + nes.mapper->mapper_read(addr);
+    //return ((int)mapper->mapper_read(addr+1)<<8) + mapper->mapper_read(addr);
     return ((int)Rd6502(addr+1)<<8) + Rd6502(addr);
 }
 

@@ -1,6 +1,7 @@
 
 /* nes rom loader*/
 
+#include "sys.h"
 #include "rom.h"
 #include "mapper_info.h"
 
@@ -30,14 +31,6 @@ unsigned long long rom_hash (unsigned long long file_size, struct nes_rom *rom)
     hash_bytes(&hash, rom->chr, rom->chr_size);
     return hash;
 }
-
-char *sram_filename (struct nes_rom *rom)
-{
-    static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%llX", ensure_save_dir(), rom->hash);
-    return path;
-}
-
 
 struct nes_rom load_nes_rom (char *filename)
 {
@@ -90,8 +83,6 @@ struct nes_rom load_nes_rom (char *filename)
   rom.hash = rom_hash(statbuf.st_size, &rom);
   printf("ROM hash is %llX\n", rom.hash);
 
-  memset((void *)rom.save, 0, 0x2000);
-
   printf("PRG ROM is %i bytes\n", rom.prg_size);
   printf("CHR ROM is %i bytes\n", rom.chr_size);  
   printf("Mapper is %i (%s)\n", rom.mapper, rom.mapper_info? rom.mapper_info->name : "corrupt rom header or unknown mapper");
@@ -104,21 +95,10 @@ struct nes_rom load_nes_rom (char *filename)
 
   fclose(in);
 
-  /* Load SRAM */
-  if (rom.flags & 2) {
-      in = fopen(sram_filename(&rom), "rb");
-      if (in) {
-          if (!fread(rom.save, 0x2000, 1, in))
-              printf("Warning: Unable to read save file.\n");
-          else printf("Loaded save data from %s\n", sram_filename(&rom));
-          fclose(in);
-      }
-  }
-
   return rom;
 }
 
-void save_sram (struct nes_rom *rom, int verbose)
+void save_sram (byte save[0x2000], struct nes_rom *rom, int verbose)
 {
     char name[PATH_MAX], tmpname[PATH_MAX];
 
@@ -131,7 +111,7 @@ void save_sram (struct nes_rom *rom, int verbose)
         out = fopen(tmpname, "wb");
         if (!out) printf("Warning: Unable to create save file!\n");
         else {
-            int n = fwrite(rom->save, 0x2000, 1, out);
+            int n = fwrite(save, 0x2000, 1, out);
             if (fclose(out)) {
                 perror("fclose");
                 n = 0;

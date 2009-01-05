@@ -25,6 +25,7 @@
 #ifndef global_c
 extern char *romfilename;
 extern int sound_globalenabled;
+extern int sound_muted;
 extern int cputrace;
 extern int forcemapper;
 extern int cfg_trapbadops;
@@ -41,18 +42,32 @@ extern int cfg_linecycles;
 extern int window_width;
 extern int window_height;
 extern int vid_fullscreen;
-extern int vid_width;
-extern int vid_height;
 extern int tv_scanline;
 extern SDL_Surface *window_surface; /* Window surface */
-extern SDL_Surface *post_surface; /*  This is what is finally blitted to window_surface */
-extern SDL_Surface *surface; /* Video output surface, possibly the same as the above two */
 
-extern void (*vid_filter) (SDL_Surface *surface);
+/* The renderer fills color_buffer at the beginning of the line, and
+ * emphasis_bits are in filled by hblank as ppu.control2 changes.
+ * These are the input to the video filter, which should combine them
+ * to produce filtered RGB output.  An emphasis_position of -1
+ * indicates that the emphasis is not being tracked presently (so that
+ * we can know not to bother filling the emphasis buffer upon $2001
+ * write during blank)
+*/
+extern byte color_buffer[256];
+extern byte emphasis_buffer[256];
+extern int emphasis_position;
+
+/* Initialize the video filter (set output width/height, function pointers, ... */
+extern void (*vid_filter) (void);
+/* Output a scanline through the video filter */
+extern void (*filter_output_line) (unsigned y, byte *colors, byte *emphasis);
+extern int vid_width;           /* Filter output resolution, determining window surface */
+extern int vid_height;
+extern int vid_bpp;
 
 extern int superverbose;
 extern int trace_ppu_writes;
-extern long long time_frame_start;
+extern long long time_frame_start; /* microseconds */
 
 extern unsigned frame_number;
 

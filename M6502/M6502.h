@@ -129,14 +129,4 @@ byte Op6502(register word Addr);
 /*************************************************************/
 byte Debug6502(register M6502 *R);
 
-/** Loop6502() ***********************************************/
-/** 6502 emulation calls this function periodically to      **/
-/** check if the system hardware requires any interrupts.   **/
-/** This function must return one of following values:      **/
-/** INT_NONE, INT_IRQ, INT_NMI, or INT_QUIT to exit the     **/
-/** emulation loop.                                         **/
-/************************************ TO BE WRITTEN BY USER **/
-byte Loop6502(register M6502 *R);
-
-
 #endif /* M6502_H */

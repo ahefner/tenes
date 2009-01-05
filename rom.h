@@ -9,11 +9,12 @@
 #define MIRROR_NONE  2  /* 4-screen VRAM */
 #define MIRROR_ONESCREEN 3
 
+/* NES Rom image. Note that this is the only portion of the
+ * nes_machine structure not touched by save/restore state. */
 struct nes_rom
 {
     byte *chr;
     byte *prg;
-    byte save[0x2000];
     unsigned prg_size;
     unsigned chr_size;
     int mapper;
@@ -29,6 +30,6 @@ struct nes_rom
 
 struct nes_rom load_nes_rom (char *filename);
 void free_rom(struct nes_rom *rom);
-void save_sram(struct nes_rom *rom, int verbose);
-	
+void save_sram(byte save[0x2000], struct nes_rom *rom, int verbose);
+
 #endif

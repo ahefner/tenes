@@ -44,16 +44,40 @@ void dump_instruction_trace (void)
 #endif
 }
 
+void process_control_key (SDLKey sym)
+{
+    switch (sym) {
+    case SDLK_m:
+        nes.rom.mirror_mode ^= 1;
+        printf("Toggled mirror mode. New mode=%i\n", nes.rom.mirror_mode);
+        break;
+        
+    case SDLK_c:
+        running = 0;
+        break;
+        
+    case SDLK_s:
+        sound_muted ^= 1;
+        printf("Sound %s.\n", sound_muted? "muted" : "unmuted");
+        break;
+    }
+}
+
 void process_key_event (SDL_KeyboardEvent * key)
 {
     int idx;
     int symtable[8] = { SDLK_s, SDLK_a, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN,
-                        SDLK_LEFT, SDLK_RIGHT
-    };
-    for (idx = 0; idx < 8; idx++) {
-        if (symtable[idx] == key->keysym.sym)
-            break;
+                        SDLK_LEFT, SDLK_RIGHT };
+
+    if ((key->keysym.mod & KMOD_CTRL) && (key->type == SDL_KEYUP)) {
+        process_control_key(key->keysym.sym);
+        return;
     }
+
+    for (idx = 0; idx < 8; idx++) {
+        if (symtable[idx] == key->keysym.sym) break;
+    }
+
     if (idx < 8) {
         switch (key->type) {
         case SDL_KEYUP:
@@ -66,6 +90,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
         }
     } else if (key->type==SDL_KEYUP) {
+
         switch (key->keysym.sym) {
         case SDLK_ESCAPE:
             running = 0;
@@ -98,22 +123,19 @@ void process_key_event (SDL_KeyboardEvent * key)
             reset_nes(&nes); 
             break;
 
-        case SDLK_m:
-            if (key->keysym.mod & KMOD_CTRL) {
-                nes.rom.mirror_mode ^= 1;
-                printf("Toggled mirror mode. New mode=%i\n", nes.rom.mirror_mode);
-            }
-            break;
-
-        case SDLK_c:
-            if (key->keysym.mod & KMOD_CTRL) running = 0;
-            break;
-
         case SDLK_t:
             nes.cpu.Trace ^= 1;
             break;
+            
+        case SDLK_F5:
+            save_state();
+            break;
+            
+        case SDLK_F7:
+            /* If the state restore fails, the state of the machine will be corrupt, so reset. */
+            if (!restore_state()) reset_nes(&nes);
+            break;
 
-          
         default: break;
         }
     }
@@ -176,15 +198,7 @@ int main (int argc, char **argv)
         //vid_render_frame(0, 0);
         //if (nes.ppu.control2 & 0x10) vid_draw_sprites(0,0);
 
-        if (cfg_diagnostic) vid_drawpalette (0, 256);
-        
-        if (vid_filter) vid_filter(post_surface);
-        
-        if (post_surface != window_surface) {
-            SDL_BlitSurface(post_surface,NULL,window_surface,NULL);
-        }
-     
-        SDL_Flip (window_surface);
+        SDL_Flip(window_surface);
         sys_framesync();
 
         if (0)
@@ -216,11 +230,11 @@ int main (int argc, char **argv)
 
         frame_number++;
         /* Automatically save SRAM to disk once per minute. */
-        if ((frame_number > 0) && !(frame_number % 3600)) save_sram(&nes.rom, 0);
+        if ((frame_number > 0) && !(frame_number % 3600)) save_sram(nes.save, &nes.rom, 0);
   }
 
-  save_sram(&nes.rom, 1);
-  nes.mapper->mapper_shutdown ();
+  save_sram(nes.save, &nes.rom, 1);
+  mapper->mapper_shutdown ();
   free_rom (&nes.rom);
   printf ("Rom freed.\n");
 

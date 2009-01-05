@@ -15,21 +15,8 @@ int vid_tilecache_dirty = 1;
 
 void render_clear (void)
 {
-    memset ((void *)surface->pixels, 128, surface->pitch * surface->h);
     tv_scanline = 0;
-}
-
-void vid_drawpalette (int x, int y)
-{
-    int j;
-    for (j = 0; j < 16; j++) {
-        SDL_Rect r = { x + j * 16, y, 16, 16 };
-        SDL_FillRect (surface, &r, nes.ppu.vram[0x3F00 + j] & 0x3F);
-    }
-    for (j = 0; j < 16; j++) {
-        SDL_Rect r = { x + j * 16, y + 16, 16, 16 };
-        SDL_FillRect (surface, &r, nes.ppu.vram[0x3F10 + j] & 0x3F);
-    }
+    // I swear I intended to do something else here, but I forget what.
 }
 
 /* stupid tile cache */
@@ -230,7 +217,7 @@ void scanline_render_sprites (byte *dest)
         if ((background & 0x40) && (!nes.sprite0_detected) && ((x >= 8) || (!(nes.ppu.control2 & 4))) &&
             (sprite_output & 3) && (x < 255) && !sprites[0].number) {
             //nes.ppu.hit_flag = 1;
-            nes.sprite0_hit_cycle = nes.scanline_start_cycle + (x * MASTER_CLOCK_DIVIDER / 3);
+            nes.sprite0_hit_cycle = nes.scanline_start_cycle + (x * PPU_CLOCK_DIVIDER);
             nes.sprite0_detected = 1;
             if (trace_ppu_writes) {
                 nes_printtime();
@@ -312,7 +299,7 @@ void ensure_tilecache (void)
 
 void render_scanline (void)
 {
-    byte *dest = ((byte *) surface->pixels) + tv_scanline * surface->pitch;
+    byte *dest = color_buffer;
     byte *start = dest;
     word v = nes.ppu.v;
     unsigned y_offset = v >> 12;
@@ -368,6 +355,27 @@ void render_scanline (void)
         nes.ppu.v = v;
     }
 
+    emphasis_position = 0;
+}
+
+void catchup_emphasis_to_x (int x)
+{
+    assert(emphasis_position <= x);
+    assert(emphasis_position >= 0);
+    if (x > 255) x = 255;
+    unsigned dx = x - emphasis_position;
+    if (dx) memset(emphasis_buffer + emphasis_position, nes.ppu.control2, dx);
+    emphasis_position = x;
+}
+
+
+void catchup_emphasis (void)
+{
+    unsigned tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER; /* FIXME: Jitter bug */
+    if (emphasis_position == -1) return;
+    tmp = min(255, tmp);
+    assert(tmp >= 0);
+    catchup_emphasis_to_x(tmp);
 }
 
 

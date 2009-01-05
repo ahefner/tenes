@@ -180,16 +180,14 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
 
     last = num;
     
-    if (num == AUDIO_BUFFER_SIZE) {
-        printf("Audio buffer full :(\n");
-    }
+    if (num == AUDIO_BUFFER_SIZE) printf("Audio buffer full :(\n");    
 
     if (req > num) {
         SDL_mutexP(producer_mutex);
         snd_render_samples(1, (req - num) + 512);
         SDL_mutexV(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
-        //printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
+        printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
@@ -715,13 +713,15 @@ void snd_catchup (void)
 static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
 {
     //const int dc_table[4] = { 14, 12, 8, 4 };
-    static float f_tri = 0.0, f_tri_param = 0.7;
+//    static float f_tri = 0.0, f_tri_param = 0.7;
     const int dc_table[4][8] = 
         { { 0, 1, 0, 0, 0, 0, 0, 0 },
           { 0, 1, 1, 0, 0, 0, 0, 0 },
           { 0, 1, 1, 1, 1, 0, 0, 0 },
-          { 1, 0, 0, 1, 1, 1, 1, 1 } };    
+          { 1, 0, 0, 1, 1, 1, 1, 1 } };
     int fin = index + length;
+    Sint16 mask = -1;
+    if (sound_muted) mask = 0;
 
     while (index < fin) {
         int sq1 = 0, sq2 = 0, tri = 0, noise = 0, dmc = 0;
@@ -759,17 +759,18 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
                                                      ((float)dmc) / 22638.0)))
                           +
                           ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
-        // Alternatively, without fancy (and slow) channel mixing:
+
+        // Alternatively, without fancy slow channel mixing:
         // samp = (sq1 + sq2 + tri + noise) * 512;
 
         //samp = sq1  * 1000;
+        
+        samp &= mask;
 
         buf[index & ~AUDIO_BUFFER_SIZE] = samp;
         buf[index | AUDIO_BUFFER_SIZE] = samp;
         index++;
 
         //printf("%X %X %02X %X %02X => %5i\n", sq1, sq2, tri, noise, dmc, buf[i]);
-             
     }
 }
-

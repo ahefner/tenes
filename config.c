@@ -43,10 +43,6 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp (txt, "-fullscreen"))
 	vid_fullscreen = 1;
         vid_filter = rescale_2x;
-      if (!strcmp (txt, "-r_scanline"))
-	vid_renderer = 0;
-      else if (!strcmp (txt, "-r_simple"))
-	vid_renderer = 1;
       if (!strcmp (txt, "-windowed"))
 	vid_fullscreen = 0;
       if (!strcmp (txt, "-cputrace"))
@@ -85,7 +81,7 @@ void cfg_parseargs (int argc, char **argv)
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_buttonmap[3][0], &cfg_buttonmap[3][1], &cfg_buttonmap[3][2], &cfg_buttonmap[3][3]);
       }
       if (!strcmp(txt, "-scale")) {
-	vid_filter=rescale_2x;
+	vid_filter = rescale_2x;
       }
 /*      
       if (!strcmp(txt, "-filter")) {

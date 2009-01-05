@@ -99,7 +99,7 @@ int DAsm(char *S,byte *A,unsigned long PC)
     case Il: sprintf(S,"%s",MN[AD[OP]]);break;
 
     case Rl: J=*B++;PC+=2+((J<0x80)? J:(J-256)); 
-             sprintf(S,"%s $%08lX",MN[AD[OP]],PC);break;
+             sprintf(S,"%s $%04lX",MN[AD[OP]],PC);break;
 
     case Im: sprintf(S,"%s #$%02X",MN[AD[OP]],*B++);break;
     case Zp: sprintf(S,"%s $%02X",MN[AD[OP]],*B++);break;

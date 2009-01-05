@@ -107,19 +107,23 @@ struct nes_machine
 {
     struct nes_rom rom;
     M6502 cpu;
-    void *mapper_data;  /* private to code for current mapper */
     struct ppu_struct ppu;
     struct sound_struct snd;
     byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
+    byte save[0x2000];          /* Save RAM, if present. */
     int scanline;
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
     unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
     unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
-    
-    struct mapper_methods *mapper;
+
     struct joypad_info joypad;
 };
+
+#ifndef global_c
+extern
+#endif
+struct mapper_methods *mapper;
 
 #ifndef global_c
 extern
@@ -133,6 +137,14 @@ void nes_runframe(void);
 
 char *nes_time_string (void);
 void nes_printtime (void);
+
+void save_state (void);
+int restore_state (void);
+int write_state_chunk (FILE *stream, char *name, void *data, Uint32 length);
+int read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length);
+
+char *sram_filename (struct nes_rom *rom);
+char *state_filename (struct nes_rom *rom, unsigned index);
 
 static inline word ppu_mirrored_nt_addr (word paddr)
 {
