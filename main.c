@@ -60,6 +60,8 @@ void process_control_key (SDLKey sym)
         sound_muted ^= 1;
         printf("Sound %s.\n", sound_muted? "muted" : "unmuted");
         break;
+
+    default: break;
     }
 }
 
@@ -86,8 +88,7 @@ void process_key_event (SDL_KeyboardEvent * key)
         case SDL_KEYDOWN:
             nes.joypad.pad[keyboard_controller][idx] = 1;
             break;
-        default:
-            break;
+        default: break;
         }
     } else if (key->type==SDL_KEYUP) {
 

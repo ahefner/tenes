@@ -420,6 +420,7 @@ void Wr6502 (register word Addr, register byte Value)
                       Value &= 63;
 
                       if (!(tmp & 0x0F) /*&& (tmp < 0x3F10)*/) {
+                          /* These are mirrored here so that the renderer can use them directly. */
                           nes.ppu.vram[0x3F00] = Value;
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
