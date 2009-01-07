@@ -112,6 +112,8 @@ struct nes_machine
     byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
     byte save[0x2000];          /* Save RAM, if present. */
     int scanline;
+
+    /* None of this stuff should be in the NES struct, since it has no business in the state file. */
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
     unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */

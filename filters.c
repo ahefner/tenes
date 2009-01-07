@@ -2,21 +2,6 @@
 #include "filters.h"
 #include "global.h"
 
-/* I've disabled scale2x until I can sort out the licenses. The scaler
- * code is GPL, but M6502 is incompatible with the GPL. My current
- * preference is to drop M6502 so I can GPL this and enable the
- * scaler, or drop them both and license it MIT-style.
- */
-
-/********************************************
-#include "scale2x.h"
-#if defined(__GNUC__) && defined(__i386__)
-#define scale2x scale2x_8_mmx
-#else
-#define scale2x scale2x_8_def
-#endif
-*********************************************/
-
 unsigned rgb_palette[64];
 unsigned grayscale_palette[64];
 
@@ -61,8 +46,8 @@ void no_filter (void)
 
 void rescale_2x_emitter (unsigned y, byte *colors, byte *emphasis)
 {
-    Uint32 *dest0 = ((byte *)window_surface->pixels) + (y*2) * window_surface->pitch;
-    Uint32 *dest1 = ((byte *)window_surface->pixels) + (y*2+1) * window_surface->pitch;
+    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2) * window_surface->pitch);
+    Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+1) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
         Uint32 px = convert_pixel(colors[x], emphasis[x]);
         *dest0++ = px; 
@@ -80,3 +65,40 @@ void rescale_2x (void)
     filter_output_line = rescale_2x_emitter;
     build_color_maps();
 }
+
+/* Scanline filter with alternating fields */
+
+static inline Uint32 dim_pixel (Uint32 rgb)
+{
+    return (rgb >> 1) & 0x7F7F7F;
+}
+
+void scanline_emitter (unsigned y, byte *colors, byte *emphasis)
+{
+    int field = (frame_number & 1);
+    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+field) * window_surface->pitch);
+    Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+(field^1)) * window_surface->pitch);
+    for (int x = 0; x < 256; x++) {
+        Uint32 px = convert_pixel(colors[x], emphasis[x]);
+        *dest0++ = px; 
+        *dest0++ = px;
+
+        Uint32 nx = dest1[0];
+        byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
+        r = r*3/4; 
+        g = g*3/4; 
+        b = b*3/4;
+        nx = (r << 16) | (g << 8) | b;
+//        dest1[1] = dest1[0] = dim_pixel(dest1[0]);
+        dest1[1] = dest1[0] = nx;
+        dest1 += 2;
+    }
+}
+
+void scanline_filter (void)
+{
+    rescale_2x();
+    filter_output_line = scanline_emitter;
+}
+
+

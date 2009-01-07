@@ -201,11 +201,11 @@ int main (int argc, char **argv)
 
         SDL_Flip(window_surface);
         sys_framesync();
-
+ 
         if (0)
         printf("Frame cycles: %i (expect %i samples, actually generated %i samples)\n",
                (nes.cpu.Cycles - frame_start_cycles)/120,
-               (nes.cpu.Cycles - frame_start_cycles)/4480, 
+               (nes.cpu.Cycles - frame_start_cycles)/4467, 
                buffer_high - frame_start_samples);
 
         frame_start_cycles = nes.cpu.Cycles;

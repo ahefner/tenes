@@ -150,12 +150,13 @@ void mmc3_write (register word addr, register byte value)
         break;
 
     case 0xE000:
-        //printf ("MMC3: IRQ CR0: IRQ disabled.\n");
+        if (trace_ppu_writes) printf ("MMC3: IRQ CR0: IRQ disabled.\n");
         mmc3.irq_enabled = 0;
         break;
 
     case 0xE001:
-        //printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", frame_number, nes.scanline);
+        if (trace_ppu_writes)
+            printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", frame_number, nes.scanline);
         mmc3.irq_enabled = 1;
         break;
         
@@ -179,6 +180,8 @@ int mmc3_scanline (void)
        latch trigger and simply zero the counter.  But I don't think
        that would be right.
     */
+    if (trace_ppu_writes)
+        printf("mmc3_scanline: countdown %i latched %i trigger %i irq_enabled %i\n", mmc3.countdown, mmc3.latched, mmc3.latch_trigger, mmc3.irq_enabled);
 
     if (mmc3.latch_trigger || !mmc3.countdown) {
         mmc3.countdown = mmc3.latched + latched_offset;

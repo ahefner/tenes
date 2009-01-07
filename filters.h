@@ -5,5 +5,6 @@
 
 void rescale_2x (void);
 void no_filter (void);
+void scanline_filter (void);
 
 #endif

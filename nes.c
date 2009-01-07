@@ -246,13 +246,13 @@ byte joypad_read (word Addr)
 
 int scanline_cycles (void)
 {
-    return (nes.cpu.Cycles - nes.scanline_start_cycle) / MASTER_CLOCK_DIVIDER;
+    return (int)(nes.cpu.Cycles - nes.scanline_start_cycle) / MASTER_CLOCK_DIVIDER;
 }
 
 char *nes_time_string (void)
 {
     static char buf[128];
-    sprintf(buf, "%i/%3i.%3i   ", frame_number, nes.scanline, (int) scanline_cycles());
+    sprintf(buf, "%i/%3i.%3i   ", frame_number, nes.scanline, (int)scanline_cycles());
     return buf;
 }
 
@@ -285,6 +285,10 @@ void Wr6502 (register word Addr, register byte Value)
     break;
 
   case 0x2000:			/* register */
+      if (superverbose) {
+          nes_printtime();
+          printf("$%04X <- %02X\n", Addr, Value);
+      }
       switch ((Addr & 0x0007) | 0x2000) {
 
       case ppu_cr1: /* 2000 */
@@ -370,6 +374,10 @@ void Wr6502 (register word Addr, register byte Value)
 	  break;
 
       case ppu_addr: /* 2006 */
+          if (trace_ppu_writes) {
+              nes_printtime();
+              printf("wrote %02X to $2006\n", Value);
+          }
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
               nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);            
           } else {
@@ -386,7 +394,6 @@ void Wr6502 (register word Addr, register byte Value)
 	
 
       case ppu_data: /* 2007 */
-
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
 	      nes_printtime ();
 	      printf ("hblank wrote %02X\n", (int) Value);
@@ -425,6 +432,7 @@ void Wr6502 (register word Addr, register byte Value)
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
                           nes.ppu.vram[0x3F0C] = Value;
+                          nes.ppu.vram[0x3F10] = Value;
                       } else nes.ppu.vram[tmp] = Value;
                   }
               } else {
@@ -640,9 +648,10 @@ byte Debug6502 (register M6502 * R)
     return 1;
 }
 
-static void run_cycles (int num_cycles)
+static void run_until (int master_cycle)
 {
-    nes.cpu.BreakCycle += num_cycles * MASTER_CLOCK_DIVIDER;
+    nes.cpu.BreakCycle = master_cycle;
+    //printf("CPU to run until clock %u (%i cpu cycles)\n", nes.cpu.BreakCycle, (int)(nes.cpu.BreakCycle - nes.cpu.Cycles) / MASTER_CLOCK_DIVIDER);
     Run6502 (&nes.cpu);
 }
 
@@ -651,7 +660,7 @@ static inline int ppu_is_rendering (void)
     return (nes.ppu.control2 & 0x18);
 }
 
-static void finish_scanline (void)
+static void finish_scanline_rendering (void)
 {
     catchup_emphasis_to_x(255);
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
@@ -665,10 +674,6 @@ static inline void ppu_latch_v (void)
 
 static inline void begin_scanline (void)
 {
-    /* This is wrong! It introduces jitter in the PPU timing, as it's
-     * unlike the CPU completed an instruction exactly at the start of
-     * the PPU scanline. So fix it. */
-    nes.scanline_start_cycle = nes.cpu.Cycles;  
     nes.sprite0_detected = 0;
     emphasis_position = -1;
     memset(color_buffer, 0, sizeof(color_buffer));
@@ -676,22 +681,30 @@ static inline void begin_scanline (void)
 
 void nes_runframe (void)
 {
-    int line_cycles = 114;
-    int hblank_cycles = 29;
+    /* Cycle counts, in PPU color clocks.. */
+    int line_cycles = 341;
+    int hblank_cycles = 85;
     int scan_cycles = line_cycles - hblank_cycles;
-    int vblank_kludge_cycles = 3;
+    int vblank_kludge_cycles = 3 * MASTER_CLOCK_DIVIDER; /* ..except for this. */
     int vscroll;
 
     // Initialize for frame. Clears PPU flags.
     nes_initframe();
 
+    //printf("Begin frame: scanline started at %u, CPU at %u\n", nes.scanline_start_cycle, nes.cpu.Cycles);
+
+    /* Every other frame shortens this cycle by 1 PPU clock, to shift
+     * the phase of the NTSC colorburst (?), if BG enabled. */
+    if ((frame_number & 1) && (nes.ppu.control2 & 0x04)) nes.scanline_start_cycle -= PPU_CLOCK_DIVIDER;
+
     // Dummy scanline:
     begin_scanline();
     ppu_latch_v();
     render_scanline();
-    run_cycles(scan_cycles);
-    finish_scanline();
-    run_cycles(hblank_cycles);
+    run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
+    finish_scanline_rendering();
+    run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
+    nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;    
 
     tv_scanline = 0;
     vscroll = ppu_current_vscroll() - 1;
@@ -713,25 +726,28 @@ void nes_runframe (void)
         vscroll = ppu_current_vscroll();
 
         render_scanline();
-        run_cycles(scan_cycles);
-        finish_scanline();  /* Fire MMC3 IRQ */
-        run_cycles(hblank_cycles);
+        run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
+        finish_scanline_rendering();
+        run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
+        nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;
         snd_catchup();
         tv_scanline++;
     }
 
     // One wasted line after the frame:
     begin_scanline();
-    run_cycles(line_cycles);
+    run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
+    nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;
     nes.scanline++;
 
     // Enter vertical blank
     nes_vblankstate();
-    run_cycles(vblank_kludge_cycles);
+    run_until(nes.scanline_start_cycle + vblank_kludge_cycles);
     if (nes.ppu.control1 & 0x80) Int6502(&nes.cpu, INT_NMI);
     for (; nes.scanline < 262; nes.scanline++) {
         begin_scanline();
-        run_cycles(line_cycles - vblank_kludge_cycles);
+        run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER - vblank_kludge_cycles);
+        nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;
         vblank_kludge_cycles = 0;
     }
 

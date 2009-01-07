@@ -7,4 +7,5 @@ emu
 nesemu
 log*
 diffs
-
+misc
+*.log

@@ -42,7 +42,7 @@ void sys_framesync (void)
     do {
         now = usectime();
         assert((target - now) < 1000000ll);
-        if (target-now > 10000) usleep(1000);
+        //if (target-now > 10000) usleep(1000);
     } while (now < target);
     
     if (now-target) printf("framesync: off by %lli microseconds\n", now - target);
@@ -63,6 +63,7 @@ void sys_init (void)
     }
     
     /* Initializes video fitering */
+    if (vid_fullscreen && (vid_filter == no_filter)) vid_filter = rescale_2x;
     vid_filter();
 
     window_width = max(window_width, vid_width);

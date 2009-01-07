@@ -180,14 +180,14 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
 
     last = num;
     
-    if (num == AUDIO_BUFFER_SIZE) printf("Audio buffer full :(\n");    
+    //if (num == AUDIO_BUFFER_SIZE) printf("Audio buffer full :(\n");    
 
     if (req > num) {
         SDL_mutexP(producer_mutex);
         snd_render_samples(1, (req - num) + 512);
         SDL_mutexV(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
-        printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
+        //printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
@@ -659,18 +659,7 @@ static inline void clock_noise_ptimer (void)
     }
 }
 
-/* The correct factor here would be: 447.443 = 21.47727 MHz / 48000 Hz 
-   
-   However, our clock rate is slightly off due to rounding up the
-   scanline length.
-   
-   Our actual CPU clock rate is this: 60 * 262 * 144 = 1,792,080 Hz      
-   In units of system clocks, that gives us 448.02 clocks per sample.
-   
-   The actual unit of measure here is 10x the system clock
-   frequency, or 120x the CPU clock.
-*/
-const int clocks_per_sample = 4480;
+const int clocks_per_sample = 4467; 
 
 
 /* Generate audio. Call this with the producer lock held. */

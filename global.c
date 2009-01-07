@@ -47,4 +47,7 @@ int cfg_linecycles = 114;
 unsigned tracing_counts[0x10000][3];
 #endif
 
+/* TODO: I need a way to distinguish even/odd frames. I'll use this,
+ * so it should go into the nes struct, for the sake of the save
+ * file. */
 unsigned frame_number = 0;

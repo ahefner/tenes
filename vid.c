@@ -214,7 +214,7 @@ void scanline_render_sprites (byte *dest)
          * palette so we can encode foreground versus background pixel
          * in bit 6, allowing rendering of sprites in a separate pass. */
         /* Supposedly we should ignore column 255? */
-        if ((background & 0x40) && (!nes.sprite0_detected) && ((x >= 8) || (!(nes.ppu.control2 & 4))) &&
+        if ((background & 0x40) && (!nes.sprite0_detected) && ((x >= 8) || ((nes.ppu.control2 & 4))) &&
             (sprite_output & 3) && (x < 255) && !sprites[0].number) {
             //nes.ppu.hit_flag = 1;
             nes.sprite0_hit_cycle = nes.scanline_start_cycle + (x * PPU_CLOCK_DIVIDER);
@@ -347,8 +347,8 @@ void render_scanline (void)
 
     if (nes.ppu.control2 & 0x10) scanline_render_sprites(start);
 
-    /* TV Borders - erase top/bottom 8 lines */
-    if ((tv_scanline < 8) || (tv_scanline >= 232)) memset(start, 63, 256);
+    /* TV Borders - erase top 7 and bottom 8 lines */
+    if ((tv_scanline < 7) || (tv_scanline >= 232)) memset(start, 63, 256);
 
     if (nes.ppu.control2 & 0x18) {
         v = incr_v_vertical(v);
@@ -371,8 +371,12 @@ void catchup_emphasis_to_x (int x)
 
 void catchup_emphasis (void)
 {
-    unsigned tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER; /* FIXME: Jitter bug */
-    if (emphasis_position == -1) return;
+    unsigned tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
+
+    // Tiny timing kludge. Need to research this.
+    tmp -= 12;
+
+    if (emphasis_position < 0) return;
     tmp = min(255, tmp);
     assert(tmp >= 0);
     catchup_emphasis_to_x(tmp);
