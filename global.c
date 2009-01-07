@@ -3,7 +3,7 @@
 #include "nes.h"
 
 
-char *romfilename = "smb1.nes";
+char *romfilename = "";
 int sound_globalenabled = 1;
 int sound_muted = 0;
 int cputrace = 0;
@@ -23,7 +23,7 @@ int tv_scanline = 0;
 
 SDL_Surface *window_surface=NULL;
 
-void (*vid_filter) (void) = no_filter;
+void (*vid_filter) (void) = rescale_2x;
 void (*filter_output_line) (unsigned y, byte *colors, byte *emphasis) = NULL;
 int vid_width = 256;  /* These may increse if pixel filtering is enabled */
 int vid_height = 240; /* "                                             " */
@@ -37,6 +37,8 @@ int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};
 
 long long time_frame_start;
+long long time_frame_target;
+unsigned frame_start_samples = 0;
 
 /* timing config - move inside nes_machine if PAL support is added */
 int cfg_framelines = 240; 

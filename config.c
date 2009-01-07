@@ -2,9 +2,53 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #include "global.h"
 
+void print_usage (void)
+{
+    printf("Usage: nesemu [OPTION]... ROMFILE\n"
+           "Emulate an (NTSC) NES running ROMFILE (in iNES .nes format)\n"
+           "\n"
+           "Options:\n"
+           "-help           Show this message\n"
+           "-noscale        Don't scale video output\n"
+           "-scale          Double output pixels (default)\n"
+           "-scanlines      Interleaved scanline mode\n"
+           "-windowed       Run in a window (default)\n"
+           "-fullscreen     Run fullscreen\n"
+           "-width          Set window width\n"
+           "-height         Set window height\n"
+           "-forcesram      Force battery-backed ram\n"
+           "-despair        Disable joysticks\n"
+           "-joy0 [A],[B],[SELECT],[START]\n"
+           "-joy1 [A],[B],[SELECT],[START]\n"
+           "-joy2 [A],[B],[SELECT],[START]\n"
+           "-joy3 [A],[B],[SELECT],[START]\n"
+           "                Configure controller buttons for joypads 0...3\n"
+           "-nosound        Disable sound output\n"
+           "-sound          Enable sound output (default)\n"
+           "-trapbadops     Trap bad opcodes\n"
+#ifdef DEBUG
+           "-cputrace       Print CPU trace\n"
+#endif
+           "\n"
+           "If no joystick is attached, keyboard controls will be used. The arrow keys\n"
+           "control the D-pad, and the buttons are mapped as follows:\n"
+           "   A      s\n"
+           "   B      a\n"
+           "   SELECT Tab\n"
+           "   START  Enter\n"
+           "\n"
+           "The escape key will exit the emulator immediately. Alt-Enter toggles\n"
+           "fullscreen mode. F5 and F7 respectively save and restore state. Backspace\n"
+           "performs a hard reset. Control-s toggles sound.\n"
+           "\n"
+           "Diagnostic controls: F10 toggles instruction tracing. F11 toggles PPU tracing.\n"
+           "Control-m toggles the mirroring mode. F12 enables additional miscellaneous\n"
+           "output.\n"
+        );
+           
+}
 
 void cfg_parseargs (int argc, char **argv)
 {
@@ -12,10 +56,10 @@ void cfg_parseargs (int argc, char **argv)
   for (i = 1; i < argc; i++) {
     char *txt = argv[i];
     if (txt[0] == '-') {
-      if (!strcmp(txt, "-nosound"))
-	sound_globalenabled = 0;
-      if (!strcmp(txt, "-sound"))
-	sound_globalenabled = 1;
+
+      if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) print_usage();
+      if (!strcmp(txt, "-nosound")) sound_globalenabled = 0;
+      if (!strcmp(txt, "-sound")) sound_globalenabled = 1;
       if (!strcmp(txt, "-width")) {
 	if (i != (argc - 1)) {
 	  i++;
@@ -80,6 +124,7 @@ void cfg_parseargs (int argc, char **argv)
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_buttonmap[3][0], &cfg_buttonmap[3][1], &cfg_buttonmap[3][2], &cfg_buttonmap[3][3]);
       }
 
+      if (!strcmp(txt, "-noscale")) vid_filter = no_filter;
       if (!strcmp(txt, "-scale")) vid_filter = rescale_2x;
       if (!strcmp(txt, "-scanline")) vid_filter = scanline_filter;
 /*      
@@ -92,5 +137,10 @@ void cfg_parseargs (int argc, char **argv)
     } else {
       romfilename = txt;
     }
+  }
+
+  if (!strlen(romfilename)) {
+      print_usage();
+      exit(1);
   }
 }

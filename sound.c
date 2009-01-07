@@ -108,11 +108,13 @@ static void buffer_init (void)
     buffer_high = AUDIO_BUFFER_SIZE / 2;
 }
 
-const int desired_buffer_ahead = 1600;
-int first_buffer = 1;
-int delta_log[16];
-int fill_log[16];
-long long time_log[16];
+const int desired_buffer_ahead = 500;
+static int first_buffer = 1;
+static int delta_log[16];
+static int fill_log[16];
+static int min_buffer;
+static int max_buffer;
+static long long time_log[16];
 int delta_log_idx = 0;
 
 /* This is not exactly accurate. */
@@ -136,8 +138,8 @@ void service_interrupts (void)
 
 static void audio_callback (void *udata, Sint16 *stream, int len)
 { 
-    int ideal_buffer_length = desired_buffer_ahead;
     int req = len >> 1, num = buffer_samples(), consumed = req;
+    int ideal_buffer_length = req + desired_buffer_ahead;
     static int last = 0;
     static long long last_time = 0;
     long long current_time = usectime(), delta_time = current_time - last_time;
@@ -155,7 +157,7 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
         first_buffer = 0;
         memset(delta_log, 0, sizeof(delta_log));
         memset(fill_log, 0, sizeof(fill_log));
-        memset(time_log, 0, sizeof(time_log));        
+        memset(time_log, 0, sizeof(time_log));
     } else {
         int i, avg_x = 0, avg_dx = 0;
         long long avg_time = 0;
@@ -164,14 +166,21 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
         last = num;
         fill_log[delta_log_idx] = num;
         delta_log_idx = (delta_log_idx + 1) % 16;
+        if (!delta_log_idx) {
+            max_buffer = 0;
+            min_buffer = AUDIO_BUFFER_SIZE;
+        } else {
+            min_buffer = min(min_buffer, num);
+            max_buffer = max(max_buffer, num);
+        }
 
         for (i=0; i<16; i++) { avg_dx += delta_log[i]; avg_x += fill_log[i]; avg_time += time_log[i]; }
         avg_x /= i;
         avg_dx /= i;
         avg_time /= (long long)i;
-        if (0) {            
-            printf("Average drift: %4i, average fill: %4i, avg time = %5lli (expecting %5f)\n", avg_dx, avg_x, 
-                   avg_time, 1000000.0 / (48000.0 / len * 2.0));
+        if (0 && delta_log_idx == 15) {
+            printf("Average drift: %4i, average fill: %4i (min %4i max %4i), avg time = %5lli (expecting %5f)\n", avg_dx, avg_x, 
+                   min_buffer, max_buffer, avg_time, 1000000.0 / (48000.0 / len * 2.0));
 
         }
     }
@@ -184,10 +193,10 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
 
     if (req > num) {
         SDL_mutexP(producer_mutex);
-        snd_render_samples(1, (req - num) + 512);
+        snd_render_samples(1, (req - num) + 128);
         SDL_mutexV(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
-        //printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
+        printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);

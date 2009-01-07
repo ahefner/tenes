@@ -9,3 +9,4 @@ log*
 diffs
 misc
 *.log
+gmon.out

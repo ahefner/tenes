@@ -36,16 +36,16 @@ long long usectime (void)
 
 void sys_framesync (void)
 {
-    long long target = time_frame_start + (1000000ll / 60ll);
+    long long target = time_frame_target;
     long long now;
 
     do {
         now = usectime();
         assert((target - now) < 1000000ll);
-        //if (target-now > 10000) usleep(1000);
+        if (target-now > 10000) usleep(6000);
     } while (now < target);
     
-    if (now-target) printf("framesync: off by %lli microseconds\n", now - target);
+    //if ((now-target)>1) printf("framesync: missed by %lli microseconds\n", now - target);
 }
 
 SDL_Color palette[129];

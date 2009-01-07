@@ -76,6 +76,11 @@ void process_key_event (SDL_KeyboardEvent * key)
         return;
     }
 
+    if ((key->keysym.mod & KMOD_ALT) && (key->type == SDL_KEYUP) && (key->keysym.sym == SDLK_RETURN)) {
+        SDL_WM_ToggleFullScreen(window_surface);
+        return;
+    }
+
     for (idx = 0; idx < 8; idx++) {
         if (symtable[idx] == key->keysym.sym) break;
     }
@@ -104,7 +109,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             printf("done.\n");
             break;
 #endif
-            
+
         case SDLK_F12:            
             superverbose^=1;
             break;
@@ -163,13 +168,10 @@ void process_joystick (int controller)
   else if (x<(-cfg_joythreshold)) nes.joypad.pad[controller][6] = 1;    
 }
   
-
-
 int main (int argc, char **argv)
 {
     int i;
     unsigned frame_start_cycles = 0;
-    unsigned frame_start_samples = 0;
     cfg_parseargs (argc, argv);
 
     nes.rom = load_nes_rom (romfilename);
@@ -185,16 +187,18 @@ int main (int argc, char **argv)
     nes.cpu.Trace = cputrace;
 
     printf ("starting execution.\n");
+    time_frame_target = usectime();
 
     while (running) {
         SDL_Event event;
 
-        for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick (i);
+        for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick(i);
         time_frame_start = usectime();
+        while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
         frame_start_samples = buffer_high;
 
         render_clear();
-        nes_runframe();   
+        nes_runframe();
 
         //vid_render_frame(0, 0);
         //if (nes.ppu.control2 & 0x10) vid_draw_sprites(0,0);

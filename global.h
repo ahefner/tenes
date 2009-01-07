@@ -68,6 +68,8 @@ extern int vid_bpp;
 extern int superverbose;
 extern int trace_ppu_writes;
 extern long long time_frame_start; /* microseconds */
+extern long long time_frame_target;
+extern unsigned frame_start_samples;
 
 extern unsigned frame_number;
 

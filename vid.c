@@ -65,7 +65,7 @@ void gen_group (unsigned char *chrdata, tile_group grp)
   cols[1] = 1;
   cols[2] = 2;
   cols[3] = 3;
-  render_tile (chrdata, grp[8], cols);
+  render_tile(chrdata, grp[8], cols);
 
   for (i = 0; i < 8; i++) {
     for (j = 1; j < 4; j++) cols[j] = nes.ppu.vram[0x3F00 + i * 4 + j];     
@@ -202,6 +202,8 @@ void scanline_render_sprites (byte *dest)
     struct sprite_unit sprites[8];
     
     num_sprites = sprite_evaluation(sprites, tv_scanline);
+    
+    if (!num_sprites) return;
 
     for (x=0; x<256; x++) {
         byte background = dest[x];
