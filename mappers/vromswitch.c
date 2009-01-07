@@ -6,7 +6,6 @@ void mapper3_write(register word Addr,register byte Value)
    unsigned tmp = Value*0x2000;
    if (tmp > (nes.rom.chr_size-0x2000)) tmp %= nes.rom.chr_size;
    memcpy((void *)nes.ppu.vram,(void *)(nes.rom.chr+tmp),0x2000);
-   vid_tilecache_dirty = 1;
 }
 
 

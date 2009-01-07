@@ -45,7 +45,6 @@ void mmc3_select_chr (int dest, int n)
     if (mmc3.chrpages) {
         while (n >= mmc3.chrpages) n -= mmc3.chrpages;
         memcpy (nes.ppu.vram + dest*0x400, nes.rom.chr + 0x400 * n, 0x400);
-        vid_tilecache_dirty = 1;
     }
 }
 

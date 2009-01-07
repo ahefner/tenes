@@ -11,6 +11,4 @@ void render_scanline (void);
 void catchup_emphasis (void);
 void catchup_emphasis_to_x (int x);
 
-extern int vid_tilecache_dirty;
-
 #endif

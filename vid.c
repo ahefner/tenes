@@ -7,84 +7,23 @@
 #include "nes.h"
 #include "global.h"
 
-/* TODO: The tile cache is at this point probably a pessimization on
- * all but the simplest games, and I'd be better off eliminating the
- * last use of it.*/
-
-int vid_tilecache_dirty = 1;
-
 void render_clear (void)
 {
     tv_scanline = 0;
-    // I swear I intended to do something else here, but I forget what.
 }
-
-/* stupid tile cache */
-
-typedef unsigned char tile[64];
-typedef tile tile_group[9];
-typedef tile_group tc_page[256];
-
-tc_page tilecache[2];
 
 static inline void unpack_chr_byte (byte line[8], unsigned char *chrdata)
 {
+    const byte bgbit[4] = {0, 0x41, 0x42, 0x43};
     byte low = chrdata[0], high = chrdata[8];
-    line[7] = ((low &   1) >> 0) | ((high & 1)   << 1);
-    line[6] = ((low &   2) >> 1) | ((high & 2)   >> 0);
-    line[5] = ((low &   4) >> 2) | ((high & 4)   >> 1);
-    line[4] = ((low &   8) >> 3) | ((high & 8)   >> 2);
-    line[3] = ((low &  16) >> 4) | ((high & 16)  >> 3);
-    line[2] = ((low &  32) >> 5) | ((high & 32)  >> 4);
-    line[1] = ((low &  64) >> 6) | ((high & 64)  >> 5);
-    line[0] = ((low & 128) >> 7) | ((high & 128) >> 6);
-}
-
-void render_tile (byte *chrdata, tile image, unsigned char cols[4])
-{
-    unsigned char l, i;
-    for (l = 0; l < 8; l++) {
-        unpack_chr_byte(&image[l*8], chrdata + l);
-        for (i=0; i<8; i++) image[l*8+i] = cols[image[l*8+i]];
-    }
-}
-
-static inline void unpack_tile (byte out[8], int page, byte tileindex, byte y_offset)
-{
-    word addr = page * 0x1000 + tileindex * 16 + y_offset;
-    unpack_chr_byte(out, nes.ppu.vram + addr);
-}
-
-/* builds a cache group for one character */
-void gen_group (unsigned char *chrdata, tile_group grp)
-{ 
-  unsigned char cols[4];
-  int i, j;
-
-  cols[0] = 0;
-  cols[1] = 1;
-  cols[2] = 2;
-  cols[3] = 3;
-  render_tile(chrdata, grp[8], cols);
-
-  for (i = 0; i < 8; i++) {
-    for (j = 1; j < 4; j++) cols[j] = nes.ppu.vram[0x3F00 + i * 4 + j];     
-    cols[0] = nes.ppu.vram[0x3F00];
-    for (j=0; j<64; j++) {
-      grp[i][j] = cols[grp[8][j]];
-      if (grp[8][j]) grp[i][j]|=64;
-    }
-  }
-}
-
-/* builds a tile cache page for a full pattern table */
-void gen_page (unsigned char *patterns, int pageidx)
-{
-  int i;
-
-  for (i = 0; i < 256; i++) {
-    gen_group (patterns + i * 16, tilecache[pageidx][i]);
-  }
+    line[7] = bgbit[((low &   1) >> 0) | ((high & 1)   << 1)];
+    line[6] = bgbit[((low &   2) >> 1) | ((high & 2)   >> 0)];
+    line[5] = bgbit[((low &   4) >> 2) | ((high & 4)   >> 1)];
+    line[4] = bgbit[((low &   8) >> 3) | ((high & 8)   >> 2)];
+    line[3] = bgbit[((low &  16) >> 4) | ((high & 16)  >> 3)];
+    line[2] = bgbit[((low &  32) >> 5) | ((high & 32)  >> 4)];
+    line[1] = bgbit[((low &  64) >> 6) | ((high & 64)  >> 5)];
+    line[0] = bgbit[((low & 128) >> 7) | ((high & 128) >> 6)];
 }
 
 static const byte bit_reverse[256] =
@@ -241,8 +180,9 @@ void scanline_render_sprites (byte *dest)
         if (!(nes.ppu.control2 & 4) && (x < 8)) combined_output = background;
         dest[x] = combined_output;
     }
-    
 }
+
+
 
 static inline word incr_v_horizontal (word v)
 {
@@ -290,13 +230,14 @@ static inline byte nt_attr (word nt_addr)
     return a & 3;
 }
 
-void ensure_tilecache (void)
+static inline void render_tile (byte *dest, word v, word chrpage, int y_offset, int x0, int x1)
 {
-    if (vid_tilecache_dirty) {
-        gen_page (nes.ppu.vram, 0);
-        gen_page (nes.ppu.vram + 0x1000, 1);
-        vid_tilecache_dirty = 0;
-    }
+    byte *palette = nes.ppu.vram + 0x3F00;
+    byte tdata[8];
+    byte name = nametable_read(v);
+    byte attribute = nt_attr((v & 0xFFF) | 0x2000) << 2;
+    unpack_chr_byte(tdata, &nes.ppu.vram[chrpage + name * 16 + y_offset]);
+    for (int j=x0; j<x1; j++) *dest++ = palette[(tdata[j]&0x3F) | attribute] | tdata[j] & 0x40;
 }
 
 void render_scanline (void)
@@ -306,42 +247,26 @@ void render_scanline (void)
     word v = nes.ppu.v;
     unsigned y_offset = v >> 12;
     unsigned x_offset = nes.ppu.x;
+    word chrpage = ((nes.ppu.control1 & 0x10) >> 4) * 0x1000;
     int tcpage = (nes.ppu.control1 & 0x10) >> 4;
-    int i;
-    byte name, attribute, *data;
-
-    /* I'll have to ditch this if I want to run anywhere that requires aligned accesses: */
-    unsigned int *destl;
 
     if (nes.ppu.control2 & 8) {
-        ensure_tilecache();
         if (x_offset) {
-            name = nametable_read(v);
-            attribute = nt_attr((v & 0xFFF) | 0x2000);
-            data = tilecache[tcpage][name][attribute] + 8*y_offset + x_offset;
-            for (i = x_offset; i < 8; i++) *dest++ = *data++;
+            render_tile(dest, v, chrpage, y_offset, x_offset, 8);
             v = incr_v_horizontal(v);
+            dest += 8 - x_offset;
         }
         
-        destl = dest;
-        for (i=0; i<31; i++) {
-            unsigned int *tdata;
-            name = nametable_read(v);
-            attribute = nt_attr((v & 0xFFF) | 0x2000);
-            tdata = &tilecache[tcpage][name][attribute][8*y_offset];
-            *destl++ = *tdata++;
-            *destl++ = *tdata++;
+        for (int i=0; i<31; i++) {
+            render_tile(dest, v, chrpage, y_offset, 0, 8);
             v = incr_v_horizontal(v);
+            dest += 8;
         }
-        dest += 248;
 
-        name = nametable_read(v);
-        attribute = nt_attr((v & 0xFFF) | 0x2000);
-        data = tilecache[tcpage][name][attribute] + 8*y_offset;
-        for (i = 0; i < (x_offset? x_offset : 8); i++) *dest++ = *data++;
+        render_tile(dest, v, chrpage, y_offset, (8-x_offset)&7, 8); 
+        v = incr_v_horizontal(v);
 
     } else {
-        //for (i=0; i<33; i++) v = incr_v_horizontal(v);
         memset(dest, nes.ppu.vram[0x3F00], 256);
     }
 

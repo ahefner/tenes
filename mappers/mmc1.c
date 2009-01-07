@@ -91,7 +91,6 @@ void mmc1_write_reg (unsigned reg, unsigned val)
             if (!(mmc1.reg[0] & REG0_CHROM_8KB_4KB) && (pagebase < mmc1.chr_pages-1))
                 memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x2000);
             else memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x1000);
-            vid_tilecache_dirty = 1;
         }
         break;
     case 2:
@@ -102,7 +101,6 @@ void mmc1_write_reg (unsigned reg, unsigned val)
             memcpy((void *)nes.ppu.vram + 0x1000,
                    (void *)nes.rom.chr + 0x1000 * pagebase,
                    0x1000);
-            vid_tilecache_dirty = 1;
         }
         break;
     case 3:

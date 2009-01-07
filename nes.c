@@ -171,7 +171,6 @@ int restore_state (void)
     }
 
     memcpy(&nes.rom, &rom, sizeof(rom));
-    vid_tilecache_dirty = 1;
     return 1;
 }
 
@@ -421,7 +420,6 @@ void Wr6502 (register word Addr, register byte Value)
                   } else {
                       /* Palette write */
                       word tmp = nes.ppu.v;
-                      vid_tilecache_dirty = 1;
                       tmp &= 0x1F;
                       tmp |= 0x3F00;
                       Value &= 63;
@@ -438,7 +436,6 @@ void Wr6502 (register word Addr, register byte Value)
               } else {
                   if (!nes.rom.chr_size) {
                       nes.ppu.vram[nes.ppu.v] = Value;
-                      vid_tilecache_dirty = 1;
                   } /* else printf("PPU: attempted write into character ROM!\n"); */
               }
 	  }
