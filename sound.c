@@ -311,14 +311,17 @@ void sweep_clock_channel (int channel)
 {
     int reg = nes.snd.regs[channel*4+1],
         enabled = reg & 0x80,
-        period = ((reg>>4) & 7) + 1,
+        period = ((reg>>4) & 7),
         negate = reg & 8,
         shift = reg & 7;
     int wl = wavelength[channel];
 
     assert(sweep_divider[channel] >= 0);
     
-    // printf("%u: sweep clocked for channel %x. sweep reg=%02X. divider=%i\n", frame_number, channel, reg, sweep_divider[channel]);
+    if (0 && !channel) {
+        nes_printtime();
+        printf("sweep clocked for channel %x. sweep reg=%02X. divider=%i\n", channel, reg, sweep_divider[channel]);
+    }
 
     /* Clock the divider */
     if (!sweep_divider[channel]) {
@@ -326,7 +329,7 @@ void sweep_clock_channel (int channel)
         int sum = wl + (negate? (-shifted - (channel^1)) : shifted);
 
 
-        if (0 && channel == 0) {
+        if (0 && (channel == 0)) {
             printf("%u: ch0 sweep enabled: %i, period = %x, negate = %x, shift=%x   wl=%i shifted=%i  LC=%i\n",
                    frame_number, enabled?1:0, period, negate, shift, wl, shifted, lcounter[0]);
         }
@@ -352,7 +355,8 @@ void sweep_clock_channel (int channel)
     if (sweep_reset[channel]) {
         sweep_reset[channel] = 0;
         sweep_divider[channel] = period;
-        //printf(" sweep reset channel %x divider to %X\n", channel, period);
+
+        if (0) printf(" sweep reset channel %x divider to %X\n", channel, period);
     }
 }
 
@@ -394,10 +398,10 @@ void envelope_clock (void)
         if (env_reset[i]) {     /* Reset divider? */
             env_reset[i] = 0;
             envc[i] = 15;
-            envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F) + 1;
+            envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
         } else {                /* Clock divider. */
             if (!envc_divider[i]) {
-                envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F) + 1;
+                envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
                 envelope_counter_clock(i);
             } else envc_divider[i]--;
         }
@@ -761,7 +765,7 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
         // Alternatively, without fancy slow channel mixing:
         // samp = (sq1 + sq2 + tri + noise) * 512;
 
-        //samp = sq1  * 1000;
+        //samp = sq2  * 1000;
         
         samp &= mask;
 

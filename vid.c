@@ -263,7 +263,7 @@ void render_scanline (void)
             dest += 8;
         }
 
-        render_tile(dest, v, chrpage, y_offset, (8-x_offset)&7, 8); 
+        render_tile(dest, v, chrpage, y_offset, 0, x_offset? x_offset : 8); 
         v = incr_v_horizontal(v);
 
     } else {

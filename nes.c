@@ -70,6 +70,7 @@ void reset_nes (struct nes_machine *nes)
   Reset6502(&nes->cpu);
   if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
   else nes->cpu.TrapBadOps = 0;
+  nes->last_sound_cycle = 0;
 
   memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
   nes->ppu.control1 = 0;
@@ -424,14 +425,14 @@ void Wr6502 (register word Addr, register byte Value)
                       tmp |= 0x3F00;
                       Value &= 63;
 
-                      if (!(tmp & 0x0F) /*&& (tmp < 0x3F10)*/) {
+                      if (!(tmp & 0x0F)) {
                           /* These are mirrored here so that the renderer can use them directly. */
                           nes.ppu.vram[0x3F00] = Value;
                           nes.ppu.vram[0x3F04] = Value;
                           nes.ppu.vram[0x3F08] = Value;
                           nes.ppu.vram[0x3F0C] = Value;
                           nes.ppu.vram[0x3F10] = Value;
-                      } else nes.ppu.vram[tmp] = Value;
+                      } else if (tmp&3) nes.ppu.vram[tmp] = Value;
                   }
               } else {
                   if (!nes.rom.chr_size) {
