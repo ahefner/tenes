@@ -237,7 +237,7 @@ static inline void render_tile (byte *dest, word v, word chrpage, int y_offset, 
     byte name = nametable_read(v);
     byte attribute = nt_attr((v & 0xFFF) | 0x2000) << 2;
     unpack_chr_byte(tdata, &nes.ppu.vram[chrpage + name * 16 + y_offset]);
-    for (int j=x0; j<x1; j++) *dest++ = palette[(tdata[j]&0x3F) | attribute] | tdata[j] & 0x40;
+    for (int j=x0; j<x1; j++) *dest++ = palette[(tdata[j] & 0x3F) | attribute] | (tdata[j] & 0x40);
 }
 
 void render_scanline (void)
@@ -248,7 +248,6 @@ void render_scanline (void)
     unsigned y_offset = v >> 12;
     unsigned x_offset = nes.ppu.x;
     word chrpage = ((nes.ppu.control1 & 0x10) >> 4) * 0x1000;
-    int tcpage = (nes.ppu.control1 & 0x10) >> 4;
 
     if (nes.ppu.control2 & 8) {
         if (x_offset) {
@@ -287,6 +286,15 @@ void render_scanline (void)
 
 void catchup_emphasis_to_x (int x)
 {
+    //nes_printtime(); printf("x=%i emp=%i\n", x, emphasis_position);
+
+    // Kind of a hack, when I've offset (kludged) the emphasis timing:
+    // A $2001 write just after the start of hblank will have an X-offset
+    // possibly less than 255, violating the perfectly reasonably assertion
+    // below. So detect this and return, preserving the assertion to indicate
+    // that this is indeed a hack.
+    if (x < emphasis_position) return;
+
     assert(emphasis_position <= x);
     assert(emphasis_position >= 0);
     if (x > 255) x = 255;
@@ -298,10 +306,11 @@ void catchup_emphasis_to_x (int x)
 
 void catchup_emphasis (void)
 {
-    unsigned tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
+    int tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
 
-    // Tiny timing kludge. Need to research this.
+    /* Mysterious timing kludge to fix final fantasy. */
     tmp -= 12;
+    if (tmp < 0) tmp = 0;
 
     if (emphasis_position < 0) return;
     tmp = min(255, tmp);

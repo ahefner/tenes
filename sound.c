@@ -41,8 +41,6 @@ void snd_render_samples (int emergency_mode, int samples);
 
 static SDL_AudioSpec desired, obtained;
 
-SDL_mutex *producer_mutex;
-
 int snd_init (void)
 {
     producer_mutex = SDL_CreateMutex();
@@ -137,7 +135,7 @@ void service_interrupts (void)
 }
 
 static void audio_callback (void *udata, Sint16 *stream, int len)
-{ 
+{
     int req = len >> 1, num = buffer_samples(), consumed = req;
     int ideal_buffer_length = req + desired_buffer_ahead;
     static int last = 0;
@@ -196,7 +194,9 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
         snd_render_samples(1, (req - num) + 128);
         SDL_mutexV(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
-        printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
+        /* Don't pollute traces with audio messages */
+        if (!(trace_ppu_writes || nes.cpu.Trace))
+            printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
@@ -704,6 +704,7 @@ void snd_catchup (void)
 
     int delta = nes.cpu.Cycles - nes.last_sound_cycle;
     int samples = delta / clocks_per_sample;
+    if (samples > 1000) printf("%sWtf. samples = %i ??? (%i - %i)\n", nes_time_string(), samples, (int) nes.cpu.Cycles, (int) nes.last_sound_cycle);
 
     if (samples && (delta > 0)) snd_render_samples(0, samples);
 

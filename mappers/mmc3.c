@@ -4,7 +4,9 @@ int mmc3_init (void);
 void mmc3_shutdown (void);
 void mmc3_write (register word addr, register byte value);
 byte mmc3_read (register word addr);
-int mmc3_scanline (void);
+void mmc3_scanline_start (void);
+int mmc3_scanline_end (void);
+void mmc3_reload_irq_counter (void);
 int mmc3_save_state (FILE *out);
 int mmc3_restore_state (FILE *out);
 
@@ -13,7 +15,8 @@ struct mapper_methods mapper_MMC3 = {
     mmc3_shutdown,
     mmc3_write,
     mmc3_read,
-    mmc3_scanline,
+    mmc3_scanline_start,
+    mmc3_scanline_end,
     mmc3_save_state,
     mmc3_restore_state
 };
@@ -145,11 +148,12 @@ void mmc3_write (register word addr, register byte value)
     case 0xC001:
         if (trace_ppu_writes)
             printf ("%sMMC3: IRQ latch request (wrote %i)\n", nes_time_string(), (int)value);
-        mmc3.latch_trigger = 1;
+        //mmc3.latch_trigger = 1;
+        mmc3.countdown = 0;
         break;
 
     case 0xE000:
-        if (trace_ppu_writes) printf ("MMC3: IRQ CR0: IRQ disabled.\n");
+        if (trace_ppu_writes) printf("MMC3: IRQ CR0: IRQ disabled.\n");
         mmc3.irq_enabled = 0;
         break;
 
@@ -164,27 +168,45 @@ void mmc3_write (register word addr, register byte value)
     }      
 }
 
-/* A real MMC3 chip counts scanlines by some clever monitoring of the
- * PPU address lines. We fake it by providing a per-scanline hook into
- * the mapper. */
-int mmc3_scanline (void)
+
+void mmc3_reload_irq_counter (void)
 {
+    const int latched_offset = 0;
     /* The timing here is a real pain in the ass. A value of zero
-     * fixes the scrolling minigame in SMB3, but introduces a glitch
-     * in TMNT2. Documentation suggests 1 is the correct value. */
-    const int latched_offset = 1;
+     * fixes the scrolling minigame in SMB3 and the water level in
+     * TMNT3, but introduces a glitch in TMNT2. */
+    mmc3.countdown = mmc3.latched + latched_offset;
+    //if (mmc3.latched == 0) printf("%s: MMC3 latched zero! Interesting!\n", nes_time_string());
+}
+
+/* The scanline counter would be a real pain to emulate precisely, but we can more or less fake it. */
+
+void mmc3_scanline_start (void)
+{
+
+}
+
+/* A real MMC3 chip counts scanlines by some clever monitoring of the
+ * PPU address lines. We fake it by providing per-scanline hooks into
+ * the mapper. */
+int mmc3_scanline_end (void)
+{
     // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3.countdown, mmc3.latched, mmc3.latch_trigger);
 
     /* If this interpretation proves to be right, we can eliminate the
        latch trigger and simply zero the counter.  But I don't think
        that would be right.
     */
-    if (trace_ppu_writes)
+    if (0) //trace_ppu_writes)
         printf("mmc3_scanline: countdown %i latched %i trigger %i irq_enabled %i\n", mmc3.countdown, mmc3.latched, mmc3.latch_trigger, mmc3.irq_enabled);
 
-    if (mmc3.latch_trigger || !mmc3.countdown) {
-        mmc3.countdown = mmc3.latched + latched_offset;
+/*    if (mmc3.latch_trigger) {
+        mmc3_reload_irq_counter();
         mmc3.latch_trigger = 0;
+        }*/
+
+    if (mmc3.countdown == 0) {
+        mmc3_reload_irq_counter();
     } else if (mmc3.countdown) {
         mmc3.countdown--;
         if ((mmc3.countdown == 0) && mmc3.irq_enabled) {

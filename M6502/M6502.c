@@ -253,8 +253,7 @@ word Run6502(M6502 *R)
     /* Turn tracing on when reached trap address */
     /* if(R->PC.W==R->Trap) R->Trace=1; */
     /* Call single-step debugger, exit if requested */
-    if(R->Trace)
-      if(!Debug6502(R)) return(R->PC.W);
+    if(R->Trace) if(!Debug6502(R)) return(R->PC.W);
 #endif
 
     I=Op6502(R->PC.W++);

@@ -77,6 +77,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
         if (nes.cpu.Trace) mmc1_print_status();
         nes.rom.mirror_mode=(!(val & REG0_ONE_SCREEN_ENABLE)) ?
             MIRROR_ONESCREEN : ((val & REG0_MIRROR_MODE) ? MIRROR_HORIZ : MIRROR_VERT);
+        if (val & REG0_ONE_SCREEN_ENABLE) printf("Woo-WOO!\n");
         break;
     case 1:
         mmc1.reg[1]=val;
@@ -198,7 +199,8 @@ struct mapper_methods mapper_MMC1 = {
     mmc1_shutdown,
     mmc1_write,
     mmc1_read,
-    mapper0_scanline,
+    mapper_ignores_scanline_start,
+    mapper_ignores_scanline_end,
     mmc1_save_state,
     mmc1_restore_state
 };

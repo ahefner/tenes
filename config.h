@@ -20,8 +20,6 @@ extern int cfg_jsmap[4];
 extern int cfg_disable_joysticks;
 
 extern int cfg_framelines; 
-extern int cfg_vblanklines;
-extern int cfg_linecycles;
 extern int superverbose;
 
 void cfg_parseargs(int argc,char **argv);

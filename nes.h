@@ -113,9 +113,10 @@ struct nes_machine
     byte save[0x2000];          /* Save RAM, if present. */
     int scanline;
 
-    /* None of this stuff should be in the NES struct, since it has no business in the state file. */
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
+
+    /* This intra-frame state should be moved outside the sturct, since it has no business in the state file. */
     unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
     unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
 
@@ -165,8 +166,6 @@ static inline word ppu_mirrored_nt_addr (word paddr)
         return paddr;
 
     case MIRROR_ONESCREEN:
-        /* FIXME: Totally broken. Should mask out 0xC00
-         * and OR a value from the mapper. */
         return (paddr & ~0xC00) | nes.rom.onescreen_page;
 
     default:

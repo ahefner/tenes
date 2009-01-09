@@ -33,7 +33,12 @@ byte mapper_vramread(register word Addr)
 
 */
 
-int mapper0_scanline (void)
+void mapper_ignores_scanline_start (void)
+{
+    return;
+}
+
+int mapper_ignores_scanline_end (void)
 {
     return 0;
 }
@@ -53,7 +58,8 @@ struct mapper_methods mapper_None = {
    mapper0_shutdown,
    mapper_noprgwrite,
    mapper0_read,
-   mapper0_scanline,
+   mapper_ignores_scanline_start,
+   mapper_ignores_scanline_end,
    nop_save_state,
    nop_restore_state
 };

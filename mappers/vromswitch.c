@@ -14,7 +14,8 @@ struct mapper_methods mapper_VROM = {
    mapper0_shutdown,
    mapper3_write,
    mapper0_read,
-   mapper0_scanline,
+   mapper_ignores_scanline_start,
+   mapper_ignores_scanline_end,
    nop_save_state,
    nop_restore_state   
 };

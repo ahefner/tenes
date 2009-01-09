@@ -35,14 +35,14 @@ extern int cfg_diagnostic;
 
 extern int cfg_syncmode;
 extern int cfg_framelines;
-extern int cfg_vblanklines;
-extern int cfg_linecycles;
+extern int video_alignment_cycles_kludge;
 
 /* Video/UI stuff */
 extern int window_width;
 extern int window_height;
 extern int vid_fullscreen;
 extern int tv_scanline;
+extern int rendering_scanline;
 extern SDL_Surface *window_surface; /* Window surface */
 
 /* The renderer fills color_buffer at the beginning of the line, and
@@ -72,6 +72,8 @@ extern long long time_frame_target;
 extern unsigned frame_start_samples;
 
 extern unsigned frame_number;
+
+extern SDL_mutex *producer_mutex;
 
 #ifdef INSTRUCTION_TRACING
 #define COUNT_READ 0

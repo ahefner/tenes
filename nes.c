@@ -67,10 +67,21 @@ void shutdown_nes (struct nes_machine *nes)
 void reset_nes (struct nes_machine *nes)
 {
   memset ((void *) nes->ram, 0, 0x800);
+
+  SDL_mutexP(producer_mutex);
+
+  memset ((void *) &nes->snd, 0, sizeof (nes->snd));
   Reset6502(&nes->cpu);
+  nes->last_sound_cycle = 0;
+  assert(nes->cpu.Cycles == 0);
+  assert(nes->last_sound_cycle == 0);
+  
+  SDL_mutexV(producer_mutex);
+
   if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
   else nes->cpu.TrapBadOps = 0;
-  nes->last_sound_cycle = 0;
+
+  nes->scanline_start_cycle = 0;
 
   memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
   nes->ppu.control1 = 0;
@@ -88,7 +99,7 @@ void reset_nes (struct nes_machine *nes)
   nes->joypad.state[0] = 0;
   nes->joypad.state[1] = 0;
 
-  memset ((void *) &nes->snd, 0, sizeof (nes->snd));
+  rendering_scanline = 0;
   printf ("NES reset.\n");
 }
 
@@ -156,7 +167,7 @@ int restore_state (void)
     char *filename = state_filename(&nes.rom, 0);
     FILE *in = fopen(filename, "rb");
 
-    /* Awesome kludge: preserve nes.rom structure */
+    /* Awesome kludge: preserve nes.rom structure, except for mirroring state. */
     memcpy(&rom, &nes.rom, sizeof(rom));
 
     if (!in) printf("Unable to open state file %s\n", filename);    
@@ -165,7 +176,11 @@ int restore_state (void)
               mapper->restore_state(in))) {
             printf("Error restoring state file from %s\n", filename);
             fclose(in);
+            int mirror_mode = nes.rom.mirror_mode;
+            int onescreen_page = nes.rom.onescreen_page;
             memcpy(&nes.rom, &rom, sizeof(rom));
+            nes.rom.mirror_mode = mirror_mode;
+            nes.rom.onescreen_page = onescreen_page;
             return 0;
         }
         fclose(in);
@@ -263,14 +278,14 @@ void nes_printtime (void)
 
 void mapper_twiddle (void)
 {
-    if (mapper->scanline()) Int6502(&nes.cpu, INT_IRQ);
+    if (mapper->scanline_end()) Int6502(&nes.cpu, INT_IRQ);
 }
 
 /*  CPU/Hardware interface.  */
 
 static inline int in_vblank (struct nes_machine *nes)
 {
-    return (nes->scanline >= cfg_framelines) ? 1 : 0;
+    return nes->scanline >= 242;
 }
 
 void Wr6502 (register word Addr, register byte Value)
@@ -374,10 +389,7 @@ void Wr6502 (register word Addr, register byte Value)
 	  break;
 
       case ppu_addr: /* 2006 */
-          if (trace_ppu_writes) {
-              nes_printtime();
-              printf("wrote %02X to $2006\n", Value);
-          }
+
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
               nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);            
           } else {
@@ -539,8 +551,17 @@ byte Rd6502 (register word Addr)
       case spr_addr:
       case ppu_status:
       {
-
-          if (nes.sprite0_detected && ((nes.cpu.Cycles - nes.sprite0_hit_cycle) > 0)) {
+          /* A note about timing: The 6502 core increments cpu.Cycles
+             *before* emulating the instruction, which is appropriate
+             for timing-sensitive writes to e.g. $2001 (which should
+             take effect *after* the write cycle), but for reading, we
+             should reflect the state at the start of the read cycle
+             itself. So, subtract one CPU clock when testing the time
+             below. Nevertheless, there might be an off-by-1 type
+             error here, because I haven't thought about the precise
+             timing too hard (and the my timing isn't exact anyway).
+           */
+          if (nes.sprite0_detected && ((nes.cpu.Cycles - MASTER_CLOCK_DIVIDER - nes.sprite0_hit_cycle) > 0)) {
               nes.ppu.hit_flag = 1;
               nes.sprite0_detected = 0;
           }
@@ -658,23 +679,27 @@ static inline int ppu_is_rendering (void)
     return (nes.ppu.control2 & 0x18);
 }
 
+static inline void begin_scanline (void)
+{
+    nes.sprite0_detected = 0;
+    emphasis_position = -1;
+    memset(color_buffer, 0, sizeof(color_buffer));
+    if (ppu_is_rendering()) rendering_scanline = 1;
+}
+
 static void finish_scanline_rendering (void)
 {
     catchup_emphasis_to_x(255);
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
+    rendering_scanline = 0;
+
+    /* Wrong: this should happen at PPU clock 260, not 256. Whatever. */
     if (ppu_is_rendering() && (nes.ppu.control1 & (BIT(3) | BIT(4)))) mapper_twiddle();
 }
 
 static inline void ppu_latch_v (void)
 {
     if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
-}
-
-static inline void begin_scanline (void)
-{
-    nes.sprite0_detected = 0;
-    emphasis_position = -1;
-    memset(color_buffer, 0, sizeof(color_buffer));
 }
 
 void nes_runframe (void)

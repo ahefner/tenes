@@ -13,7 +13,8 @@ struct mapper_methods
     void (*mapper_shutdown)(void);
     void (*mapper_write)(register word Addr,register byte Value);
     byte (*mapper_read)(register word Addr);
-    int (*scanline)(void);
+    void (*scanline_start)(void);
+    int (*scanline_end)(void);
     int (*save_state) (FILE *out);
     int (*restore_state) (FILE *in);
 /* void (*vram_write)(register word Addr,register byte Value);

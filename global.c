@@ -21,6 +21,9 @@ int vid_fullscreen = 0;
 
 int tv_scanline = 0;
 
+/* Set during first 256 cycles of scanline, but not during hblank: */
+int rendering_scanline = 0;
+
 SDL_Surface *window_surface=NULL;
 
 void (*vid_filter) (void) = rescale_2x;
@@ -42,14 +45,17 @@ unsigned frame_start_samples = 0;
 
 /* timing config - move inside nes_machine if PAL support is added */
 int cfg_framelines = 240; 
-int cfg_vblanklines = 20;
-int cfg_linecycles = 114;
+
+/* Kludge pixel offset applied to $2001 writes, to calibrate the Final Fantasy light beam effect. */
+int video_alignment_cycles_kludge = 12;
 
 #ifdef INSTRUCTION_TRACING
 unsigned tracing_counts[0x10000][3];
 #endif
 
 /* TODO: I need a way to distinguish even/odd frames. I'll use this,
- * so it should go into the nes struct, for the sake of the save
+ * so it should go into the nes struct, for the sake of the save state
  * file. */
 unsigned frame_number = 0;
+
+SDL_mutex *producer_mutex;

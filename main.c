@@ -186,7 +186,6 @@ int main (int argc, char **argv)
     reset_nes(&nes);
     nes.cpu.Trace = cputrace;
 
-    printf ("starting execution.\n");
     time_frame_target = usectime();
 
     while (running) {

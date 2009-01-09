@@ -47,7 +47,8 @@ struct mapper_methods mapper_camerica =
     mapper_camerica_shutdown,
     mapper_camerica_write,
     mapper_camerica_read,
-    mapper0_scanline,
+    mapper_ignores_scanline_start,
+    mapper_ignores_scanline_end,
     camerica_save_state,
     camerica_restore_state
 };
