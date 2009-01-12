@@ -319,7 +319,7 @@ void Wr6502 (register word Addr, register byte Value)
 	  if (trace_ppu_writes)
           {
 	      nes_printtime ();
-              printf("PPU 2000: ");
+              printf("PPU $2000 = ");
 	      PrintBin (Value);
 	      printf(" next PC=$%04X, ",nes.cpu.PC.W);	      
 	      if (Value & 0x80) printf ("NMI ON  ");
@@ -434,17 +434,14 @@ void Wr6502 (register word Addr, register byte Value)
                       /* Palette write */
                       word tmp = nes.ppu.v;
                       tmp &= 0x1F;
-                      tmp |= 0x3F00;
                       Value &= 63;
+                      if (trace_ppu_writes) printf("%sPalette write of %02X to %04X (mirrored to %04X)\n", 
+                                                   nes_time_string(), Value, nes.ppu.v, tmp);
+                      catchup_emphasis();
 
-                      if (!(tmp & 0x0F)) {
-                          /* These are mirrored here so that the renderer can use them directly. */
-                          nes.ppu.vram[0x3F00] = Value;
-                          nes.ppu.vram[0x3F04] = Value;
-                          nes.ppu.vram[0x3F08] = Value;
-                          nes.ppu.vram[0x3F0C] = Value;
-                          nes.ppu.vram[0x3F10] = Value;
-                      } else if (tmp&3) nes.ppu.vram[tmp] = Value;
+                      if (!(tmp & 3)) {
+                          nes.ppu.vram[0x3F00 | (tmp & 15)] = nes.ppu.vram[0x3F10 | (tmp | 16)] = Value;
+                      } else nes.ppu.vram[0x3F00 | tmp] = Value;
                   }
               } else {
                   if (!nes.rom.chr_size) {
@@ -457,7 +454,7 @@ void Wr6502 (register word Addr, register byte Value)
 	  break;
 
       default:
-	  printf ("Wr6502 is broken for registers.\n");
+	  printf ("Wr6502 is broken.\n");
 	  break;
       }
       break;
@@ -689,7 +686,7 @@ static inline void begin_scanline (void)
 
 static void finish_scanline_rendering (void)
 {
-    catchup_emphasis_to_x(255);
+    catchup_emphasis_to_x(256);
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
     rendering_scanline = 0;
 

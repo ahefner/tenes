@@ -9,8 +9,8 @@
 #include "vid.h"
 #include "config.h"
 
-
 int keyboard_controller = 0;
+int hold_button_a = 0;
 int running = 1;
 
 extern unsigned buffer_high;
@@ -60,6 +60,11 @@ void process_control_key (SDLKey sym)
         sound_muted ^= 1;
         printf("Sound %s.\n", sound_muted? "muted" : "unmuted");
         break;
+        
+    case SDLK_a:
+        hold_button_a ^= 1;
+        nes.joypad.pad[0][0] = 0;
+        printf("%s button A. Press Control-A to toggle.\n", hold_button_a? "holding" : "released");
 
     default: break;
     }
@@ -192,6 +197,8 @@ int main (int argc, char **argv)
         SDL_Event event;
 
         for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick(i);
+        if (hold_button_a) nes.joypad.pad[0][0] = frame_number & 1;
+
         time_frame_start = usectime();
         while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
         frame_start_samples = buffer_high;
@@ -220,11 +227,11 @@ int main (int argc, char **argv)
                 break;
                 
             case SDL_KEYDOWN:
-                process_key_event (&event.key);
+                process_key_event(&event.key);
                 break;
                 
             case SDL_KEYUP:
-                process_key_event (&event.key);
+                process_key_event(&event.key);
                 break;
                 
             default:

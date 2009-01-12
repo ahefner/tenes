@@ -21,7 +21,7 @@ static inline unsigned convert_pixel (byte color, byte emphasis)
         if (emphasis & 1) color &= 0x30;
         unsigned px = rgb_palette[color & 63];
         byte r = px >> 16, g = (px >> 8) & 0xFF, b = px & 0xFF;
-        // This is almost certainly very wrong.
+        // This is almost certainly wrong.
         if (emphasis & 0x20) { g = g*3/4; b = b*3/4; }
         if (emphasis & 0x40) { r = r*3/4; b = b*3/4; }
         if (emphasis & 0x80) { r = r*3/4; g = g*3/4; }        

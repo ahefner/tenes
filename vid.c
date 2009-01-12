@@ -26,6 +26,11 @@ static inline void unpack_chr_byte (byte line[8], unsigned char *chrdata)
     line[0] = bgbit[((low & 128) >> 7) | ((high & 128) >> 6)];
 }
 
+static inline byte resolve_index (byte index)
+{
+    return (!(index&3)? 0 : index);
+}
+
 static const byte bit_reverse[256] =
 {
     0x00, 0x80, 0x40, 0xC0, 0x20, 0xA0, 0x60, 0xE0, 0x10, 0x90, 0x50, 0xD0, 0x30, 0xB0, 0x70, 0xF0,
@@ -237,7 +242,7 @@ static inline void render_tile (byte *dest, word v, word chrpage, int y_offset, 
     byte name = nametable_read(v);
     byte attribute = nt_attr((v & 0xFFF) | 0x2000) << 2;
     unpack_chr_byte(tdata, &nes.ppu.vram[chrpage + name * 16 + y_offset]);
-    for (int j=x0; j<x1; j++) *dest++ = palette[(tdata[j] & 0x3F) | attribute] | (tdata[j] & 0x40);
+    for (int j=x0; j<x1; j++) *dest++ = palette[resolve_index((tdata[j] & 0x3F) | attribute)] | (tdata[j] & 0x40);
 }
 
 void render_scanline (void)
@@ -284,6 +289,8 @@ void render_scanline (void)
     emphasis_position = 0;
 }
 
+
+
 void catchup_emphasis_to_x (int x)
 {
     //nes_printtime(); printf("x=%i emp=%i\n", x, emphasis_position);
@@ -297,9 +304,27 @@ void catchup_emphasis_to_x (int x)
 
     assert(emphasis_position <= x);
     assert(emphasis_position >= 0);
-    if (x > 255) x = 255;
+
+    if (emphasis_position > 255) return;
+
+    x = min(x, 256);
     unsigned dx = x - emphasis_position;
-    if (dx) memset(emphasis_buffer + emphasis_position, nes.ppu.control2, dx);
+    if (dx) {
+        int bgcolor = 0x3F00;
+        memset(emphasis_buffer + emphasis_position, nes.ppu.control2, dx);
+        /* The  PPU  is  weird.  Apparently there  are  four  distinct
+         * background  color registers, only  they're mirrored  to the
+         * first one  when rendering backgrounds, robbing  us of three
+         * perfectly good extra colors. I don't understand it. Anyway,
+         * when BG rendering  is disabled, a V address  in the palette
+         * region causes that  color to be displayed on  the screen. I
+         * can imagine  this being  an accidental consequence  of some
+         * logic  to  select  internal  palette  RAM  versus  external
+         * memory, but it isn't clear why the palette mirroring should
+         * change. */
+        if ((nes.ppu.v & 0x3F00) == 0x3F00) bgcolor = 0x3F00 | (nes.ppu.v & 0x1F);
+        if (!(nes.ppu.control2 & 0x08)) memset(color_buffer + emphasis_position, nes.ppu.vram[bgcolor], dx);
+    }
     emphasis_position = x;
 }
 
@@ -308,12 +333,11 @@ void catchup_emphasis (void)
 {
     int tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
 
-    /* Mysterious timing kludge to fix final fantasy. */
+    /* Mysterious but unsurprising timing kludge to fix final fantasy. */
     tmp -= 12;
     if (tmp < 0) tmp = 0;
 
     if (emphasis_position < 0) return;
-    tmp = min(255, tmp);
     assert(tmp >= 0);
     catchup_emphasis_to_x(tmp);
 }
