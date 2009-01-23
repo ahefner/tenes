@@ -1,0 +1,1250 @@
+                               NES Cart Types
+                               --- ---- -----
+
+                                     By:
+
+
+                                Kevin Horton
+
+
+
+I have devised a few naming conventions to make describing how the NES
+'ticks' easier.  I'll try to use conventional names where applicable,
+but I had to create some new ones.  If possible, I use Nintendo's own
+naming conventions; i.e. MMC, CHR ROM, etc.
+
+
+CIRAM:  This is the internal 2K of video RAM located at 0000-1FFF in the
+        PPU's address space.  It stands for 'Character Internal RAM'
+
+P-ROM:  Same as PRG ROM, or VROM.
+
+C-ROM:  Same as CHR ROM.
+
+C-RAM:  Same as CHR RAM.
+
+
+
+PPU access:  You have A0-A13, /A13, D0-D7, /WR and /RD.  A13 is usually
+connected to /CE of the CIRAM to enable it for addresses 0000-1FFF.  
+Likewise, /A13 is usually used to enable the C-ROM or C-RAM on the cart
+(which is then mapped into 2000-3FFF).  
+
+Related to the PPU is the CIRAM.  You have two lines of it to use as you
+see fit.  There are many ways they can be put to use...
+
+1) You can disable the CIRAM all together by pulling pin 57 high.  You can
+then place  4K of RAM onto the bus with it's /CE tied to pin 58.  This
+will place that 4K of RAM at 0000-1FFF.  Gauntlet is an example of a cart
+that does this.  (The carts I've seen use a 6264 8K RAM with A12 tied
+low so it's effectively 4K).
+
+2) Horizontal / Vertical mirroring.  A10 of the CIRAM was brought out to
+the cart edge for just this reason.  If you tie it to A10, you'll get
+vertical mirroring; since the first two banks will be in sequence.
+However, if you tie it to A11, you'll get horizontal mirroring; adjacent
+twin banks will be the same.
+
+3) The MMCs can control the A10 line of the CIRAM to change either the
+screen or mirroring type on the fly.  
+
+4) The LS161 mappers can change the state of the A10 line; however why
+this would be desireable is anyone's guess. :-)
+
+
+Cart Pinout:
+------------
+                             Top           Bottom
+                         ----------------------------
+
+
+                                  +-------+
+                              GND |01   37| CLK 21.47727Mhz (NTSC)
+                          PRG A11 |02   38| M2
+                          PRG A10 |03   39| PRG A12
+                           PRG A9 |04   40| PRG A13 
+                           PRG A8 |05   41| PRG A14                   
+                           PRG A7 |06   42| PRG D7
+                           PRG A6 |07   43| PRG D6
+                           PRG A5 |08   44| PRG D5                       
+                           PRG A4 |09   45| PRG D4
+                           PRG A3 |10   46| PRG D3
+                           PRG A2 |11   47| PRG D2
+                           PRG A1 |12   48| PRG D1
+                           PRG A0 |13   49| PRG D0
+                          PRG R/W |14   50| PRG /CE (/A15 & /M2)
+                             /IRQ |15   51| EXP 9
+                            EXP 0 |16   52| EXP 8
+                            EXP 1 |17   53| EXP 7
+                            EXP 2 |18   54| EXP 6
+                            EXP 3 |19   55| EXP 5
+                            EXP 4 |20   56| CHR /WR
+                          CHR /RD |21   57| CIRAM /CE
+                        CIRAM A10 |22   58| CHR A13
+                           CHR A6 |23   59| CHR A7
+                           CHR A5 |24   60| CHR A8
+                           CHR A4 |25   61| CHR A9
+                           CHR A3 |26   62| CHR A11
+                           CHR A2 |27   63| CHR A10
+                           CHR A1 |28   64| CHR A12
+                           CHR A0 |29   65| CHR /A13
+                           CHR D0 |30   66| CHR D7
+                           CHR D1 |31   67| CHR D6
+                           CHR D2 |32   68| CHR D5
+                           CHR D3 |33   69| CHR D4
+                         SECURITY |34   70| SECURITY
+                         SECURITY |35   71| SECURITY
+                              +5V |36   72| GND
+                                  +-------+
+                             Cartridge Connector
+
+
+
+
+
+Expansion Connector: (found on the underside of the NES unit)
+-------------------------------------------------------------
+
+
+                                  +-------\
+                              +5V |01   48| +5V
+                              GND |02   47| GND
+                         Audio In |03   46| NC
+                              R/W |04   45| Out2 (from CPU)
+                              A15 |05   44| Out1 (from CPU)
+                cart con. pin #51 |06   43| Out0 (from CPU- strobe on sticks)
+                Cart con. pin #52 |07   42| Cart con. pin #16
+                Cart con. pin #53 |08   41| Cart con. pin #17
+                Cart con. pin #54 |09   40| Cart con. pin #18
+                Cart con. pin #55 |10   39| Cart con. pin #19
+                  /OE for stick 2 |11   38| Cart con. pin #20
+                     Player #1 D1 |12   37| /OE for stick 1
+                     Player #1 D3 |13   36| Player #1 D4
+                             /IRQ |14   35| Player #1 D0
+                     Player #2 D2 |15   34| /OE for stick 1
+                     Player #2 D3 |16   33| Player #1 D2
+                  /OE for stick 2 |17   32| D0
+                     Player #2,D4 |18   31| D1
+                     Player #2,D0 |19   30| D2
+                     Player #2,D1 |20   29| D3
+                        Audio out |21   28| D4
+                        Video out |22   27| D5
+                              +9V |23   26| D6
+                      4.00MHz CLK |24   25| D7
+                                  +-------/
+                              Expansion Connector
+
+
+
+
+
+
+Joypad Connector (player 1 and player 2 have identical pinouts)
+---------------------------------------------------------------
+
+                                 +-
+                           GND - |O\
+                           CLK - |OO\ - +5V
+                        Strobe - |OO| - D3
+                            D0 - |OO| - D4
+                                 +--+
+                     
+                     Joypad connector (front view)
+
+
+D0, D3 and D4 connect to the data bus via a 74368 hex inverting tristate
+buffer.  The strobe line of both pads connect to pin 39 of the CPU.
+CLK is connected to the /OE line of it's respective 74368, which also
+connects to either pin 36 or 35 of the CPU depending if it's player
+#1 or #2 (respectively).
+
+Each pad contains a 4021 8-bit shift register.  To read the button
+states, you first pull pin 39 high then low:
+
+LDX #$01
+STX $4016
+DEX
+STX $4016
+
+You then read $4016 (or $4017 for player 2) to get the button status
+one button at a time (Each read clocks the shift register, getting the 
+next data bit ready to be read).  Some games require exactly $40 or
+$41 to be returned from an LDA $4016 (or $4017).  This is bad coding
+style, since only D0-D4 are connected.  So, the upper three bits
+are supposidly 'undefined'.  However, if you examine exactly what's going
+on, you can see why it returns $40 or $41.
+
+Since the inputs to the tristate buffer are all pulled high via resistors,
+and that the buffer is inverting, you will see the lower 5 bits as 0 when
+they are read.  Since D4-D1 are usually not used (only the light gun and
+expansion connector connect to them) and D0 is the data input from the
+joypad, the lower 5 bits will be either 00000b or 00001b depending on if
+a button is down (1) or up (0).  So, that takes care of D0-D4.  D5-D7 are
+not connected to anything related to joypad reading, so they will pick up
+'garbage' off the data bus during a joypad read.  But, they always seem to
+pick up 010xxxxxb (where xxxxx is from the joypads).  If we examine the
+opcodes that the processor executes, it will be clear:
+            
+8100:  $A9  ;opcode for LDA 
+8101:  $16  ;lower byte of address
+8102:  $40  ;upper byte of address
+
+As you can see, the last byte that happens to hit the data bus *right*
+before the read is $40 - the same value we see when we do a joypad read!
+This is because the capacitance of the data line 'stores' the value that
+was last on it in the stray capacitance of the drivers, circuit traces,
+cart connector, etc.  
+
+To test the theory is pretty simple.  Instead of doing an LDA $4016,
+do an indirect LDA instead:
+
+8100:  LDA #$16
+8102:  STA $80
+8104:  LDA #$40
+8106:  STA $81
+8108:  LDA ($80)
+
+Because this takes more space and more cycles than a simple LDA $4016,
+this method is of course never used.  It can be used to detect if you're
+running on an emulator or not though. ;-) The 'correct' way to read the
+joypad is:
+
+8100:  LDA $4016
+8103:  AND #$01
+
+This will strip the invalid bits and avoid any chance for error.  The
+way *I* would read the pads is like so:
+
+8100:  LDY #$08   ;Number of iterations
+8102:  LDX #$01
+8104:  STX $4016  ;store 1 out the strobe 
+8107:  DEX
+8108:  STX $4016  ;store 0 out the strobe
+810B:  LDA $4016  ;read the button
+810E:  ROR        ;transfer it to the carry flag
+810F:  TXA
+8110:  ROL
+8111:  TAX        ;rotate X left, storing the bit into the lowest pos.
+8112:  DEY
+8113:  BNE 810B   ;loop 8 times for all 8 buttons
+8115:  RTS        ;return acc with status of all 8 buttons
+
+
+This piece of code first strobes the sticks to 'lock' the button values
+in, then it grabs the first button status and rotates it into the carry
+flag.  The X register is then transferred to the Acc. so the button
+value can be shifted into it.  It's moved back to X, and the Y register
+is decremented once.  The whole cycle repeats 8 times, whereby a complete
+byte is formed containing the status of all 8 buttons.
+
+
+
+
+Chip pinouts
+------------
+
+
+
+Signal types are listed in parenthesis:
+
+(r) this line goes to the ROM only.
+(s) this line is Shared between the ROM, MMC/chip, and Nintendo
+(n) this line connects to the NES cart edge only, and not the ROM
+(w) this line connects to the WRAM only and nowhere else
+
+
+MMC1 Chip:    (24 pin shrink-DIP)
+----------
+Comes in several varieties: 'MMC1', 'MMC1A', and 'MMC1B2'                                  
+
+                                  .---\/---.
+                    PRG A14 (r) - |01    24| - +5V
+                    PRG A15 (r) - |02    23| - M2        
+                    PRG A16 (r) - |03    22| - PRG A13 (s)
+                    PRG A17 (r) - |04    21| - PRG A14 (n)
+                    PRG /CE (r) - |05    20| - PRG /CE (n)
+                    WRAM CE (w) - |06    19| - PRG D7 (s)
+                    CHR A12 (r) - |07    18| - PRG D0 (s)
+                    CHR A13 (r) - |08    17| - PRG R/W 
+                    CHR A14 (r) - |09    16| - CIRAM A10 (n)
+                    CHR A15 (r) - |10    15| - CHR A12 (n)
+    CHR A16 (r) or WRAM /CE (w) - |11    14| - CHR A11 (s)
+                            GND - |12    13| - CHR A10 (s)
+                                  `--------'
+
+                                     MMC1
+
+MMC2 Chip:    (40/42 pin shrink-DIP)
+----------
+Comes in one flavour: 'MMC2   RD387-001'
+
+                                  .----\/----.
+                                  |          |
+                            GND - |XX      XX| - +5V
+                             M2 - |01      40| - +5V
+                    PRG A14 (n) - |02      39| - GND
+                    PRG A13 (n) - |03      38| - CIRAM A10 (n)
+                    PRG A15 (r) - |04      37| - CHR A15 (r)
+                    PRG A14 (r) - |05      36| - CHR A12 (r)
+                    PRG A12 (s) - |06      35| - CHR A14 (r)
+                    PRG A13 (r) - |07      34| - CHR A12 (n)
+                    PRG A16 (r) - |08      33| - CHR A13 (r)
+                    PRG /CE (r) - |09      32| - CHR A16 (r)
+                     PRG D4 (s) - |10      31| - CHR A8 (s)
+                     PRG D3 (s) - |11      30| - CHR A5 (s)
+                     PRG D0 (s) - |12      29| - CHR A9 (s)
+                     PRG D1 (s) - |13      28| - CHR A4 (s)
+                     PRG D2 (s) - |14      27| - CHR A11 (s)
+                    PRG R/W (n) - |15      26| - CHR A3 (s)
+                    PRG /CE (n) - |16      25| - CHR A7 (s)
+                    CHR /RD (s) - |17      24| - CHR A2 (s)
+                     CHR A0 (s) - |18      23| - CHR A10 (s)
+                     CHR A6 (s) - |19      22| - CHR A1 (s)
+                            GND - |20      21| - CHR /CE (s)
+                                  |          |
+                                  `----------'
+
+                                      MMC2
+
+
+(note: the pins marked with 'X's are optional; they are only used if
+the MMC2 were to be 42 pins instead of 40.)
+
+
+MMC3 Chip:    (44 pin QFP)
+----------
+Comes in three types: 'MMC3A', 'MMC3B', and 'MMC3C'
+
+                           33     23
+                            |     |
+                           .-------.
+                        34-|       |-22
+                           | MMC3B |
+                        44-|       |-12
+                           \-------'
+                            |     |
+                            1     11
+
+
+Pin# Function      Pin# Function
+---- --------      ---- --------
+
+1  - ??? *1        23 - PRG A17 (r)
+2  - CHR A10 (r)   24 - PRG A13 (n)
+3  - CHR A12 (n)   25 - PRG A18 (r)
+4  - CHR A11 (n)   26 - PRG /CE (r)
+5  - CHR A10 (n)   27 - +5V
+6  - GND           28 - GND
+7  - CHR A13 (r)   29 - M2
+8  - CHR A14 (r)   30 - WRAM /CE (w)
+9  - CHR A12 (r)   31 - PRG D7 (s)
+10 - CIRAM A10 (n)*32 - PRG A0 (s)
+11 - CHR A15 (r)   33 - PRG D6 (s)
+12 - CHR A17 (r)   34 - PRG D0 (s)
+13 - /IRQ          35 - PRG D5 (s)
+14 - PRG /CE (n)   36 - PRG D1 (s)
+15 - GND           37 - PRG D4 (s)
+16 - ??? *2        38 - PRG D2 (s)
+17 - PRG R/W (n)   39 - PRG D3 (s)
+18 - PRG A15 (r)   40 - GND
+19 - PRG A13 (r)   41 - WRAM CE (w)
+20 - PRG A14 (n)   42 - WRAM /WE (w)
+21 - PRG A16 (r)   43 - CHR A11 (r)
+22 - PRG A14 (r)   44 - CHR A16 (r)
+
+
+*:  On Gauntlet, this is unused.
+
+
+*1: PINS 1 & 2.  Sometimes these are connected together.  If they are not,
+pin 1 is left floating.
+
+*2: PIN 16. Sometimes this is connected to ground.  Other times it is left
+floating.  
+
+It seems that pins 1,2 & 16 are related; pins 1 & 2 are shorted as are pins
+15 and 16.  Or else pisn 1 & 2 are left open as well as 15 & 16.  I've never
+seen say, pins 1 & 2 shorted while pin 16 was open or vice-versa.  I suspect
+they relate to extra RAM in the CHR section.
+
+
+MMC4 Chip:
+----------
+
+No info as of yet- tell me which carts have MMC4's in 'em!
+
+
+MMC5 Chip:    (100 pin QFP)
+----------
+Only comes in one type:  'MMC5'
+
+
+
+                           80              51
+                            |              |
+                           .----------------.
+                        81-|                |-50
+                           |      MMC5      |
+                       100-|                |-31
+                           \----------------'
+                            |              |
+                            1              30
+
+
+Pin# Function      Pin# Function      Pin# Function      Pin# Function
+---- --------      ---- --------      ---- --------      ---- --------
+
+1  - RC0 *1        26 - CHR A11 (n)   51 - PRG A6 (s)    76 - /WE (w)-all
+2  - RC1 *1        27 - CHR A12 (n)   52 - PRG A7 (s)    77 - NC
+3  - RC2 *1        28 - CHR A13 (n)   53 - PRG A8 (s)    78 - NC
+4  - +5V           29 - NC            54 - PRG A9 (s)    79 - M2 (n)
+5  - CHR A0 (s)    30 - NC            55 - PRG A10 (s)   80 - GND
+6  - CHR A1 (s)    31 - CIRAM /CE (n) 56 - VCC of RAM (w)81 - NC
+7  - CHR A2 (s)    32 - CIRAM A10 (n) 57 - +Vbatt        82 - NC
+8  - CHR A3 (s)    33 - CHR /WR (n)   58 - PRG A11 (s)   83 - CE (w)-all
+9  - CHR A4 (s)    34 - CHR /RD (s?)  59 - PRG A12 (s)   84 - CHR D0 (s)
+10 - CHR A5 (s)    35 - /IRQ (n)      60 - PRG A13 (r)   85 - CHR D1 (s)
+11 - CHR A6 (s)    36 - PRG D0 (s)    61 - PRG A14 (r)   86 - CHR D2 (s)
+12 - CHR A7 (s)    37 - PRG D1 (s)    62 - PRG A15 (r)   87 - CHR D3 (s)
+13 - CHR A8 (s)    38 - PRG D2 (s)    63 - PRG A16 (r)   88 - CHR D4 (s)
+14 - CHR A9 (s)    39 - PRG D3 (s)    64 - PRG A17 (r)   89 - CHR D5 (s)
+15 - CHR A10 (r)   40 - PRG D4 (s)    65 - PRG A18 (r)   90 - CHR D6 (s)
+16 - CHR A11 (r)   41 - PRG D5 (s)    66 - PRG A19 (r)   91 - CHR D7 (s)
+17 - CHR A12 (r)   42 - PRG D6 (s)    67 - PRG A13 (n)   92 - NC
+18 - CHR A13 (r)   43 - PRG D7 (s)    68 - PRG A14 (n)   93 - NC
+19 - CHR A14 (r)   44 - +5V           69 - A13 (w)-all#  94 - CHR A0 (r) *2
+20 - CHR A15 (r)   45 - PRG A0 (s)    70 - A14 (w)-all   95 - CHR A1 (r) *2
+21 - CHR A16 (r)   46 - PRG A1 (s)    71 - /CE (w)-0     96 - CHR A2 (r) *2
+22 - CHR A17 (r)   47 - PRG A2 (s)    72 - /CE (w)-1     97 - CL3 *2
+23 - CHR A18 (r)   48 - PRG A3 (s)    73 - NC            98 - SL3 *2
+24 - CHR A19 (r)   49 - PRG A4 (s)    74 - PRG /CE (r)   99 - GND
+25 - CHR A10 (n)   50 - PRG A5 (s)    75 - NC           100 - RC3 *1
+
+
+
+#: This pins have not been confirmed, and their use has been extrapolated
+by the use of adjacent pins.
+
+*1: PINS 1,2,3 & 100. These appear to be some form of data input.  They are
+un-used on this particular board (Castlevania 3), and their exact
+purpose is unknown; however pin #54 of the cart connects to this extra
+circuitry.  this pin only connects to the access port underneath the
+NES unit, so I doubt if this was ever used in any cart.
+
+*2: PINS 94 thru 98. These set the cart in either SL or CL mode.  I have no
+clue what the diffrence between the two modes are; the cart I checked 
+(Castlevania 3) was set to CL mode.  
+
+To set to CL mode:
+
+Connect CHR A0 from the NES to A0 on the CHR ROM.  
+Connect CHR A1 from the NES to A1 on the CHR ROM.  
+Connect CHR A2 from the NES to A2 on the CHR ROM.  
+Connect pins 97 and 98 together.
+Leave pins 94,95 & 96 floating on the MMC5
+
+
+To set to SL mode:
+
+Connect pin 94 of the MMC5 to A0 of the CHR ROM.
+Connect pin 95 of the MMC5 to A1 of the CHR ROM.
+Connect pin 96 of the MMC5 to A2 of the CHR ROM.
+Connect pin 98 to ground.
+Leave pin 97 floating.
+
+
+The difference between the two modes is unknown.
+
+
+
+MMC6 Chip:    (64 pin QFP)
+---------- 
+There is one known flavour: 'MMC6B'  I suspect there may be an 'A' rev. also.
+
+                          48       33
+                           |       |
+                          .---------.
+                       49-|         |-32  
+                          |         |
+                          |  MMC6B  |
+                          |         |
+                       64-|         |-17  
+                          \---------'
+                           |       |
+                           1       16
+
+
+Pin# Function      Pin# Function
+---- --------      ---- --------
+
+
+1  - PRG A13 (n)   33 - R/W
+2  - M2            34 - PRG D2 (s)
+3  - GND           35 - PRG D3 (s)
+4  - GND           36 - PRG D1 (s)
+5  - GND           37 - GND
+6  - NC            38 - +batt
+7  - GND           39 - PRG D4 (s)
+8  - +5V           40 - PRG D0 (s)
+9  - +5V           41 - PRG D5 (s)
+10 - +batt         42 - PRG A0 (s)
+11 - GND           43 - PRG D6 (s)
+12 - +5V           44 - PRG A1 (s)
+13 - threshold     45 - PRG D7 (s)
+14 - CHR A10 (n)   46 - PRG A2 (s)
+15 - CHR A11 (n)   47 - PRG /CE (r)
+16 - NC            48 - PRG A3 (s)
+17 - CHR A10 (r)   49 - PRG A4 (s)
+18 - CHR A16 (r)   50 - PRG A16 (r)
+19 - CHR A11 (r)   51 - PRG A5 (s)
+20 - CHR A12 (n)   52 - PRG A6 (s)
+21 - CHR A13 (r)   53 - PRG A9 (s)
+22 - CHR A12 (r)   54 - PRG A7 (s)
+23 - CHR A14 (r)   55 - PRG A8 (s)
+24 - GND           56 - +batt
+25 - +batt         57 - GND
+26 - CHR A18?(r)   58 - PRG A12 (s)
+27 - CIRAM A10 (n) 59 - PRG A13 (r)
+28 - CHR /RD (s)   60 - PRG A15 (r)
+29 - CHR /CE (s)   61 - PRG A14 (r)
+30 - CHR A17 (r)   62 - PRG A18?(r)
+31 - /IRQ          63 - PRG A14 (n)
+32 - PRG /CE (n)   64 - PRG A17 (r)
+
+
+
+Notes:  A10 & A11 do not go to this chip.
+Threshold:  Tied to a resistor divider between +5V and GND;
+ resistor to +5V is 180 ohms, resistor to ground is 470 ohms.
+
+
+
+
+LS161 bankswitching
+-------------------
+
+Quite a few carts seem to use either a single 74LS161, or a combination
+of an LS161 and LS32, or an LS161 and LS02.
+
+There are two main styles of LS161-only carts:
+
+NES-CN-ROM-256-[02,05]
+----------------------
+
+You can select either H or V mirroring; PRG ROM is *not* bankswitched
+and is either 16K or 32K.  CHR ROM, however is bankswitched.  It's set
+up as up to 4 8K pages.  CHR ROM is either 16K or 32K.
+
+
+                                  .---\/---.
+                            +5V - |01    16| - +5V
+                        PRG /CE - |02    15| - NC
+                         PRG D0 - |03    14| - CHR A14 (r)
+                         PRG D1 - |04    13| - CHR A13 (r)
+                         PRG D4 - |05    12| - CHR A12 control
+                         PRG D5 - |06    11| - CHR A11 control 
+                            GND - |07    10| - GND
+                            GND - |08    09| - R/W
+                                  `--------'
+
+                                     '161
+
+
+NES-AOROM-03
+------------
+
+Very similar to above; however cart does not bankswitch CHR area; instead
+just has an 8K RAM chip.  P-ROM is 256K in both carts I have.
+
+
+                                  .---\/---.
+                            +5V - |01    16| - +5V
+                        PRG /CE - |02    15| - NC
+                         PRG D0 - |03    14| - PRG A15
+                         PRG D1 - |04    13| - PRG A16
+                         PRG D2 - |05    12| - PRG A17
+                         PRG D4 - |06    11| - CIRAM A10
+                            GND - |07    10| - GND
+                            GND - |08    09| - R/W
+                                  `--------'
+
+                                     '161
+           
+NES-BN-ROM-01
+-------------
+
+Identical to above, except has a 28-pin 128K ROM instead.
+
+
+NES-UN-ROM-05 & Konami #531320
+------------------------------
+
+This uses both an LS161 and an LS32.  The ROM is set up like on a non-
+bankswitched cart except this time only A0-A13 go to the ROM's A0-A13.
+A14 is used to control the LS32 and hence which bank the processor 'sees'.
+When A14 is high, it forces all the bankswitch address lines high; so the
+processor sees the last bank no matter what.  When A14 is low, the OR gates
+will pass whatever is on the other input (which happens to be connected
+to the outputs of the '161).   There is an 8K RAM for the CHR area.
+
+The Konami board is functionally the same; however the routing is slightly
+different.
+
+
+                                  .---\/---.
+                            +5V - |01    16| - +5V
+                        PRG /CE - |02    15| - NC
+                         PRG D0 - |03    14| - Pin 13 of '32
+                         PRG D1 - |04    13| - Pin 2 of '32
+                         PRG D2 - |05    12| - Pin 9 of '32
+                            GND - |06    11| - NC
+                            GND - |07    10| - GND
+                            GND - |08    09| - R/W
+                                  `--------'
+
+                                     '161
+
+
+
+
+                                  .---\/---.
+                            A14 - |01    14| - +5V
+                 Pin 13 of '161 - |02    13| - Pin 14 of '161
+                        ROM A15 - |03    12| - A14
+                            GND - |04    11| - ROM A14
+                            GND - |05    10| - A14
+                             NC - |06    09| - Pin 12 of '161
+                            GND - |07    08| - ROM A16
+                                  `--------'
+
+                                     '32
+
+
+
+
+NES-ANROM-03
+------------
+
+
+This cart has an 8K RAM chip for the CHR area.  It contains an LS161
+for the selecting the current bank, and an LS02 to disable to PRG ROM
+during any write to the bankswitch circuit.  Marat was saying he didn't
+know why the programs would write to an address associated with a bank;
+i.e.  To switch to bank #05:
+
+LDA #$05
+STA $FFF5
+
+The reason is to avoid a bus conflict with the ROM;  The ROM has the
+value 0$5 stored in address $FFF5.  This is required, because the ROM is
+*not* disabled during a data write to the ROM's area!!!  However, the
+LS02 added to this cart allieviates those problems.  It disables the
+ROM during any data write to the cart area.
+
+                                  .---\/---.
+                            +5V - |01    16| - +5V
+                        PRG /CE - |02    15| - NC
+                         PRG D0 - |03    14| - PRG A15
+                         PRG D1 - |04    13| - PRG A16
+                            +5V - |05    12| - NC
+                         PRG D4 - |06    11| - CIRAM A10
+                            GND - |07    10| - GND
+                            GND - |08    09| - R/W
+                                  `--------'
+
+                                     '161
+
+
+
+                                  .---\/---.
+                      To pin 12 - |01    14| - +5V
+                           R/W  - |02    13| - To pins 8 & 9
+                           R/W  - |03    12| - To pin 1
+                             NC - |04    11| - PRG /CE
+                            GND - |05    10| - To /CE of ROM
+                            GND - |06    09| - To pin 13
+                            GND - |07    08| - To pin 13
+                                  `--------'
+
+                                     '02
+
+
+
+
+
+
+CPU  (p/n: RP2A03G)
+-------------------
+
+
+Pins 39,38, and 37 correspond to STA $4016 bits D0,D1, and D2 resp.
+Pin 36 goes low during an LDA $4016, and pin 35 goes low during an
+LDA $4017.
+
+Audio 1 is the output for the two squarewave channels, and
+Audio 2 is the output for triangle, noise, and PCM.
+
+
+                                  .----\/----.
+                                  |          |
+                        Audio 1 - |01      40| - +5V
+                        Audio 2 - |02      39| - Strobe on sticks
+                           /RST - |03      38| - Exp. conn pin #44
+                             A0 - |04      37| - Exp. conn pin #45
+                             A1 - |05      36| - /OE for stick #1
+                             A2 - |06      35| - /OE for stick #2
+                             A3 - |07      34| - /NMI
+                             A4 - |08      33| - R/W
+                             A5 - |09      32| - /IRQ
+                             A6 - |10      31| - M2
+                             A7 - |11      30| - GND (Abort?)
+                             A8 - |12      29| - 21.47727Mhz CLK
+                             A9 - |13      28| - D0
+                            A10 - |14      27| - D1
+                            A11 - |15      26| - D2
+                            A12 - |16      25| - D3
+                            A13 - |17      24| - D4
+                            A14 - |18      23| - D5
+                            A15 - |19      22| - D6
+                            GND - |20      21| - D7
+                                  |          |
+                                  `----------'
+                                       CPU
+
+PPU  (p/n: RP2C02G)
+-------------------
+
+
+
+                                  .----\/----.
+                                  |          |
+                        /   VBL - |01      40| - +5V
+                        |    D0 - |02      39| - ALE
+          FROM / TO CPU |    D1 - |03      38| - AD0
+                        |    D2 - |04      37| - AD1
+                Section |    D3 - |05      36| - AD2
+                        |    D4 - |06      35| - AD3
+                        |    D5 - |07      34| - AD4
+                        |    D6 - |08      33| - AD5
+                        |    D7 - |09      32| - AD6
+                        |    A2 - |10      31| - AD7
+                        |    A1 - |11      30| - A8
+                        |    A0 - |12      29| - A9
+                        |   /CE - |13      28| - A10
+                        |   GND - |14      27| - A11
+                        |   GND - |15      26| - A12
+                        |   GND - |16      25| - A13
+                        |   GND - |17      24| - /RD
+                        |CLK In - |18      23| - /WR
+                        \   R/W - |19      22| - /RST 
+                            GND - |20      21| - Video Out
+                                  |          |
+                                  `----------'
+                                       PPU
+
+
+Maximum ROM capacities for the various bankswitch methods:
+
++---------+-------+-------+---------------------------------------+
+|  Type   | P-ROM | C-ROM |                 Notes                 |
++---------+-------+-------+---------------------------------------+
+| -none-  |   32K |    8K |            No bankswitching           |
++---------+-------+-------+---------------------------------------+
+|  MMC1   |  256K |  128K |           Without extra RAM           |
++---------+-------+-------+---------------------------------------+
+|  MMC1   |  128K |  128K |             With extra RAM            |
++---------+-------+-------+---------------------------------------+
+|  MMC2   |  128K |  128K |                                       |
++---------+-------+-------+---------------------------------------+
+|  MMC3   |  512K |  256K |                                       |
++---------+-------+-------+---------------------------------------+
+|  MMC5   | 1024K | 1024K |                                       |
++---------+-------+-------+---------------------------------------+
+|  MMC6   |  512K |  512K |  Appears to be extention of the MMC3  |
++---------+-------+-------+---------------------------------------+
+|CNROM-256|   32K |   32K |                  LS161                |
++---------+-------+-------+---------------------------------------+
+|  ANROM  |  128K |    0K |              LS161 & LS02             |
++---------+-------+-------+---------------------------------------+
+|  UNROM  |  128K |    0K | Same as Konami #351320 - LS161 & LS32 |
++---------+-------+-------+---------------------------------------+
+|  BNROM  |  128K |    0K |                  LS161                |
++---------+-------+-------+---------------------------------------+
+|  AOROM  |  256K |    0K |                  LS161                |
++---------+-------+-------+---------------------------------------+
+|   ???   |   64K |   64K |           Colour Dreams cart          |
++---------+-------+-------+---------------------------------------+
+|   ???   |   64K |   64K |Same as above; with imp. lockout-defeat|
++---------+-------+-------+---------------------------------------+
+|   BC6   |  128K |  128K |       Wisdom Tree / Colour Dreams     |
++---------+-------+-------+---------------------------------------+
+|  47516  |   64K |   64K |      AGCI's copy of the C.D. cart     |
++---------+-------+-------+---------------------------------------+
+|Nina-001 |   64K |   64K |AVE/SEI cart (ex: Impossible Mission 2)|
++---------+-------+-------+---------------------------------------+
+|Nina-003 |   32K |   32K |      AVE cart (ex: Tiles of Fate)     |
++---------+-------+-------+---------------------------------------+
+
+
+
+Boards:
+-------
+
+*****************************************
+*        Non-bankswitched carts         *
+*****************************************
+
+
+NES-NROM-[01,03,05]
+-------------------
+
+8K of C-ROM, 32K of P-ROM
+
+
+
+*****************************************
+*    LS161 bankswitching cart boards    *
+*****************************************
+
+NES-CN-ROM-256-02
+-----------------
+
+Contains either 16K or 32K of P-ROM, as well as 16K or 32K of C-ROM.
+
+NES-ANROM-03
+------------
+
+Uses an LS161 and an LS02.  Contains 8K of C-RAM, and 128K of P-ROM.
+The LS02 prevents bus conflicts between the CPU and the ROM.
+
+NES-UNROM-[05,09] & 351320
+--------------------------
+
+Uses an LS161 and LS32.  This is a fairly intresting method.  It breaks
+the P-ROM up into two 16K banks... the last 16K always points to the last
+16K of the ROM.  The first is under software control; however.  Contains
+8K of C-RAM and 128K of P-ROM
+
+NES-BN-ROM-01
+-------------
+
+Has 128K of P-ROM which can be switched in 32K blocks.  Also contains 
+8K of C-RAM.
+
+NES-AOROM-03
+------------
+
+Has 256K of P-ROM which can be switched in 32K blocks.  Also contains 
+8K of C-RAM.
+
+
+*****************************************
+*         MMC1 containing boards        *
+*****************************************
+
+
+NES-SNROM-[01,03,05,06]
+-----------------------
+
+8K of WRAM at 6000-7FFF (with the capibility to be battery-backed) of the 
+CPU's address space.  Up to 512K of P-ROM, and 8K of C-RAM.
+
+NES-SEROM-04
+------------
+
+16K or 32K of C-ROM, and 32K of P-ROM. (the latter is not bankswitched)
+
+NES-SGROM-04
+------------
+
+8K of C-RAM, and up to 512K of P-ROM.
+
+
+NES-SLROM-04
+------------
+
+Up to 256K of C-ROM and 512K of P-ROM.
+
+351908 (Konami)
+---------------
+
+Uses 128K of C-ROM and 128K of P-ROM.
+
+
+
+*****************************************
+*         MMC2 containing boards        *
+*****************************************
+
+NES-PNROM-05
+------------
+
+Used on only one cart (unconfirmed)
+
+Has 128K of C-ROM and 128K of P-ROM as well as an MMC2
+
+
+*****************************************
+*         MMC3 containing boards        *
+*****************************************
+
+
+NES-TKROM-10
+------------
+
+8K battery-backed SRAM, 256K of C-ROM, and 512K of P-ROM.
+
+NES-TR1ROM-01
+-------------
+
+Intresting cart.  Has 4K of RAM mapped into 0000-1FFF of the PPU's
+address space (it disables the CIRAM), and 64K of C-ROM at 2000-3FFF.
+There is space for up to 512K of P-ROM.
+
+NES-TLROM-03
+------------
+
+Up to 256K of C-ROM and 512K of P-ROM.
+
+NES-TSROM-[04,06,07]
+--------------------
+
+8K of WRAM mapped in at 6000-7FFF in the CPU's address space.  Up to
+256K of C-ROM and 512K of P-ROM.
+
+NES-TGROM-01
+------------
+
+8K of C-RAM, with up to 512K of P-ROM.
+
+352026 (Konami)
+---------------
+
+128K of C-ROM and 128K of P-ROM.  
+
+
+*****************************************
+*         MMC5 containing boards        *
+*****************************************
+
+Used on only one more than one cart!
+
+
+NES-ELROM-01
+------------
+
+Has 256K of C-ROM and 256K of P-ROM as well as an MMC5
+
+
+NES-ETROM-01
+------------
+
+One word:  Wow!  two 8K RAM chips, battery backed, MMC5, ???K P-ROM and
+???K C-ROM.  The board takes up *all* the space in the cart shell!
+
+
+*****************************************
+*         MMC6 containing boards        *
+*****************************************
+
+NES-HKROM-01
+------------
+
+Has 256K of C-ROM and up to 512K of P-ROM.  There's some RAM internal
+to the MMC6 chip itsself; and is battery-backed on this board.  The
+internal RAM appears to be 1K in size.  From what I can tell, this
+MMC acts in a similar way to the MMC3 in all other respects.
+
+
+*****************************************
+*      Misc. boards by 3rd-parties      *
+*****************************************
+
+
+[No part #, says '(c) 1990 Color Dreams Inc.' on the bottom side]
+
+Made by Colour dreams; Uses a 74LS377 which has had the part # scratched
+off. :-)  Good thing I have my handy-dandy chip ID'er.  Also contains
+32K of C-ROM and 32K of P-ROM.
+
+[No part #, says '(c) 1991 Color Dreams, Inc.' on the bottom side]
+
+Very similar to the above, except this time there's 64K of P-ROM and
+64K of C-ROM.
+
+BC6 (MFG. by Colour Dreams)
+---------------------------
+
+Same as above two, except this time there's 128K of C-ROM and 128K of P-ROM.
+
+47516 (MFG. by AGCI)
+--------------------
+
+Intresting.  It's almost identical to the above; except the bankswitch
+chip is house numbered (It's got the same pinout as a 74LS377 ;-)  I've
+got to finish my reader so I can confirm that it is a 74377.  
+
+
+Nina-001 (MFG. by SEI)
+----------------------
+
+Odd board.  Has 6 74-series chips to do bankswitching; 8K of WRAM,
+a Faux lockout-chip (called 'Nina' intrestingly enough), 64K of C-ROM,
+and 64K of P-ROM.
+
+Nina-003 (MFG. by AVE)
+----------------------
+
+This appears to be made by the same co. as above.  32K of P-ROM, and
+32K of C-ROM.  Three TTL chips do the bankswitching.
+
+A800XXX (Tengen)
+----------------
+
+Very strange.  Has a 'Mimic 1' chip on it to do bankswitching, and of
+course the Tengen version of the lockout chip! :-)  The ROM sizes are
+unknown at the moment.
+
+
+BIC-48 & BIC-43 (Camerica)
+--------------------------
+
+Uses a 20-pin bankswitch chip labeled 'BF9093'.  Has 8K of C-RAM and
+256K of P-ROM.
+
+BIC-62 (Camerica)
+-----------------
+
+Uses a 20-pin bankswitch chip labeled 'BF9097'.  Has 8K of C-RAM and
+256K of P-ROM.
+
+
+
+*****************************************
+*        LS377 containing boards        *
+*****************************************
+
+
+These include carts by Colour Dreams, AGCI, Wisdom Tree, Bunch Games, etc.
+
+
+[no part #; Colour Dreams]
+--------------------------
+
+You can tell this board apart from it's characteristic 'L' shape.
+
+Maximum of 64K of both P-ROM and C-ROM.  P-ROM is switched in 32K banks,
+while C-ROM is switched in 8K banks.  There is a one byte register you
+write to anywhere from $8000-$FFFF to change banks.  It's laid out like so:
+
+D0-D3 holds the desired P-ROM bank (each bank is 32K)
+D4-D7 holds the desired C-ROM bank (each bank is 8K)
+
+Mirroring is perminantly set to Horizontal.
+
+
+[no part #; Colour Dreams]
+--------------------------
+
+This board has 5 transistors, two resistor networks, three electrolytic
+caps, and a MAX7660CPA inverting charge-pump chip.
+
+Identical to above, except has improved lockout-defeating circuitry.
+
+
+BC6 (Colour Dreams)
+-------------------
+
+This was used on Wisdom Tree carts only, as far as I know.
+
+It has 128K of both P-ROM and C-ROM.
+
+Mirroring set perminantly to Horizontal.
+
+
+47516 (AGCI)
+------------
+
+This is an exact copy of the Colour Dreams cart!  There are three 
+transistors, and the LS377, however each part is labeled:
+
+AGCI#1, AGCI#2, AGCI#3 (the three transistors) and AGCI#4 (the LS377 chip).  
+
+Pretty funny that they would copy the Colour Dreams cart exactly- right
+down to the exact part values!  It does have one slight variation, though.
+You can set the mirroring to either H or V... it's 'factory set' to
+Horizontal.
+
+The maximum amount of both C-ROM and P-ROM is 64K.
+
+
+*****************************************
+*      American Video Entertainment     *
+*****************************************
+
+
+Note: the same company that designed the AVE cart board also designed
+the ones for SEI.
+
+
+NINA-03
+-------
+
+Uses a Faux-lockout chip in a 14-pin package.  Allows 32K of both
+P-ROM and C-ROM.  The P-ROM area is not bankswitched.  Uses two
+TTL chips to perform the bankswitch on the C-ROM- an LS175 and an
+LS138.
+
+
+You change banks by writing to anything with A14 and A8 high, and A15 
+and A13 low.  This would be 6100-61FF, 6300-63FF ... 7F00-7FFF.  Only D0
+and D1 are used.  D0 and D1 determine which 8K bank to use for the C-ROM.
+
+
+NINA-001
+--------
+
+Uses six TTL chips- LS173 * 2, LS139, LS133, LS74, and LS00.  There is
+8K of WRAM, 64K of both P-ROM and C-ROM, and a faux-lockout chip labelled
+'NINA'.
+
+Mirroring is perminantly set to Horizontal.  It has 8K of WRAM mapped in
+at $6000-$7FFF.  You select the P-ROM bank by writing to $7FFD.  The C-ROM
+area is broken into two parts- $0000-$0FFF and $1000-$1FFF.  You can
+select the desired bank for *each* section individually.
+You select the 4K bank via writing to $7FFE, and the upper bank via $7FFF.
+Note that you *must* use these addresses since no others are decoded.
+There is only one bit implemented for the P-ROM bank and only 4 bits
+implemented for the C-ROM banks.
+
+
+
+*****************************************
+*                Cart list              *
+*****************************************
+
+
+*Nintendo*
+
+Cart Name             PN  P-ROM W-RAM  C-ROM C-RAM  Board #
+---------             --  ----- -----  ----- -----  ------- 
+                                                               
+Mega Man 2            XR  256K               8K     SGROM-0
+Solar Jetman          LJ  256K               8K     AOROM-03
+Ironsword             IR  256K               8K     AOROM-03
+Tetris                EI   32K         32K          SEROM-04 
+Boulder Dash          XB   32K         32K          SEROM-04
+Super Mario 2         MW  128K         128K         TSROM-04
+Super Mario 3         UM  256K         128K         TSROM-06
+Zelda                 ZL  128K  8K           8K     SNROM-01   batt-backed
+Metroid               MT  128K  8K           8K     SNROM-03
+A Boy and his Blob    B5  128K         128K         SLROM-06
+Streetfighter 2010    YA  128K         128K         TLROM-03
+Deadly Towers         DE  128K               8K     BNROM-01
+Super Pitfall         PI  128K               8K     UNROM-05
+Gauntlet              GL  128K         64K   4KVRAM TRIROM-01
+Snake's Revenge       E2  128K         128K         351908
+Star Tropics          OC  256K         128K         HKROM-01   batt-backed
+Kirby's Adventure     KR  512K  8K     256K         TKROM-10   batt-backed
+Castlevania 3         VN  256K         256K         ELROM-01
+Punch Out             QP  128K         128K         PNROM-05
+Mega Man 4            4V  512K               8K     TGROM-01
+Dig Dug ][            I2   32K         8K           NROM-256-05
+Bomberman ][          BW  128K  8K           8K     SNROM-06
+Super Mario Bros.     SM   32K         8K           NROM-256-03
+Gyromite              GY   32K         8K           NROM-256-01
+Joust                 JU   16K         16K          CNROM-256-05
+Solstice              LX  128K         8K           ANROM-03
+Quantum Fighter       3K  128K         128K         TLROM-03
+Top Gun Second Miss.  ??  128K         128K         352026
+Alpha Mission         AM   32K         32K          CNROM-256-02
+Silver Surfer         VQ  128K         256K         TSROM-07
+Ultima Exodus         UL  256K  8K           8K     SNROM-05   batt-backed
+Goonies ][            ??  128K               8K     351320
+Uncharted Waters      QK  512K 16K     128K         ETROM-01
+Commando              CO  128K               8K     UNROM-09 
+
+
+
+*Colour Dreams*  (note: they also made Wisdom Tree carts)
+
+Cart name                 Program   Character  Chips/Board   ##
+---------                 -------   ---------  -----------   --
+
+Joshua (WT)              128K ROM  128K ROM    BC6           SPCN 9901630053
+Sunday Funday (WT)       128K ROM  128K ROM    BC6           SPCN ???
+Bible Buffet (WT)        128K ROM  128K ROM    BC6           SPCN ???
+Raid 2000                 64K ROM   32K ROM    ???
+Silent Assault            64K ROM   64K ROM    ???
+Taggin' Dragon            32K ROM   32K ROM    ???
+Master Chu & Drunkard Hu  32K ROM   32K ROM    ???
+The Pradikus Conflict     64K ROM   64K ROM    ???
+Secret Storm              64K ROM   64K ROM    ???
+
+
+*AGCI*
+
+
+Cart name                 Program   Character  Chips/Board   ##
+---------                 -------   ---------  -----------   --
+
+Shock Wave                64K ROM   64K ROM    47516
+
+
+*SEI / AVE*
+-----------
+
+Impossible Mission ][     64K ROM   64K ROM    NINA-001
+Tiles of Fate             32K ROM   32K ROM    NINA-03
+
+
+
+Cart name                 Program   Character  Chips/Board   ##
+---------                 -------   ---------  -----------   --
+
+
+*Camerica / Code Masters*
+
+Cart name                 Program   Character  Chips/Board   ##
+---------                 -------   ---------  -----------   --
+
+The Ultimate Stuntman     ??K ROM    8K RAM    KT-B-5024     ??? 
+Firehawk 
+
+
+
+
+
+
+
+
+
+
+Universal CHR area should consist of:
+
+8K of RAM at 0000-1FFF; switchable to 2K or 4K.  Must allow A10/A11/A12 and
+/CE access
+
+8K of RAM at 2000-3FFF; must allow A10/A11/A12/CE/WE/OE access
+
+1024K of C-ROM at 2000-3FFF bankswitched.  Must allow to be able to be 
+switched from 2K, 4K, 8K, 16K, 32K, 64K, 128K, 256K, 512K, and 1024K.
+
+Universal PRG area should consist of:
+
+12K of RAM switchable at 5000-7FFF; should be able to turn off individual
+256-byte segments.
+1024K of ROM switchable from 2K to 1024K.
+
+Universal Bankswitch controller should have:
+
+MMC1B
+MMC2
+MMC3C
+MMC5
+MMC6 
+Camerica (two types so far)
+LS377
+LS161 (all iterations)
+
+
