@@ -452,7 +452,8 @@ void dmc_configure (void)
 void dmc_read_next (void)
 {
     if (dmc_counter) {
-        dmc_buffer = Rd6502(dmc_address);
+        nes.cpu.Stolen += 4 * MASTER_CLOCK_DIVIDER;
+        dmc_buffer = Rd6502(dmc_address);        
         dmc_address = ((dmc_address + 1) & 0x7FFF) | 0x8000;
         dmc_counter--;
         if (!dmc_counter) {

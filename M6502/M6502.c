@@ -181,6 +181,7 @@ void Reset6502(M6502 *R)
   R->PC.B.l=Rd6502(0xFFFC);
   R->PC.B.h=Rd6502(0xFFFD);
   R->Cycles = 0;
+  R->Stolen = 0;
   R->BreakCycle = 0;
   R->IRequest=INT_NONE;
 }
@@ -257,7 +258,8 @@ word Run6502(M6502 *R)
 #endif
 
     I=Op6502(R->PC.W++);
-    R->Cycles+=Cycles[I] * MASTER_CLOCK_DIVIDER;
+    R->Cycles += R->Stolen + Cycles[I] * MASTER_CLOCK_DIVIDER;
+    R->Stolen = 0;
 
     switch(I)
     {

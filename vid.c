@@ -28,7 +28,7 @@ static inline void unpack_chr_byte (byte line[8], unsigned char *chrdata)
 
 static inline byte resolve_index (byte index)
 {
-    return (!(index&3)? 0 : index);
+    return ((!(index&3))? 0 : index);
 }
 
 static const byte bit_reverse[256] =
@@ -289,8 +289,6 @@ void render_scanline (void)
     emphasis_position = 0;
 }
 
-
-
 void catchup_emphasis_to_x (int x)
 {
     //nes_printtime(); printf("x=%i emp=%i\n", x, emphasis_position);
@@ -328,18 +326,15 @@ void catchup_emphasis_to_x (int x)
     emphasis_position = x;
 }
 
-
 void catchup_emphasis (void)
 {
     int tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
 
     /* Mysterious but unsurprising timing kludge to fix final fantasy. */
-    tmp -= 12;
+    tmp -= 11;
     if (tmp < 0) tmp = 0;
 
     if (emphasis_position < 0) return;
     assert(tmp >= 0);
     catchup_emphasis_to_x(tmp);
 }
-
-

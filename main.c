@@ -8,6 +8,7 @@
 #include "sound.h"
 #include "vid.h"
 #include "config.h"
+#include "nespal.h"
 
 int keyboard_controller = 0;
 int hold_button_a = 0;
@@ -44,6 +45,18 @@ void dump_instruction_trace (void)
 #endif
 }
 
+void palette_dump (void)
+{
+    printf("-------------- Palette Dump -------------\n");
+    for (int n=0; n<0x20; n++) {
+        int pal = nes.ppu.vram[0x3F00+n];
+        printf("Color %02X = %02X (%3i,%3i,%3i)\n", n, pal, 
+               nes_palette[pal*3+0], nes_palette[pal*3+1], nes_palette[pal*3+2]);
+    }    
+    for (int addr=0x3F00; addr<0x3F20; addr++) printf("%02X ", nes.ppu.vram[addr]);
+    printf("\n-----------------------------------------\n");
+}
+
 void process_control_key (SDLKey sym)
 {
     switch (sym) {
@@ -65,6 +78,11 @@ void process_control_key (SDLKey sym)
         hold_button_a ^= 1;
         nes.joypad.pad[0][0] = 0;
         printf("%s button A. Press Control-A to toggle.\n", hold_button_a? "holding" : "released");
+        break;
+
+    case SDLK_p:
+        palette_dump();
+        break;
 
     default: break;
     }
