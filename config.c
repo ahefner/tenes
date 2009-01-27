@@ -28,6 +28,8 @@ void print_usage (void)
            "-nosound        Disable sound output\n"
            "-sound          Enable sound output (default)\n"
            "-trapbadops     Trap bad opcodes\n"
+           "-debugbrk       Display BRK instructions\n"
+           "-pputrace       Print PPU trace\n"
 #ifdef DEBUG
            "-cputrace       Print CPU trace\n"
 #endif
@@ -86,17 +88,14 @@ void cfg_parseargs (int argc, char **argv)
 	  printf ("-mapper requires a numeric value.\n");
 	}
       }
-      if (!strcmp (txt, "-fullscreen"))
-	vid_fullscreen = 1;
-      if (!strcmp (txt, "-windowed"))
-	vid_fullscreen = 0;
-      if (!strcmp (txt, "-cputrace"))
-	cputrace = 1;
-      if (!strcmp (txt, "-trapbadops")) 
-	cfg_trapbadops = 1;      
-      if (!strcmp (txt, "-forcesram"))
-	nes.rom.flags|=2;
-      if (!strcmp (txt, "-diagnostic")) {
+      if (!strcmp(txt, "-fullscreen")) vid_fullscreen = 1;
+      if (!strcmp(txt, "-windowed")) vid_fullscreen = 0;
+      if (!strcmp(txt, "-cputrace")) cputrace = 1;
+      if (!strcmp(txt, "-pputrace")) trace_ppu_writes = 1;
+      if (!strcmp(txt, "-debugbrk")) debug_brk = 1;
+      if (!strcmp(txt, "-trapbadops")) cfg_trapbadops = 1;      
+      if (!strcmp(txt, "-forcesram")) nes.rom.flags|=2;
+      if (!strcmp(txt, "-diagnostic")) {
 	cfg_diagnostic = 1;
 	window_width = 640;
 	window_height = 480;

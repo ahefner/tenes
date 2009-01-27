@@ -59,6 +59,7 @@ int snd_init (void)
         printf ("Opening audio device.\n");
         if (SDL_OpenAudio (&desired, &obtained)) {
             printf ("SDL_OpenAudio failed: %s", SDL_GetError ());
+            sound_enabled = 0;
             return -1;
         } else {
             printf ("SDL audio initialized. Buffer size = %i. Sample rate = %i\n", obtained.samples, obtained.freq);

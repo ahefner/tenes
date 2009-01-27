@@ -7,6 +7,7 @@ char *romfilename = "";
 int sound_globalenabled = 1;
 int sound_muted = 0;
 int cputrace = 0;
+int debug_brk = 0;
 int forcemapper = -1;
 int cfg_trapbadops = 0;
 int cfg_joythreshold = 4096;

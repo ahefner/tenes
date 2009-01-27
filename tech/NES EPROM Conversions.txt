@@ -1,0 +1,92 @@
+Using EPROMs in place of NES Mask ROMS:
+
+27CXXX series EPROMs,
+27C64, 27C128, 27C256, 27C512, 27C010, 27C020, 27C040
+
+NROM (mapper 0):
+No modifications nessesary
+
+CNROM (mapper 3):
+No modifications nessesary
+
+UNROM (mapper 2):
+Bend up pins 1, 2, 24 and 31
+Solder pin 2 to hole 22 (A16)
+Solder pin 24 to GND (OE)
+
+SNROM (mapper 1):
+Bend up pins 1, 2, 24, 30 and 31 (or cut tracks 2, 24 and 30)
+Solder pin 2 to hole 24 (A16)
+Solder pin 24 to GND (OE)
+Solder pin 30 to hole 1 (A17)
+
+SNROM -> SVROM Conversion (mapper 1):
+Bend up pins 1, 2, 24, 30, and 31 (or cut tracks 2, 24, 30 and 31)
+Solder pin 2 to hole 24 (A16)
+Solder pin 24 to GND (OE)
+Solder pin 30 to hole 1
+Cut track from MMC1 pin 11 to WRAM pin 20
+Solder pin 31 to pin 11 of MMC1 chip (A18)
+Solder pin 20 of WRAM to Ground (CE (E1) or CHR /A13)
+
+SLROM (mapper 1):
+PRG socket:
+Bend up pins 1, 2, 24, 30 and 31 (or cut tracks)
+Solder pin 2 to hole 24 (A16)
+Solder pin 24 to GND (OE)
+Solder pin 30 to hole 1 (A17)
+CHR socket:
+Bend up pins 1, 2, 22, 24, 30 and 31 (or cut tracks)
+Solder pin 2 to hole 24 (A16)
+Solder pin 22 to hole 31 (CE or CHR /A13)
+Solder pin 24 to hole 2 (OE or CHR /RD)
+
+TKROM & TSROM (mapper 4):
+PRG socket:
+Bend up pins 1, 2, 24, 30 and 31 (or cut tracks 2, 24, 30 and 31)
+Solder pin 2 to hole 24 (A16)
+Solder pin 24 to GND (OE)
+Solder pin 30 to hole 1 (A17)
+Solder pin 31 to hole 2 (A18)
+CHR socket:
+Bend up pins 1, 2, 22, 24, 30, 31 (or cut tracks 2, 22, 24 and 30)
+Solder pin 2 to hole 24 (A16)
+Solder pin 22 to hole 31 (CE or CHR /A13)
+Solder pin 24 to hole 2 (OE or CHR /RD)
+Solder pin 30 to hole 1 (A17)
+
+TKROM -> TNROM conversion (mapper 4):
+PRG socket:
+Bend up pins 1, 2, 24, 30 and 31 (or cut tracks 2, 24, 30 and 31)
+Solder pin 2 to hole 24 (A16)
+Solder pin 24 to GND (OE)
+Solder pin 30 to hole 1 (A17)
+Solder pin 31 to hole 2 (A18)
+CHR RAM conversion:
+Seat the RAM chip 2 pins back (pin 1 of RAM is pin 3 of socket)
+cut track to hole 3, 22, 24, 28 and 29
+Solder pin 1 to hole 30 (+5V)
+Solder pin 20 to hole 31 (CE or CHR /A13)
+Solder pin 22 to hole 2 (OE or CHR /RD)
+Solder pin 26 to hole 28 (+5V or RESET)
+Solder pin 27 to NES pin 56 (CHR /WR), you will probably need to glue in the missing tab on the PC board that goes into the NES, I used a thin piece of metal and super glued it, then sanded it with fine sand paper
+
+UNROM -> AOROM conversion (mapper 7):
+Bend up pins 1, 2, 24, 30 and 31
+remove '32 chip
+cut track to pin 6 of '161
+Solder pin 2 to pin 13 of '161 (A16)
+Solder pin 18 to pin 6 of '161 (D4)
+Solder pin 24 to GND (OE)
+Solder pin 30 to pin 12 or '161 (A17)
+Bridge gap between pins 10 and 11 where '32 was (A14)
+Bridge gap between pins 3 and 13 where '32 was (A15)
+remove solder gap for either V or H
+Solder NES pin 22 (CIRAM A10) to pin 11 of '161
+
+
+drk421@yahoo.com
+
+
+
+

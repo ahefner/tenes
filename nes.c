@@ -729,7 +729,7 @@ void nes_runframe (void)
     tv_scanline = 0;
     vscroll = ppu_current_vscroll() - 1;
 
-    if (trace_ppu_writes)
+    if (0 && trace_ppu_writes)
         printf("At frame start, hscroll=%03i vscroll=%03i\n", 
                ppu_current_hscroll(), ppu_current_vscroll());
 
@@ -823,4 +823,11 @@ void list (void)
     DAsm(buf, instr, nes.cpu.PC.W);
     printf("PC=%04X  A=%02X  X=%02X Y=%02X  fl=%02X S=%02X   %s\n", 
            nes.cpu.PC.W, nes.cpu.A, nes.cpu.X, nes.cpu.Y, nes.cpu.P, nes.cpu.S, buf);
+}
+
+void note_brk (void)
+{
+    if (debug_brk) {
+        printf("%sBRK %02X: ", nes_time_string(), Rd6502(nes.cpu.PC.W)); regs();
+    }
 }

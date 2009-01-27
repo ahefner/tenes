@@ -103,11 +103,11 @@ void mmc3_write (register word addr, register byte value)
             int dest, num = 1, i;
             /* VROM switch */
             switch (cmd) {
-            case 0:
+            case 0:  /* FIXME: Command 0 ignores LSB of page# */
                 dest = 0;
                 num = 2;
                 break;
-            case 1:
+            case 1: /* FIXME: Command 1 always lets LSB of page# equal 1 */
                 dest = 2;
                 num = 2;
                 break;

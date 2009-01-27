@@ -188,7 +188,7 @@ void process_joystick (int controller)
   else if (y<(-cfg_joythreshold)) nes.joypad.pad[controller][4] = 1;
 
   if (x>cfg_joythreshold) nes.joypad.pad[controller][7] = 1;
-  else if (x<(-cfg_joythreshold)) nes.joypad.pad[controller][6] = 1;    
+  else if (x<(-cfg_joythreshold)) nes.joypad.pad[controller][6] = 1;
 }
   
 int main (int argc, char **argv)
@@ -204,7 +204,9 @@ int main (int argc, char **argv)
     }
 
     sys_init();
-    snd_init();
+    if (snd_init() == -1) {
+        sound_globalenabled = 0;
+    }
     init_nes(&nes);
     reset_nes(&nes);
     nes.cpu.Trace = cputrace;

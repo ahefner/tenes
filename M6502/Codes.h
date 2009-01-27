@@ -51,6 +51,7 @@ case 0x6C:
 
 /* BRK */
 case 0x00:
+  note_brk();
   R->PC.W++;
   M_PUSH(R->PC.B.h);M_PUSH(R->PC.B.l);
   M_PUSH(R->P|B_FLAG);

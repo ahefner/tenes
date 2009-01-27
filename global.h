@@ -27,6 +27,7 @@ extern char *romfilename;
 extern int sound_globalenabled;
 extern int sound_muted;
 extern int cputrace;
+extern int debug_brk;
 extern int forcemapper;
 extern int cfg_trapbadops;
 extern int vid_renderer;
