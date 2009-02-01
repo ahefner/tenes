@@ -474,7 +474,7 @@ void Wr6502 (register word Addr, register byte Value)
 
           //printf("Sprite DMA from page %i to sprite+%02X\n", Value, tmp);
           for (i = 0; i < 256; i++) {
-	    nes.ppu.spriteram[tmp] = Rd6502 (0x100 * Value + i);
+	    nes.ppu.spriteram[tmp] = Rd6502(0x100 * Value + i);
 	    tmp++;
 	    tmp&=0xFF;
 	  }
@@ -591,7 +591,10 @@ byte Rd6502 (register word Addr)
       }
 
       case spr_data:
-          return nes.ppu.spriteram[nes.ppu.sprite_address];
+          /* I've read that OAM doesn't store the three unused sprite
+           * attribute bits. I haven't verified this. */
+          /* According to Quietust, these reads don't increment the address.*/
+          return nes.ppu.spriteram[nes.ppu.sprite_address] & (((nes.ppu.sprite_address&3)==2)?0xE3:0xFF);
 
       case ppu_data:
       {
