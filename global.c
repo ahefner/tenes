@@ -16,6 +16,10 @@ int trace_ppu_writes = 0;
 int cfg_diagnostic = 0;
 int cfg_disable_joysticks = 0;
 
+char *movie_output_filename = NULL;
+char *movie_input_filename = NULL;
+FILE *movie_output = NULL, *movie_input = NULL;
+
 int window_width = 256;
 int window_height = 256;
 int vid_fullscreen = 0;

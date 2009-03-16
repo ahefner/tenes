@@ -24,6 +24,8 @@ void print_usage (void)
            "-joy1 [A],[B],[SELECT],[START]\n"
            "-joy2 [A],[B],[SELECT],[START]\n"
            "-joy3 [A],[B],[SELECT],[START]\n"
+           "-record FILE    Record controller input to file\n"
+           "-play FILE      Play back controller input from file\n"
            "                Configure controller buttons for joypads 0...3\n"
            "-nosound        Disable sound output\n"
            "-sound          Enable sound output (default)\n"
@@ -45,7 +47,7 @@ void print_usage (void)
            "fullscreen mode. F5 and F7 respectively save and restore state. Backspace\n"
            "performs a hard reset. Control-s toggles sound. Control-a toggles continuous\n"
            "held autofire on button A, intended for unattended purchasing of items in\n"
-           "certain role playing games.\n"
+           "certain role playing games. Control-d ends movie recording, when active.\n"
            "\n"
            "Diagnostic controls: F10 toggles instruction tracing. F11 toggles PPU tracing.\n"
            "Control-m toggles the mirroring mode. F12 enables additional miscellaneous\n"
@@ -67,7 +69,7 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-width")) {
 	if (i != (argc - 1)) {
 	  i++;
-	  window_width = atoi (argv[i]);
+	  window_width = atoi(argv[i]);
 	} else {
 	  printf ("-width requires a numeric value.\n");
 	}
@@ -75,7 +77,7 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp (txt, "-height")) {
 	if (i != (argc - 1)) {
 	  i++;
-	  window_height = atoi (argv[i]);
+	  window_height = atoi(argv[i]);
 	} else {
 	  printf ("-height requires a numeric value.\n");
 	}
@@ -83,7 +85,7 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-mapper")) {
 	if (i != (argc - 1)) {
 	  i++;
-	  forcemapper = atoi (argv[i]);
+	  forcemapper = atoi(argv[i]);
 	} else {
 	  printf ("-mapper requires a numeric value.\n");
 	}
@@ -123,6 +125,16 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-joy3")) {
 	if (argc<=(++i)) break;
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_buttonmap[3][0], &cfg_buttonmap[3][1], &cfg_buttonmap[3][2], &cfg_buttonmap[3][3]);
+      }
+
+      if (!strcmp(txt, "-record")) {
+          if (argc<=(++i)) break;
+          movie_output_filename = argv[i];
+      }
+
+      if (!strcmp(txt, "-play")) {
+          if (argc<=(++i)) break;
+          movie_input_filename = argv[i];
       }
 
       if (!strcmp(txt, "-noscale")) vid_filter = no_filter;

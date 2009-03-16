@@ -97,7 +97,7 @@ struct sound_struct
 
 struct joypad_info
 {
-   int pad[4][8];
+   byte pad[4];
    int connected;
    int state[2];
 };

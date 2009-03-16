@@ -34,6 +34,10 @@ extern int vid_renderer;
 extern int cfg_joythreshold;
 extern int cfg_diagnostic;
 
+extern char *movie_output_filename;
+extern char *movie_input_filename;
+extern FILE *movie_output, *movie_input;
+
 extern int cfg_syncmode;
 extern int cfg_framelines;
 extern int video_alignment_cycles_kludge;

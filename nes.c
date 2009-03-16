@@ -234,9 +234,9 @@ byte joypad_read (word Addr)
   int state = nes.joypad.state[padindex];
   byte retval = 0;
   if (state < 8) {
-    retval = nes.joypad.pad[padindex][state];
+    retval = GETBIT(state, nes.joypad.pad[padindex]);
   } else if (state < 16) {
-    retval = nes.joypad.pad[padindex + 2][state - 8];
+    retval = GETBIT(state-8, nes.joypad.pad[padindex + 2]);
   } else {
     switch (state) {
     case 17:
@@ -831,6 +831,10 @@ void list (void)
 void note_brk (void)
 {
     if (debug_brk) {
-        printf("%sBRK %02X: ", nes_time_string(), Rd6502(nes.cpu.PC.W)); regs();
+        byte code = Rd6502(nes.cpu.PC.W);
+        printf("%sBRK %02X: ", nes_time_string(), code); 
+        regs();
+        /* The MSB of the break code enables instruction tracing */
+        nes.cpu.Trace = code >> 7;
     }
 }

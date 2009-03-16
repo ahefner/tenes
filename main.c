@@ -68,6 +68,14 @@ void process_control_key (SDLKey sym)
     case SDLK_c:
         running = 0;
         break;
+
+    case SDLK_d:
+        if (movie_output) {
+            printf("Stopped recording movie.\n");
+            fclose(movie_output);
+            movie_output = NULL;
+            break;
+        } else printf("Not currently recording a movie.\n");
         
     case SDLK_s:
         sound_muted ^= 1;
@@ -76,7 +84,7 @@ void process_control_key (SDLKey sym)
         
     case SDLK_a:
         hold_button_a ^= 1;
-        nes.joypad.pad[0][0] = 0;
+        nes.joypad.pad[0] &= ~1;
         printf("%s button A. Press Control-A to toggle.\n", hold_button_a? "holding" : "released");
         break;
 
@@ -111,10 +119,10 @@ void process_key_event (SDL_KeyboardEvent * key)
     if (idx < 8) {
         switch (key->type) {
         case SDL_KEYUP:
-            nes.joypad.pad[keyboard_controller][idx] = 0;
+            nes.joypad.pad[keyboard_controller] &= ~BIT(idx);
             break;
         case SDL_KEYDOWN:
-            nes.joypad.pad[keyboard_controller][idx] = 1;
+            nes.joypad.pad[keyboard_controller] |= BIT(idx);
             break;
         default: break;
         }
@@ -172,35 +180,47 @@ void process_key_event (SDL_KeyboardEvent * key)
 
 void process_joystick (int controller)
 {
-  int x,y,i;
-  SDL_Joystick *joy = joystick[cfg_jsmap[controller]];
-  SDL_JoystickUpdate ();
-  x = SDL_JoystickGetAxis (joy, 0);
-  y = SDL_JoystickGetAxis (joy, 1);  
-  
-  for (i=0; i<4; i++) {
-    nes.joypad.pad[controller][i] = SDL_JoystickGetButton(joy, cfg_buttonmap[controller][i]);
-  }
+    int x,y,i;
+    SDL_Joystick *joy = joystick[cfg_jsmap[controller]];
+    SDL_JoystickUpdate ();
+    x = SDL_JoystickGetAxis (joy, 0);
+    y = SDL_JoystickGetAxis (joy, 1);  
+    
+    nes.joypad.pad[controller] = 0;
+    
+    for (i=0; i<4; i++) {
+        if (SDL_JoystickGetButton(joy, cfg_buttonmap[controller][i]))
+            nes.joypad.pad[controller] |= BIT(i);
+    }
 
-  for (i=4; i<8; i++) nes.joypad.pad[controller][i] = 0;
-
-  if (y>cfg_joythreshold) nes.joypad.pad[controller][5] = 1;
-  else if (y<(-cfg_joythreshold)) nes.joypad.pad[controller][4] = 1;
-
-  if (x>cfg_joythreshold) nes.joypad.pad[controller][7] = 1;
-  else if (x<(-cfg_joythreshold)) nes.joypad.pad[controller][6] = 1;
+    if (y > cfg_joythreshold) nes.joypad.pad[controller] |= BIT(5);
+    else if (y < (-cfg_joythreshold)) nes.joypad.pad[controller] |= BIT(4);
+    
+    if (x > cfg_joythreshold) nes.joypad.pad[controller] |= BIT(7);
+    else if (x < (-cfg_joythreshold)) nes.joypad.pad[controller] |= BIT(6);
 }
   
 int main (int argc, char **argv)
 {
     int i;
     unsigned frame_start_cycles = 0;
-    cfg_parseargs (argc, argv);
+    cfg_parseargs(argc, argv);
 
     nes.rom = load_nes_rom (romfilename);
     if (nes.rom.prg == NULL) {
         printf("Unable to load rom.\n");
         return 1;
+    }
+
+    if (movie_input_filename) {
+        movie_input = fopen(movie_input_filename, "rb");
+        if (!movie_input) printf("Unable to open '%s' for movie input.\n", movie_input_filename);
+    }
+
+    if (movie_output_filename) {
+        movie_output = fopen(movie_output_filename, "wb");
+        if (!movie_output) printf("Unable to create '%s' for movie output.\n", movie_output_filename);
+        else printf("Recoridng movie to '%s'\n", movie_output_filename);
     }
 
     sys_init();
@@ -217,7 +237,25 @@ int main (int argc, char **argv)
         SDL_Event event;
 
         for (i=0; i<numsticks; i++) if (joystick[i]) process_joystick(i);
-        if (hold_button_a) nes.joypad.pad[0][0] = frame_number & 1;
+        if (hold_button_a) nes.joypad.pad[0] |= frame_number & 1;
+
+        if (movie_input) {
+            byte tmp[4], i;
+            if (fread(&tmp, 4, 1, movie_input)) {
+                for (i=0; i<4; i++) nes.joypad.pad[i] ^= tmp[i];
+            } else {
+                printf("Reached end of movie '%s'\n", movie_input_filename);
+                fclose(movie_input);
+                movie_input = NULL;
+            }
+        }
+
+        if (movie_output) {
+            if (!fwrite(&nes.joypad.pad, 4, 1, movie_output)) {
+                fclose(movie_output);
+                movie_output = NULL;
+            }
+        }
 
         time_frame_start = usectime();
         while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
@@ -268,6 +306,9 @@ int main (int argc, char **argv)
   mapper->mapper_shutdown ();
   free_rom (&nes.rom);
   printf ("Rom freed.\n");
+
+  if (movie_output) fclose(movie_output);
+  if (movie_input) fclose(movie_input);
 
   printf ("Shutting down audio.\n");
   snd_shutdown();

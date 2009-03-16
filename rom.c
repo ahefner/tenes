@@ -1,8 +1,8 @@
 
 /* nes rom loader*/
-
 #include "sys.h"
 #include "rom.h"
+#include "nes.h"
 #include "mapper_info.h"
 
 #include <stdio.h>

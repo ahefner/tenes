@@ -609,7 +609,7 @@ void snd_write (unsigned addr, unsigned char value)
 
     case 0x11:
         dmc_dac = value & 0x7F;
-        //printf("Direct write to DMC DAC: %i. Enabled? %i\n", value, nes.snd.regs[0x15] & BIT(4));
+        //printf("Direct write to DMC DAC: %i.\n", value);
         break;
 
     case 0x12:
@@ -754,24 +754,26 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
         }
 
         clock_dmc_ptimer();
-        /* Not that bit 4 only disable the DMA unit, not the DAC. */
+        /* Note that bit 4 only disable the DMA unit, not the DAC. */
         dmc = dmc_dac;
         
         //f_tri = f_tri*f_tri_param + ((float)tri)*(1.0-f_tri_param);
         
-        samp = 30000.0 * ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
-                                                     ((float)noise) / 12241.0 +
-                                                     ((float)dmc) / 22638.0)))
+        float tmp = 
+         28000.0 * ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
+                                               ((float)noise) / 12241.0 +
+                                               ((float)dmc) / 22638.0)))
                           +
-                          ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
-
-        // Alternatively, without fancy slow channel mixing:
-        // samp = (sq1 + sq2 + tri + noise) * 512;
-
-        //samp = sq2  * 1000;
+                          ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));        
+        samp = tmp;
+        //samp = dmc * 230;
+        //if (dmc) printf("%4i %f\n", dmc, tmp);
         
-        samp &= mask;
+        if ((tmp > 0x7FFF) || (tmp < -0x8000)) printf("Clip! %f\n", tmp);
+        if ((dmc < 0) || (dmc > 127)) printf("WTF, DMC=%i\n", dmc);
 
+        samp &= mask;
+        
         buf[index & ~AUDIO_BUFFER_SIZE] = samp;
         buf[index | AUDIO_BUFFER_SIZE] = samp;
         index++;

@@ -17,6 +17,7 @@
 #include "mappers/mmc3.c"
 #include "mappers/axrom.c"
 #include "mappers/camerica.c"
+#include "mappers/vrc6.c"
 
 /* Mapper table - contains iNES mapper number, name, and pointer to
  * mapper_methods struct (if implemented). 
@@ -48,7 +49,7 @@ struct mapperinfo MapTable[] = {
   {21, "Konami VRC4", NULL},
   {22, "Konami VRC2 v1", NULL},
   {23, "Konami VRC2 v2", NULL},
-  {24, "Konami VRC6", NULL},
+  {24, "Konami VRC6", &mapper_vrc6},
   {25, "Unknown", NULL},
   {26, "Unknown", NULL},
   {27, "Unknown", NULL},
