@@ -15,6 +15,7 @@ CAPP=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 all: nesemu
 clean:
 	rm -f *.o
+	rm -f *~ mappers/*~ util/*~ \#*\#
 	rm -f nesemu
 
 romloadtest: rom.o romloadtest.c
