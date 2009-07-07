@@ -20,6 +20,10 @@ char *movie_output_filename = NULL;
 char *movie_input_filename = NULL;
 FILE *movie_output = NULL, *movie_input = NULL;
 
+FILE *video_stripe_output = NULL;
+byte video_stripe_idx = 128;
+unsigned video_stripe_rate = 0;
+
 int window_width = 256;
 int window_height = 256;
 int vid_fullscreen = 0;

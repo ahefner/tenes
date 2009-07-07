@@ -38,6 +38,10 @@ extern char *movie_output_filename;
 extern char *movie_input_filename;
 extern FILE *movie_output, *movie_input;
 
+extern FILE *video_stripe_output;
+extern byte video_stripe_idx;
+extern unsigned video_stripe_rate;
+
 extern int cfg_syncmode;
 extern int cfg_framelines;
 extern int video_alignment_cycles_kludge;

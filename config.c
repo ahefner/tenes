@@ -7,7 +7,7 @@
 void print_usage (void)
 {
     printf("Usage: nesemu [OPTION]... ROMFILE\n"
-           "Emulate an (NTSC) NES running ROMFILE (in iNES .nes format)\n"
+           "Emulate an NTSC NES running ROMFILE (in iNES .nes format)\n"
            "\n"
            "Options:\n"
            "-help           Show this message\n"
@@ -18,7 +18,7 @@ void print_usage (void)
            "-fullscreen     Run fullscreen\n"
            "-width          Set window width\n"
            "-height         Set window height\n"
-           "-forcesram      Force battery-backed ram\n"
+           "-forcesram      Force battery-backed ram\n"          
            "-despair        Disable joysticks\n"
            "-joy0 [A],[B],[SELECT],[START]\n"
            "-joy1 [A],[B],[SELECT],[START]\n"
@@ -27,6 +27,10 @@ void print_usage (void)
            "-record FILE    Record controller input to file\n"
            "-play FILE      Play back controller input from file\n"
            "                Configure controller buttons for joypads 0...3\n"
+           "-stripe FILE    Dump a vertical stripe of video to a file\n"
+           "-stripex X      X coordinate of stripe (default is 128)\n"
+           "-striperate FRAMES (default=1)\n"
+           "                Interval at which to sample stripe\n"
            "-nosound        Disable sound output\n"
            "-sound          Enable sound output (default)\n"
            "-trapbadops     Trap bad opcodes\n"
@@ -135,6 +139,27 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-play")) {
           if (argc<=(++i)) break;
           movie_input_filename = argv[i];
+      }
+
+      if (!strcmp(txt, "-stripe")) {
+          if (argc<=(++i)) break;
+          video_stripe_output = fopen(argv[i], "wb");
+          if (!video_stripe_output)
+              printf("Unable to create \"%s\" for stripe output.\n");          
+      }
+
+      if (!strcmp(txt, "-stripex")) {
+          if (argc<=(++i)) break;
+          video_stripe_idx = atoi(argv[i]);
+          if (video_stripe_idx > 255) {
+              video_stripe_idx = 128;
+              printf("Stripe X value is out of range (0 to 255)\n");
+          }
+      }
+
+      if (!strcmp(txt, "-striperate")) {
+          if (argc<=(++i)) break;
+          video_stripe_rate = atoi(argv[i]) - 1;          
       }
 
       if (!strcmp(txt, "-noscale")) vid_filter = no_filter;

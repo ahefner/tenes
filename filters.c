@@ -1,3 +1,5 @@
+#define FILTERS_C
+
 #include "nespal.h"
 #include "filters.h"
 #include "global.h"

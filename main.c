@@ -309,6 +309,7 @@ int main (int argc, char **argv)
 
   if (movie_output) fclose(movie_output);
   if (movie_input) fclose(movie_input);
+  if (video_stripe_output) fclose(video_stripe_output);
 
   printf ("Shutting down audio.\n");
   snd_shutdown();

@@ -710,6 +710,7 @@ void nes_runframe (void)
     int scan_cycles = line_cycles - hblank_cycles;
     int vblank_kludge_cycles = 3 * MASTER_CLOCK_DIVIDER; /* ..except for this. */
     int vscroll;
+    unsigned stripe_buffer[240];
 
     // Initialize for frame. Clears PPU flags.
     nes_initframe();
@@ -749,12 +750,20 @@ void nes_runframe (void)
         vscroll = ppu_current_vscroll();
 
         render_scanline();
+        stripe_buffer[tv_scanline] = rgb_palette[color_buffer[video_stripe_idx] & 63];
+        if (video_stripe_output) color_buffer[video_stripe_idx] ^= 0x34;
+
         run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
         finish_scanline_rendering();
         run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
         nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;
         snd_catchup();
         tv_scanline++;
+    }
+
+    // If the video stripe recorder is going, write out the buffer:
+    if (video_stripe_output) {
+        fwrite(stripe_buffer, sizeof(stripe_buffer), 1, video_stripe_output);
     }
 
     // One wasted line after the frame:
