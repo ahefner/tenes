@@ -1,21 +1,41 @@
 # Makefile
 
-CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags` -std=c99
 
-OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o
+# Optional features are enabled here:
+
+# Build with support for FUSE virtual filesystem. This provides easy
+# access to the state of the NES while the emulator is running.
+
+USE_FUSE=0			# Disabled by default.
+
+# Configure variables according to optional features:
+
+ifeq (1,${USE_FUSE})
+FUSE_FLAGS=-DUSE_FUSE
+FUSE_LIBS=-lfuse -lpthread
+else
+FUSE_FLAGS=
+FUSE_LIBS=
+endif
+
+# Etc.
+
+CC=gcc
+CFLAGS= -Wall -O3 -g `sdl-config --cflags` -mmmx
+OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o utility.o font.o filesystem.o
 INCLUDEDIRS= -IM6502
-DEFINES=
-LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs`
+DEFINES=$(FUSE_FLAGS)
+
+LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs` $(FUSE_LIBS)
 MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c mappers/vrc6.c
 
-COBJ=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
-CAPP=$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
+COBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
+C90OBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
+CAPP=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 
 all: nesemu
 clean:
 	rm -f *.o
-	rm -f *~ mappers/*~ util/*~ \#*\#
 	rm -f nesemu
 
 romloadtest: rom.o romloadtest.c
@@ -69,4 +89,9 @@ global.o: Makefile global.c global.h rom.h nes.h M6502/M6502.h
 config.o: Makefile config.c config.h
 	$(COBJ) config.c
 
-# Bye.
+filesystem.o: Makefile filesystem.c filesystem.h
+	$(COBJ) -D_FILE_OFFSET_BITS=64 filesystem.c
+
+font.o: Makefile font.c global.h font.h
+	$(COBJ) font.c
+

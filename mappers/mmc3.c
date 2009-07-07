@@ -1,26 +1,5 @@
 /* Nintendo MMC3 */
 
-int mmc3_init (void);
-void mmc3_shutdown (void);
-void mmc3_write (register word addr, register byte value);
-byte mmc3_read (register word addr);
-void mmc3_scanline_start (void);
-int mmc3_scanline_end (void);
-void mmc3_reload_irq_counter (void);
-int mmc3_save_state (FILE *out);
-int mmc3_restore_state (FILE *out);
-
-struct mapper_methods mapper_MMC3 = {
-    mmc3_init,
-    mmc3_shutdown,
-    mmc3_write,
-    mmc3_read,
-    mmc3_scanline_start,
-    mmc3_scanline_end,
-    mmc3_save_state,
-    mmc3_restore_state
-};
-
 struct {
     int chrpages; /* # of 1k VROM pages */
     int prgpages; /* # of 8k PRG pages */   
@@ -159,7 +138,7 @@ void mmc3_write (register word addr, register byte value)
 
     case 0xE001:
         if (trace_ppu_writes)
-            printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", frame_number, nes.scanline);
+            printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", nes.time, nes.scanline);
         mmc3.irq_enabled = 1;
         break;
         
@@ -191,7 +170,7 @@ void mmc3_scanline_start (void)
  * the mapper. */
 int mmc3_scanline_end (void)
 {
-    // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", frame_number, nes.scanline, mmc3.countdown, mmc3.latched, mmc3.latch_trigger);
+    // printf("%u.%u: mmc3 scanline registered. %u %u %u\n", nes.time, nes.scanline, mmc3.countdown, mmc3.latched, mmc3.latch_trigger);
 
     /* If this interpretation proves to be right, we can eliminate the
        latch trigger and simply zero the counter.  But I don't think
@@ -217,12 +196,23 @@ int mmc3_scanline_end (void)
     return 0;
 }
 
-int mmc3_save_state (FILE *out)
+int mmc3_save_state (chunk_writer_t writer, void *arg)
 {
-    return write_state_chunk(out, "MMC3 driver v1", &mmc3, sizeof(mmc3));
+    return writer(arg, "MMC3 driver v1", &mmc3, sizeof(mmc3));
 }
 
-int mmc3_restore_state (FILE *in)
+int mmc3_restore_state (chunk_reader_t reader, void *arg)
 {
-    return read_state_chunk(in, "MMC3 driver v1", &mmc3, sizeof(mmc3));
+    return reader(arg, "MMC3 driver v1", &mmc3, sizeof(mmc3));
 }
+
+struct mapper_methods mapper_MMC3 = {
+    mmc3_init,
+    mmc3_shutdown,
+    mmc3_write,
+    mmc3_read,
+    mmc3_scanline_start,
+    mmc3_scanline_end,
+    mmc3_save_state,
+    mmc3_restore_state
+};

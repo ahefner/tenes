@@ -92,7 +92,7 @@ void sys_init (void)
       //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
-      SDL_ShowCursor(SDL_DISABLE);
+      SDL_ShowCursor(SDL_ENABLE);
 
       tmp = SDL_NumJoysticks();
       if (!cfg_disable_joysticks) {
@@ -151,7 +151,7 @@ char *ensure_save_dir (void)
 char state_dir[PATH_MAX];
 char *ensure_state_dir (long long hash)
 {
-    snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir(), hash);
+    snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
     mkdir(state_dir, 0777);
     snprintf(state_dir, sizeof(state_dir), "%s/state/%llX", ensure_config_dir(), hash);
     mkdir(state_dir, 0777);

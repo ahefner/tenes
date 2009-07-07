@@ -82,6 +82,8 @@ byte vrc6_read (register word addr)
         return nes.rom.prg[vrc6.bankC * 0x2000 + (addr & 0x1FFF)];
     case 0xE000:
         return nes.rom.prg[nes.rom.prg_size - 0x2000 + (addr & 0x1FFF)];
+    default:
+        return 0;        
     }
 }
 

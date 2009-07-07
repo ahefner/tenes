@@ -46,6 +46,10 @@ void no_filter (void)
     build_color_maps();
 }
 
+void filter_finish_nop (void)
+{
+}
+
 void rescale_2x_emitter (unsigned y, byte *colors, byte *emphasis)
 {
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2) * window_surface->pitch);
@@ -70,14 +74,9 @@ void rescale_2x (void)
 
 /* Scanline filter with alternating fields */
 
-static inline Uint32 dim_pixel (Uint32 rgb)
-{
-    return (rgb >> 1) & 0x7F7F7F;
-}
-
 void scanline_emitter (unsigned y, byte *colors, byte *emphasis)
 {
-    int field = (frame_number & 1);
+    int field = (nes.time & 1);
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+field) * window_surface->pitch);
     Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+(field^1)) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
@@ -91,7 +90,6 @@ void scanline_emitter (unsigned y, byte *colors, byte *emphasis)
         g = g*3/4; 
         b = b*3/4;
         nx = (r << 16) | (g << 8) | b;
-//        dest1[1] = dest1[0] = dim_pixel(dest1[0]);
         dest1[1] = dest1[0] = nx;
         dest1 += 2;
     }

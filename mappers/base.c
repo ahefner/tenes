@@ -43,12 +43,12 @@ int mapper_ignores_scanline_end (void)
     return 0;
 }
 
-int nop_save_state (FILE *out)
+int nop_save_state (chunk_writer_t writer, void *x)
 {
     return 1;
 }
 
-int nop_restore_state (FILE *in)
+int nop_restore_state (chunk_reader_t reader, void *x)
 {
     return 1;
 }

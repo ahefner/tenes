@@ -12,5 +12,9 @@ extern unsigned grayscale_palette[64];
 void rescale_2x (void);
 void no_filter (void);
 void scanline_filter (void);
+void filter_finish_nop (void);
+
+void viewhash_filter (void);
+void viewhash_display (void);
 
 #endif

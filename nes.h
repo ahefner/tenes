@@ -67,7 +67,31 @@
 #define DUAL_HIGH	0       /* dual write register mode */
 #define DUAL_LOW	1
 
+#define MIRROR_HORIZ 0
+#define MIRROR_VERT  1
+#define MIRROR_NONE  2  /* 4-screen VRAM */
+#define MIRROR_ONESCREEN 3
+
 typedef int dualmode;
+
+/* NES Rom image. Note that this is the only portion of the
+ * nes_machine structure not touched by save/restore state. */
+struct nes_rom
+{
+    byte *chr;
+    byte *prg;
+    unsigned prg_size;
+    unsigned chr_size;
+    int mapper;
+    char title[256];
+    char filename[256];
+    byte flags; /* mirroring, etc. */
+    int mirror_mode;
+    int onescreen_page;
+    struct mapperinfo *mapper_info;
+    byte header[16];
+    unsigned long long hash;    
+};
 
 struct ppu_struct
 {
@@ -102,7 +126,6 @@ struct joypad_info
    int state[2];
 };
 
-
 struct nes_machine
 {
     struct nes_rom rom;
@@ -112,6 +135,7 @@ struct nes_machine
     byte ram[0x800];  /* first 8 pages, mirrored 4 times to fill to 0x1FFF */
     byte save[0x2000];          /* Save RAM, if present. */
     int scanline;
+    int time;
 
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
@@ -133,18 +157,38 @@ extern
 #endif
 struct nes_machine nes;
 
-void init_nes(struct nes_machine *nes);
-void shutdown_nes(struct nes_machine *nes);
-void reset_nes(struct nes_machine *nes);
-void nes_runframe(void);
+void init_nes (struct nes_machine *nes);
+void shutdown_nes (struct nes_machine *nes);
+void reset_nes (struct nes_machine *nes);
+void nes_emulate_frame(void);
+
+void runframe (byte extra_input); /* main.c: steps input, movies, emulation, video, etc.  */
 
 char *nes_time_string (void);
 void nes_printtime (void);
 
-void save_state (void);
-int restore_state (void);
-int write_state_chunk (FILE *stream, char *name, void *data, Uint32 length);
-int read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length);
+void save_state_to_disk (void);
+int restore_state_from_disk (void);
+
+#define MEMSTATE_MAX_CHUNKS 32
+struct saved_state {
+    int num, cur;
+    void *chunks[MEMSTATE_MAX_CHUNKS];
+    size_t lengths[MEMSTATE_MAX_CHUNKS];
+};
+
+void free_saved_chunks (struct saved_state *state);
+void copy_saved_chunks (struct saved_state *dst, struct saved_state *src);
+
+int mem_write_state_chunk (struct saved_state *state, char *name, void *data, unsigned length);
+int mem_read_state_chunk  (struct saved_state *state, char *name, void *data_out, unsigned length);
+
+void save_state_to_mem (struct saved_state *state);
+void restore_state_from_mem (struct saved_state *state);
+
+
+int file_write_state_chunk (FILE *stream, char *name, void *data, unsigned length);
+int file_read_state_chunk  (FILE *stream, char *name, void *data_out, unsigned length);
 
 char *sram_filename (struct nes_rom *rom);
 char *state_filename (struct nes_rom *rom, unsigned index);

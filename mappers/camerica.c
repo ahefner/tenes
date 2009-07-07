@@ -31,14 +31,14 @@ byte mapper_camerica_read(register word addr)
     else return nes.rom.prg[camerica.selected_bank + (addr & 0x3FFF)];
 }
 
-int camerica_save_state (FILE *out)
+int camerica_save_state (chunk_writer_t writer, void *arg)
 {
-    return write_state_chunk(out, "Camerica driver v1", &camerica, sizeof(camerica));
+    return writer(arg, "Camerica driver v1", &camerica, sizeof(camerica));
 }
 
-int camerica_restore_state (FILE *in)
+int camerica_restore_state (chunk_reader_t reader, void *arg)
 {
-    return read_state_chunk(in, "Camerica driver v1", &camerica, sizeof(camerica));
+    return reader(arg, "Camerica driver v1", &camerica, sizeof(camerica));
 }
 
 struct mapper_methods mapper_camerica = 

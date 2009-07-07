@@ -6,6 +6,7 @@ struct {
     int reg[4];
     int large_bank;
     int large_bank_mask;
+    unsigned accum, counter;
 } mmc1;
 
 #define REG0_MIRROR_MODE        BIT(0)
@@ -38,8 +39,9 @@ int mmc1_init(void)
     mmc1.reg[1] = 0;
     mmc1.reg[2] = 0;
     mmc1.reg[3] = 0;
+    mmc1.accum = 0;
+    mmc1.counter = 0;
 
-    BANK = 0;
     //mmc1.last_page_ptr = nes.rom.prg + ((mmc1.prg_pages-1) & 15)*KB(16);
 
     mmc1.large_bank=0;
@@ -116,7 +118,6 @@ void mmc1_write_reg (unsigned reg, unsigned val)
 
 void mmc1_write (register word addr, register byte value)
 {
-    static unsigned accum=0, counter=0;
     unsigned n = (addr & 0x6000) >> 13;
     int *reg = mmc1.reg;
 
@@ -126,21 +127,21 @@ void mmc1_write (register word addr, register byte value)
         /* Are the other registers reset here? Does it matter? */
         //printf("mmc1: reset\n");
         reg[0] = reset;
-        accum = 0;
-        counter = 0;
+        mmc1.accum = 0;
+        mmc1.counter = 0;
       
     }
     else
     {
-        accum=(accum>>1)+(GETBIT(0,value)<<4);
-        /* accum=accum | (GETBIT(0,value)<<counter); */
-        counter++;
-        //printf("mmc1: wrote bit. accum=%02X, counter=%i\n", accum, counter);
-        if (counter==5)
+        mmc1.accum=(mmc1.accum>>1)+(GETBIT(0,value)<<4);
+        /* mmc1.accum=mmc1.accum | (GETBIT(0,value)<<mmc1.counter); */
+        mmc1.counter++;
+        //printf("mmc1: wrote bit. mmc1.accum=%02X, mmc1.counter=%i\n", mmc1.accum, mmc1.counter);
+        if (mmc1.counter == 5)
         {
-            /* printf("$%02X -> register %i ($%04X)\n",accum,n,addr); */
-            mmc1_write_reg(n,accum);
-            counter=accum=0;
+            /* printf("$%02X -> register %i ($%04X)\n",mmc1.accum,n,addr); */
+            mmc1_write_reg(n,mmc1.accum);
+            mmc1.counter = mmc1.accum = 0;
         }
     }
 }
@@ -183,14 +184,14 @@ byte mmc1_read (register word addr)
     }
 }
 
-int mmc1_save_state (FILE *out)
+int mmc1_save_state (chunk_writer_t writer, void *arg)
 {
-    return write_state_chunk(out, "MMC1 driver v1", &mmc1, sizeof(mmc1));
+    return writer(arg, "MMC1 driver v2", &mmc1, sizeof(mmc1));
 }
 
-int mmc1_restore_state (FILE *in)
+int mmc1_restore_state (chunk_reader_t reader, void *arg)
 {
-    return read_state_chunk(in, "MMC1 driver v1", &mmc1, sizeof(mmc1));
+    return reader(arg, "MMC1 driver v2", &mmc1, sizeof(mmc1));
 }
 
 struct mapper_methods mapper_MMC1 = {

@@ -10,34 +10,44 @@ void print_usage (void)
            "Emulate an NTSC NES running ROMFILE (in iNES .nes format)\n"
            "\n"
            "Options:\n"
-           "-help           Show this message\n"
-           "-noscale        Don't scale video output\n"
-           "-scale          Double output pixels (default)\n"
-           "-scanlines      Interleaved scanline mode\n"
-           "-windowed       Run in a window (default)\n"
-           "-fullscreen     Run fullscreen\n"
-           "-width          Set window width\n"
-           "-height         Set window height\n"
-           "-forcesram      Force battery-backed ram\n"          
-           "-despair        Disable joysticks\n"
-           "-joy0 [A],[B],[SELECT],[START]\n"
-           "-joy1 [A],[B],[SELECT],[START]\n"
-           "-joy2 [A],[B],[SELECT],[START]\n"
-           "-joy3 [A],[B],[SELECT],[START]\n"
-           "-record FILE    Record controller input to file\n"
-           "-play FILE      Play back controller input from file\n"
-           "                Configure controller buttons for joypads 0...3\n"
-           "-stripe FILE    Dump a vertical stripe of video to a file\n"
-           "-stripex X      X coordinate of stripe (default is 128)\n"
-           "-striperate FRAMES (default=1)\n"
-           "                Interval at which to sample stripe\n"
-           "-nosound        Disable sound output\n"
-           "-sound          Enable sound output (default)\n"
-           "-trapbadops     Trap bad opcodes\n"
-           "-debugbrk       Display BRK instructions\n"
-           "-pputrace       Print PPU trace\n"
+           " -help           Show this message\n"
+           " -noscale        Don't scale video output\n"
+           " -scale          Double output pixels (default)\n"
+           " -scanlines      Interleaved scanline mode\n"
+           " -windowed       Run in a window (default)\n"
+           " -fullscreen     Run fullscreen\n"
+           " -width          Set window width\n"
+           " -height         Set window height\n"
+           " -forcesram      Force battery-backed ram\n"          
+           " -despair        Disable joystick input\n"
+           " -lockedout      Disable keyboard input\n"
+           " -joy0 [A],[B],[SELECT],[START]\n"
+           " -joy1 [A],[B],[SELECT],[START]\n"
+           " -joy2 [A],[B],[SELECT],[START]\n"
+           " -joy3 [A],[B],[SELECT],[START]\n"
+           "                 Configure controller buttons for joypads 0...3\n"
+           " -record FILE    Record controller input to file\n"
+           " -play FILE      Play back controller input from file\n"
+           " -playquit       Quit after movie playback is complete\n"
+           " -restorestate   Restore from last saved state at startup\n"
+           " -stripe FILE    Dump a vertical stripe of video to a file\n"
+           " -stripex X      X coordinate of stripe (default is 128)\n"
+           " -striperate FRAMES (default=1)\n"
+           "                 Interval at which to sample stripe\n"
+           " -nosound        Disable sound output\n"
+           " -sound          Enable sound output (default)\n"
+           " -nothrottle     Run at full speed, don't throttle to 60 Hz\n"
+           " -trapbadops     Trap bad opcodes\n"
+           " -debugbrk       Display BRK instructions\n"
+           " -pputrace       Print PPU trace\n"
 #ifdef DEBUG
-           "-cputrace       Print CPU trace\n"
+           " -cputrace       Print CPU trace\n"
+#endif
+#ifdef USE_FUSE
+           " -mountpoint PATH  Path at which to mount FUSE filesystem.\n"
+           "                   Default is /tmp/nesfs\n"
+           " -mountfs          Mount FUSE filesystem at startup.\n"
+           " -nomountfs        Don't mount FUSE filesystem at startup.\n"
 #endif
            "\n"
            "If no joystick is attached, keyboard controls will be used. The arrow keys\n"
@@ -70,6 +80,10 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) print_usage();
       if (!strcmp(txt, "-nosound")) sound_globalenabled = 0;
       if (!strcmp(txt, "-sound")) sound_globalenabled = 1;
+      if (!strcmp(txt, "-nothrottle")) {
+          no_throttle = 1;
+          sound_globalenabled = 0;
+      }
       if (!strcmp(txt, "-width")) {
 	if (i != (argc - 1)) {
 	  i++;
@@ -110,8 +124,12 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-superverbose")) superverbose = 1;
 
       if (!strcmp(txt, "-despair")) cfg_disable_joysticks = 1;
+
+      if (!strcmp(txt, "-lockedout")) cfg_disable_keyboard = 1;
+
       if (!strcmp(txt, "-jsmap")) {
 	if (argc<=(++i)) break;
+        // FIXME: Check these inputs.
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_jsmap[0], &cfg_jsmap[1], &cfg_jsmap[2], &cfg_jsmap[3]);
       }   
       if (!strcmp(txt, "-joy0")) {
@@ -136,6 +154,10 @@ void cfg_parseargs (int argc, char **argv)
           movie_output_filename = argv[i];
       }
 
+      if (!strcmp(txt, "-playquit")) {
+          quit_after_playback = 1;
+      }
+
       if (!strcmp(txt, "-play")) {
           if (argc<=(++i)) break;
           movie_input_filename = argv[i];
@@ -145,7 +167,7 @@ void cfg_parseargs (int argc, char **argv)
           if (argc<=(++i)) break;
           video_stripe_output = fopen(argv[i], "wb");
           if (!video_stripe_output)
-              printf("Unable to create \"%s\" for stripe output.\n");          
+              printf("Unable to create \"%s\" for stripe output.\n", argv[i]);
       }
 
       if (!strcmp(txt, "-stripex")) {
@@ -160,17 +182,24 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-striperate")) {
           if (argc<=(++i)) break;
           video_stripe_rate = atoi(argv[i]) - 1;          
-      }
+      }      
 
       if (!strcmp(txt, "-noscale")) vid_filter = no_filter;
       if (!strcmp(txt, "-scale")) vid_filter = rescale_2x;
       if (!strcmp(txt, "-scanline")) vid_filter = scanline_filter;
-/*      
-      if (!strcmp(txt, "-filter")) {
-	vid_filter=rescale_filtered;
-	printf("Using Scale2x pixel filter, by Andrea Mazzoleni.\n");
-      }      
-*/
+
+      if (!strcmp(txt, "-restorestate")) startup_restore_state = 1;
+
+#ifdef USE_FUSE
+      if (!strcmp(txt, "-mountpoint")) {
+          if (argc<=(++i)) break;
+          cfg_mountpoint = argv[i];
+      }
+
+      if (!strcmp(txt, "-mountfs")) cfg_mount_fs = 1;
+      if (!strcmp(txt, "-nomountfs")) cfg_mount_fs = 0;
+
+#endif
 
     } else {
       romfilename = txt;

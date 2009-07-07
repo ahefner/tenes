@@ -27,14 +27,14 @@ byte mapper7_read(register word Addr)
     return nes.rom.prg[mapper7_bank * 0x8000 + (Addr & 0x7FFF)];
 }
 
-int mapper7_save_state (FILE *out)
+int mapper7_save_state (chunk_writer_t writer, void *arg)
 {
-    return write_state_chunk(out, "AxROM driver v1", &mapper7_bank, sizeof(mapper7_bank));
+    return writer(arg, "AxROM driver v1", &mapper7_bank, sizeof(mapper7_bank));
 }
 
-int mapper7_restore_state (FILE *in)
+int mapper7_restore_state (chunk_reader_t reader, void *arg)
 {
-    return read_state_chunk(in, "AxROM driver v1", &mapper7_bank, sizeof(mapper7_bank));
+    return reader(arg, "AxROM driver v1", &mapper7_bank, sizeof(mapper7_bank));
 }
 
 struct mapper_methods mapper_axrom = 

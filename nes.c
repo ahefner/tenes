@@ -11,6 +11,7 @@
 #include "vid.h"
 #include "config.h"
 #include "global.h"
+#include "mapper_info.h"
 
 /* init_nes - initializes a nes_machine struct that already had it's rom member set properly */
 /*            after this, an nes_reset is all it should take to start the first frame.       */
@@ -95,7 +96,7 @@ void reset_nes (struct nes_machine *nes)
   nes->ppu.ppu_writemode = PPUWRITE_HORIZ;
   nes->ppu.vblank_flag = 0;
 
-  memset ((void *) nes->joypad.pad, 0, 4 * 8 * sizeof (int));
+  memset((void *)nes->joypad.pad, 0, sizeof(nes->joypad.pad));
   nes->joypad.state[0] = 0;
   nes->joypad.state[1] = 0;
 
@@ -118,7 +119,7 @@ char *state_filename (struct nes_rom *rom, unsigned index)
 }
 
 
-int write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
+int file_write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
 {
     char chunkname[64];
     memset(chunkname, 0, sizeof(chunkname));
@@ -129,7 +130,7 @@ int write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
     return 1;
 }
 
-int read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length)
+int file_read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length)
 {
     char chunkname[64];
     Uint32 read_length;
@@ -147,21 +148,21 @@ int read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length)
     return 1;
 }
 
-void save_state (void)
+void save_state_to_disk (void)
 {
     char *filename = state_filename(&nes.rom, 0);
     FILE *out = fopen(filename, "wb");
     if (!out) printf("Unable to create state file %s\n", filename);
     else {
-        if (!(write_state_chunk(out, "NES Machine", &nes, sizeof(nes)) &&
-              mapper->save_state(out))) {
+        if (!(file_write_state_chunk(out, "NES Machine", &nes, sizeof(nes)) &&
+              mapper->save_state((chunk_writer_t)file_write_state_chunk, out))) {
             printf("Error writing state file to %s\n", filename);
         }
         fclose(out);
     }
 }
 
-int restore_state (void)
+int restore_state_from_disk (void)
 {
     struct nes_rom rom;
     char *filename = state_filename(&nes.rom, 0);
@@ -170,24 +171,115 @@ int restore_state (void)
     /* Awesome kludge: preserve nes.rom structure, except for mirroring state. */
     memcpy(&rom, &nes.rom, sizeof(rom));
 
-    if (!in) printf("Unable to open state file %s\n", filename);    
-    else {
-        if (!(read_state_chunk(in, "NES Machine", &nes, sizeof(nes)) &&
-              mapper->restore_state(in))) {
+    if (!in) {
+        printf("Unable to open state file %s\n", filename);
+        return 0;
+    } else {
+        if (!(file_read_state_chunk(in, "NES Machine", &nes, sizeof(nes)) &&
+              mapper->restore_state((chunk_reader_t)file_read_state_chunk, in))) {
             printf("Error restoring state file from %s\n", filename);
             fclose(in);
+            /* Fix the ROM struct so we can reset the machine and continue to run */
+            memcpy(&nes.rom, &rom, sizeof(rom));
+            return 0;
+        } else {
+            /* Restored state successfully */
+            fclose(in);
+            /* Keep only mirror and onescreen modes from the state, 
+               because nes.rom also stores ephemeral points to the 
+               mapper function table and ROM data. */
             int mirror_mode = nes.rom.mirror_mode;
-            int onescreen_page = nes.rom.onescreen_page;
+            int onescreen_page = nes.rom.onescreen_page;        
             memcpy(&nes.rom, &rom, sizeof(rom));
             nes.rom.mirror_mode = mirror_mode;
-            nes.rom.onescreen_page = onescreen_page;
-            return 0;
+            nes.rom.onescreen_page = onescreen_page;    
+            return 1;
         }
-        fclose(in);
+    }
+}
+
+/* Memory state save/restore should not possibly fail, except due to memory exhaustion. */
+
+int mem_write_state_chunk (struct saved_state *state, char *name, void *data, unsigned length)
+{    
+    state->num++;
+    if (state->num >= MEMSTATE_MAX_CHUNKS) return 0;
+    byte *ptr = malloc(strlen(name) + 1 + length);
+    state->chunks[state->num-1] = ptr;
+    state->lengths[state->num-1] = length;
+    assert(ptr);
+    strcpy((char *)ptr, name);
+    memcpy(ptr+strlen(name)+1, data, length);
+    return 1;
+}
+
+int mem_read_state_chunk  (struct saved_state *state, char *name, void *data_out, unsigned length)
+{
+    assert(state->cur < state->num);
+    byte *ptr = state->chunks[state->cur];
+    assert(state->lengths[state->cur] == length);
+    state->cur++;
+    assert(!strcmp((char *)ptr, name));
+    memcpy(data_out, ptr + 1 + strlen(name), length);
+    return 1;
+}
+
+/* Free chunks of saved state. Does NOT free the state struct itself! */
+void free_saved_chunks (struct saved_state *state)
+{
+    assert(state->cur <= state->num);
+    for (int i=0; i<state->num; i++) {
+        free(state->chunks[i]);
+        state->chunks[i] = 0;
+        state->lengths[i] = 0;
+    }
+    state->num = 0;
+    state->cur = 0;
+}
+
+void copy_saved_chunks (struct saved_state *dst, struct saved_state *src)
+{
+    assert(dst->cur == 0);
+    assert(dst->num == 0);
+    for (int i=0; i<MEMSTATE_MAX_CHUNKS; i++) {
+            assert(dst->chunks[i] == NULL);
+            assert(dst->lengths[i] == 0);
     }
 
+    for (int i=0; i<MEMSTATE_MAX_CHUNKS; i++) {
+        if (src->chunks[i]) {
+            size_t length = src->lengths[i];
+            assert(length != 0);
+            dst->chunks[i] = malloc(length);
+            assert(dst->chunks[i] != NULL);
+            memcpy(dst->chunks[i], src->chunks[i], length);
+            dst->lengths[i] = length;
+        } else assert(src->lengths[i] == 0);
+    }
+    
+    dst->num = src->num;
+}
+
+void save_state_to_mem (struct saved_state *state)
+{
+    assert(state->num == state->cur);
+    assert(state->num == 0);
+    assert(mem_write_state_chunk(state, "NES Machine", &nes, sizeof(nes)));
+    assert(mapper->save_state((chunk_writer_t)mem_write_state_chunk, state));
+}
+
+void restore_state_from_mem (struct saved_state *state)
+{
+    struct nes_rom rom;   
+    memcpy(&rom, &nes.rom, sizeof(rom));
+    assert(mem_read_state_chunk(state, "NES Machine", &nes, sizeof(nes)));
+    assert(mapper->restore_state((chunk_reader_t)mem_read_state_chunk, state));
+    int mirror_mode = nes.rom.mirror_mode;
+    int onescreen_page = nes.rom.onescreen_page;        
     memcpy(&nes.rom, &rom, sizeof(rom));
-    return 1;
+    nes.rom.mirror_mode = mirror_mode;
+    nes.rom.onescreen_page = onescreen_page;
+    state->cur = 0;
 }
 
 int ppu_current_hscroll (void)
@@ -267,7 +359,7 @@ int scanline_cycles (void)
 char *nes_time_string (void)
 {
     static char buf[128];
-    sprintf(buf, "%i/%3i.%3i   ", frame_number, nes.scanline, (int)scanline_cycles());
+    sprintf(buf, "%i/%3i.%3i   ", nes.time, nes.scanline, (int)scanline_cycles());
     return buf;
 }
 
@@ -702,7 +794,7 @@ static inline void ppu_latch_v (void)
     if (ppu_is_rendering()) nes.ppu.v = (nes.ppu.v & ~0x41F) | (nes.ppu.t & 0x41F);
 }
 
-void nes_runframe (void)
+void nes_emulate_frame (void)
 {
     /* Cycle counts, in PPU color clocks.. */
     int line_cycles = 341;
@@ -719,12 +811,13 @@ void nes_runframe (void)
 
     /* Every other frame shortens this cycle by 1 PPU clock, to shift
      * the phase of the NTSC colorburst (?), if BG enabled. */
-    if ((frame_number & 1) && (nes.ppu.control2 & 0x04)) nes.scanline_start_cycle -= PPU_CLOCK_DIVIDER;
+    if ((nes.time & 1) && (nes.ppu.control2 & 0x04)) nes.scanline_start_cycle -= PPU_CLOCK_DIVIDER;
 
     // Dummy scanline:
     begin_scanline();
     ppu_latch_v();
     render_scanline();
+
     run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
     finish_scanline_rendering();
     run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
@@ -750,7 +843,8 @@ void nes_runframe (void)
         vscroll = ppu_current_vscroll();
 
         render_scanline();
-        stripe_buffer[tv_scanline] = rgb_palette[color_buffer[video_stripe_idx] & 63];
+        
+        stripe_buffer[tv_scanline] = rgb_palette[color_buffer[video_stripe_idx] & 63];        
         if (video_stripe_output) color_buffer[video_stripe_idx] ^= 0x34;
 
         run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
@@ -760,6 +854,8 @@ void nes_runframe (void)
         snd_catchup();
         tv_scanline++;
     }
+
+    filter_output_finish();
 
     // If the video stripe recorder is going, write out the buffer:
     if (video_stripe_output) {
@@ -784,6 +880,7 @@ void nes_runframe (void)
     }
 
     snd_catchup();
+    nes.time++;
 }
 
 

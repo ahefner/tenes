@@ -332,14 +332,14 @@ void sweep_clock_channel (int channel)
 
         if (0 && (channel == 0)) {
             printf("%u: ch0 sweep enabled: %i, period = %x, negate = %x, shift=%x   wl=%i shifted=%i  LC=%i\n",
-                   frame_number, enabled?1:0, period, negate, shift, wl, shifted, lcounter[0]);
+                   nes.time, enabled?1:0, period, negate, shift, wl, shifted, lcounter[0]);
         }
 
 
         if (enabled && (shift>0) && (wl >= 8) && (sum <= 0x7FF)) wavelength[channel] = sum;
         if (wavelength[channel] < 0) {
             wavelength[channel] = 0;
-            printf("%u: Sweep underflow on channel %i. (?)\n", frame_number, channel);
+            printf("%u: Sweep underflow on channel %i. (?)\n", nes.time, channel);
         }
         
         /* The sweep can silence the channel. Exactly how is not
@@ -414,10 +414,10 @@ int linear_counter = 0;
 int linear_counter_halt = 0;
 void linear_counter_clock (void)
 {
-    // printf("%u: linear_counter clocked. currently %i. halted? %s.regs = %02X %02X\n", frame_number, linear_counter, linear_counter_halt? "Yes":"No", nes.snd.regs[8], nes.snd.regs[11]);
+    // printf("%u: linear_counter clocked. currently %i. halted? %s.regs = %02X %02X\n", nes.time, linear_counter, linear_counter_halt? "Yes":"No", nes.snd.regs[8], nes.snd.regs[11]);
     if (linear_counter_halt) {
         linear_counter = nes.snd.regs[8] & 0x7F;
-        // printf("  %u: Linear counter took new value %02X.\n", frame_number, linear_counter);
+        // printf("  %u: Linear counter took new value %02X.\n", nes.time, linear_counter);
     } else if (linear_counter) linear_counter--;
     
     if (!(nes.snd.regs[8]&0x80)) linear_counter_halt = 0;
@@ -558,7 +558,7 @@ void snd_write (unsigned addr, unsigned char value)
 
     /* Configure linear counter */
     case 8:
-        //printf("%u: wrote %02X to $4008.\n", frame_number, value);
+        //printf("%u: wrote %02X to $4008.\n", nes.time, value);
         nes.snd.regs[addr] = value;
         break;
 
@@ -569,7 +569,7 @@ void snd_write (unsigned addr, unsigned char value)
     case 0x0B:
         linear_counter = nes.snd.regs[8] & 0x7F;
         /*if (nes.snd.regs[8] & 0x80)*/ linear_counter_halt = 1;
-        //printf("%u: wrote %02X to $400B. $4008 currently %02X.\n", frame_number, value, nes.snd.regs[8]);
+        //printf("%u: wrote %02X to $400B. $4008 currently %02X.\n", nes.time, value, nes.snd.regs[8]);
         /* fall through to case 3/7: */
     case 3: case 7:
         nes.snd.regs[addr] = value;
@@ -585,7 +585,7 @@ void snd_write (unsigned addr, unsigned char value)
         if (nes.snd.regs[0x15] & BIT(chan)) {
             lcounter[chan] = translate_length(value);
             /*printf("%u: Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
-              frame_number, addr+0x4000, chan, lcounter[chan], value, translate_length(value));  */
+              nes.time, addr+0x4000, chan, lcounter[chan], value, translate_length(value));  */
                         
         }
         break;
@@ -766,11 +766,6 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
                           +
                           ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));        
         samp = tmp;
-        //samp = dmc * 230;
-        //if (dmc) printf("%4i %f\n", dmc, tmp);
-        
-        if ((tmp > 0x7FFF) || (tmp < -0x8000)) printf("Clip! %f\n", tmp);
-        if ((dmc < 0) || (dmc > 127)) printf("WTF, DMC=%i\n", dmc);
 
         samp &= mask;
         

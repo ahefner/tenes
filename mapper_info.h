@@ -2,21 +2,23 @@
 #define MAPPER_INFO_H
 
 #include <stdio.h>
+#include "global.h"
 
 /* NES mappers */
 
-#include "M6502/M6502.h"
+typedef int (*chunk_writer_t) (void *private, char *name, void *data, unsigned length);
+typedef int (*chunk_reader_t) (void *private, char *name, void *data, unsigned length);
 
 struct mapper_methods
 {
     int (*mapper_init)(void); /* called during rom load after CHR and PPU data is loaded */
     void (*mapper_shutdown)(void);
-    void (*mapper_write)(register word Addr,register byte Value);
+    void (*mapper_write)(register word Addr, register byte Value);
     byte (*mapper_read)(register word Addr);
     void (*scanline_start)(void);
     int (*scanline_end)(void);
-    int (*save_state) (FILE *out);
-    int (*restore_state) (FILE *in);
+    int (*save_state) (chunk_writer_t writer, void *arg);
+    int (*restore_state) (chunk_reader_t reader, void *arg);
 /* void (*vram_write)(register word Addr,register byte Value);
    byte (*vram_read)(register word Addr); */
 };

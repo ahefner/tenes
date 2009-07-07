@@ -27,14 +27,14 @@ byte mapper2_read (register word Addr)
     
 }
 
-int mapper2_save_state (FILE *out)
+int mapper2_save_state (chunk_writer_t writer, void *arg)
 {
-    return write_state_chunk(out, "Mapper 2 driver v1", &mapper2_page, sizeof(mapper2_page));
+    return writer(arg, "Mapper 2 driver v1", &mapper2_page, sizeof(mapper2_page));
 }
 
-int mapper2_restore_state (FILE *in)
+int mapper2_restore_state (chunk_reader_t reader, void *arg)
 {
-    return read_state_chunk(in, "Mapper 2 driver v1", &mapper2_page, sizeof(mapper2_page));
+    return reader(arg, "Mapper 2 driver v1", &mapper2_page, sizeof(mapper2_page));
 }
 
 struct mapper_methods mapper_konami = {

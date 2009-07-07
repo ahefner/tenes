@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <unistd.h>
 
 
 /* Fantastically expensive to compute, and completely ad-hoc. The best of both worlds. */
