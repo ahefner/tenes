@@ -1,5 +1,6 @@
 # Makefile
 
+PREFIX=/usr/local/
 
 # Optional features are enabled here:
 
@@ -7,6 +8,7 @@
 # access to the state of the NES while the emulator is running.
 
 USE_FUSE=0			# Disabled by default.
+
 
 # Configure variables according to optional features:
 
@@ -18,7 +20,7 @@ FUSE_FLAGS=
 FUSE_LIBS=
 endif
 
-# Etc.
+# Build:
 
 CC=gcc
 CFLAGS= -Wall -O3 -g `sdl-config --cflags` -mmmx
@@ -36,7 +38,11 @@ CAPP=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 all: nesemu
 clean:
 	rm -f *.o
+	rm -f *~ M6502/*~ util/*~ util/a.out mappers/*~ \#*\# mappers/\#*\#
 	rm -f nesemu
+
+install:
+	install -m 0755 nesemu $(PREFIX)/bin
 
 romloadtest: rom.o romloadtest.c
 	$(CAPP) romloadtest.c -o romloadtest
