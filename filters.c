@@ -180,10 +180,6 @@ void ntsc_emitter (unsigned y, byte *colors, byte *emphasis)
             float level = yiq_table[col][0] + chroma_polarity * chroma_output[col][stepmod];
             int base = (step+pad)*5;
             rbuf[base+0] = level * 5.0;
-//            rbuf[base+1] = level;
-//            rbuf[base+2] = level;
-//            rbuf[base+3] = level;
-//            rbuf[base+4] = level;
             step++;
             stepmod++;
             if (stepmod == 12) stepmod = 0;
@@ -214,73 +210,21 @@ void ntsc_emitter (unsigned y, byte *colors, byte *emphasis)
         int coffset = (-KCSIZE/2) + cidx;
         int croff = coffset % 60;
 
-        //for (int i=0; i<KSIZE; i++) yiq[0] += kern_sinc_60[i] * rbuf[ioffset+i];        
-//        yiq[0] /= (float)KSIZE;
-//        yiq[0] *= 5.0 / 12.0;
-
         float scale = 12.0 * 0.5;
         yiq[0] = ybuf[cidx + K90SIZE/2] * scale / 12.0;
-//        yiq[0] *= 5.0 / 12.0;
         yiq[1] = ibuf[cidx + K120SIZE/2] * scale * 1.5;
         yiq[2] = qbuf[cidx + K120SIZE/2] * scale * 1.5;
 
         yiq[1] *= yiq[0] * 1.3;
         yiq[2] *= yiq[0] * 1.3;
 
-
-        /*for (int i=0; i<KCSIZE; i++) {
-            float signal = rbuf[coffset+i];
-            float lowpass = 5.00 * kern_iq_base[i];
-            yiq[1] += lowpass*kern_i[croff+i] * signal;
-            yiq[2] += lowpass*kern_q[croff+i] * signal;
-        }*/
-
-        //yiq[1] *= 5.0;
-        //yiq[2] *= 5.0;
-
-        
-        /* for (int i=0; i<60; i+=5) {
-            float scale = 60.0;
-            yiq[0] += rbuf[cidx + i] * (scale/60.0) / 12.0;
-            yiq[1] += rbuf[cidx + i] * (scale/60.0) * kern_i12[((cidx + i)/5)%12];
-            yiq[2] += rbuf[cidx + i] * (scale/60.0) * kern_q12[((cidx + i)/5)%12];
-        }*/
-
-/*
-        for (int i=0; i<60; i++) {
-            float scale = 60.0 * 5.0;
-            yiq[0] += rbuf[cidx + i] * (scale/60.0) / 12.0;
-            yiq[1] += rbuf[cidx + i] * (scale/60.0) * kern_i12[cidx+i];
-            yiq[2] += rbuf[cidx + i] * (scale/60.0) * kern_q12[cidx+i];
-        }
-*/
         yiq2rgb(yiq, rgb);
         Uint32 ox = dest0[0];
         byte r = ox >> 16, g = (ox >> 8) & 0xFF, b = ox & 0xFF;
         *dest0++ = rgbf(rgb[0] + r/512.0, rgb[1] + g/512.0, rgb[2] + b/512.0);
     }
 
-/*    
-    for (int x = 0; x < 256; x++) {
-        byte col = colors[x] & 63;
-        Uint32 px;
-        float rgb[3];
-        float yiq[3] = { 0.0f, 0.0f, 0.0f };
-
-        yiq[0] = yiq_table[col][0];
-        for (int i=0; i<12; i++) {
-            yiq[1] += kern_i12[i] * chroma_output[col][i];
-            yiq[2] += kern_q12[i] * chroma_output[col][i];
-        }
-
-        yiq2rgb(yiq, rgb);
-        px = rgbf(rgb[0], rgb[1], rgb[2]);
-        
-
-        *dest0++ = px; 
-
-    }
-*/
+    // Render alternate scanlines
     for (int x=0; x<640; x++) {
         
         Uint32 nx = line0[x];
