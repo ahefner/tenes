@@ -92,7 +92,7 @@ void sys_init (void)
       //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
-      SDL_ShowCursor(SDL_ENABLE);
+      SDL_ShowCursor(SDL_DISABLE);
 
       tmp = SDL_NumJoysticks();
       if (!cfg_disable_joysticks) {

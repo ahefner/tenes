@@ -9,6 +9,7 @@ extern unsigned rgb_palette[64];
 extern unsigned grayscale_palette[64];
 #endif
 
+void ntsc_filter (void);
 void rescale_2x (void);
 void no_filter (void);
 void scanline_filter (void);

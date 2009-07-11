@@ -140,7 +140,7 @@ struct nes_machine
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
 
-    /* This intra-frame state should be moved outside the sturct, since it has no business in the state file. */
+    /* This intra-frame state should be moved outside the struct, since it has no business in the state file. */
     unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
     unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
 

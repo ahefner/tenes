@@ -187,6 +187,7 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-noscale")) vid_filter = no_filter;
       if (!strcmp(txt, "-scale")) vid_filter = rescale_2x;
       if (!strcmp(txt, "-scanline")) vid_filter = scanline_filter;
+      if (!strcmp(txt, "-ntsc")) vid_filter = ntsc_filter;
 
       if (!strcmp(txt, "-restorestate")) startup_restore_state = 1;
 

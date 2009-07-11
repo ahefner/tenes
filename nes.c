@@ -804,6 +804,8 @@ void nes_emulate_frame (void)
     int vscroll;
     unsigned stripe_buffer[240];
 
+    long long start_time = usectime();
+
     // Initialize for frame. Clears PPU flags.
     nes_initframe();
 
@@ -879,11 +881,12 @@ void nes_emulate_frame (void)
         vblank_kludge_cycles = 0;
     }
 
+    long long ellapsed_time = usectime() - start_time;
+    if (ellapsed_time > 50000ll) printf("Frame time: %lli usec (ouch!)\n", (long long)ellapsed_time);
+
     snd_catchup();
     nes.time++;
 }
-
-
 
 /* Debugging utilities: The idea is that rather than writing a 6502
  * debugger as part of the emulator, we can debug from the host's GDB
