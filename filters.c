@@ -139,6 +139,8 @@ float kern_q12[12];
 float y_output[2][3][64][64];
 float i_chroma[2][3][64][64];
 float q_chroma[2][3][64][64];
+float emph_i[2][3][64];
+float emph_q[2][3][64];
 
 #define K160SIZE 769
 float kern_sinc_160[K160SIZE];
@@ -164,7 +166,6 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     Uint32 *line0 = dest0;
     Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
     int polarity_mode = ((nes.time ^ line) & 1)? 1 : 0;
-    float chroma_polarity = polarity_mode? -1.0 : 1.0;
 
 #define padding 32
     float ybuf[1280+padding*2];   
@@ -176,31 +177,10 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     memset(ibuf, 0, sizeof(ibuf));
     memset(qbuf, 0, sizeof(qbuf));
 
-    int step = 0;
-    int stepmod = 0;
-    
     int step_vs_chroma = 0;
     
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
-        float y = yiq_table[col][0];
-        //float total_y = 5.0 * y;
-
-        /* This way of modelling the chroma leakage neglects that the
-         * phase of the chroma pulse varies. In fact, this is pretty
-         * stupid all around. I could compute a kernel for the
-         * downsampled chroma pulse at each possible phase (eight,
-         * relative to output resolution) and mix that with
-         * downsampled IRs for the luminance component, operating
-         * entirely at the output resolution (instead of 2x).  */
-        
-        //if (!((x&1) ^ ((col&15)>8))) total_y += chroma_polarity * color_saturation[col];
-
-/*        const float ykernel[25] =
-          {-0.0016978685, -0.0032530662, -0.0048049833, -0.0052334326, -0.002848882, 0.004248273, 0.017522218, 0.037256636, 0.062008455, 0.08854916, 0.11243146, 0.12907685, 0.13505009, 0.12907685, 0.11243146, 0.08854916, 0.062008455, 0.037256636, 0.017522218, 0.004248273, -0.002848882, -0.0052334326, -0.0048049833, -0.0032530662, -0.0016978685 }; */
-
-        //for (int i=0; i<25; i++) ybuf[padding + x*5 + i - 12] += total_y*ykernel[i];
-
 
         int off = x & 1;
         float *yseq = &y_output[polarity_mode][step_vs_chroma][col][off];
@@ -215,10 +195,6 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
             yseq+=2;
             iseq+=2;
             qseq+=2;
-
-//            ybuf[idx] += y_output[polarity_mode][step_vs_chroma][col][i];
-//            ibuf[idx] += i_chroma[polarity_mode][step_vs_chroma][col][i];
-//            qbuf[idx] += q_chroma[polarity_mode][step_vs_chroma][col][i];
         }
 
         step_vs_chroma++;
@@ -244,11 +220,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 
         //*dest0++ = rgbf(rgb[0], rgb[1], rgb[2]);
 
-
         Uint32 ox = dest0[0];
         byte r = ox >> 16, g = (ox >> 8) & 0xFF, b = ox & 0xFF;
         *dest0++ = rgbf(rgb[0]*0.5 + r/512.0, rgb[1]*0.5 + g/512.0, rgb[2]*0.5 + b/512.0);
-
     }
 
     // Render alternate scanlines
@@ -256,9 +230,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         
         Uint32 nx = line0[x];
         byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
-        r = r*2/4; 
-        g = g*2/4; 
-        b = b*2/4;
+/*        r = r>>1; 
+        g = g>>1; 
+        b = b>>1;*/
         nx = rgbi(r, g, b);
         line1[x] = nx;
     }
@@ -293,42 +267,53 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
     printf("sinc %i / %f: sums to %f\n", n, cutoff, sum);
 }
 
-void precompute_downsampling (void)
+void downsample_composite (float *y_out, float *i_out, float *q_out, float cpol, int modthree, float luminance, float *chroma)
 {
     float ybuf[40+K120SIZE];
     float ibuf[40+K120SIZE];
     float qbuf[40+K120SIZE];
+    memset(ybuf, 0, sizeof(ibuf));
+    memset(ibuf, 0, sizeof(ibuf));
+    memset(qbuf, 0, sizeof(qbuf));
+
+    for (int i=0; i<40; i+=5) {
+        float level = luminance + cpol * chroma[(i/5 + modthree*8)%12];
+
+        for (int j=0; j<K120SIZE; j++) {
+            int filter_index = (modthree*40+i)%60;
+            ibuf[i+j] += level * cpol * kern_i[filter_index]*bkern_sinc_90[j];
+            qbuf[i+j] += level * cpol * kern_q[filter_index]*bkern_sinc_90[j];
+        }
+        
+        for (int j=0; j<K120SIZE; j++) {
+            ybuf[i+j] += level * bkern_sinc_90[j];
+        }
+    }
     
+    for (int i=0; i<42; i++) {
+        int idx = i * 8 + 14*8;
+        y_out[i] = ybuf[idx];
+        i_out[i] = ibuf[idx];
+        q_out[i] = qbuf[idx];
+    }
+}
+
+void precompute_downsampling (void)
+{
     for (int polarity=0; polarity<2; polarity++) {
         float polf = polarity? -1.0 : 1.0;
         for (int alignment=0; alignment<3; alignment++) {
+            // Precompute colors
             for (int color=0; color<64; color++) {
-                memset(ybuf, 0, sizeof(ibuf));
-                memset(ibuf, 0, sizeof(ibuf));
-                memset(qbuf, 0, sizeof(qbuf));
-
-                int off = alignment * 40;
-                for (int i=0; i<40; i+=5) {
-                    float level = yiq_table[color][0] + polf * chroma_output[color][(i/5 + alignment*8)%12];
-                    //float ibase = kern_i12[off+i];
-                    //float qbase = kern_q12[off+i];
-                    for (int j=0; j<K120SIZE; j++) {
-                        ibuf[i+j] += level * polf * kern_i[(off+i)%60]*bkern_sinc_90[j];
-                        qbuf[i+j] += level * polf * kern_q[(off+i)%60]*bkern_sinc_90[j];
-                    }
-
-                    for (int j=0; j<K120SIZE; j++) {
-                        ybuf[i+j] += level * bkern_sinc_90[j];
-                    }
-                }
-                
-                for (int i=0; i<42; i++) {
-                    int idx = i * 8 + 14*8;
-                    //printf("%i %i %i %i: %f %f\n", polarity, alignment, color, i, ibuf[idx], qbuf[idx]);
-                    y_output[polarity][alignment][color][i] = ybuf[idx];
-                    i_chroma[polarity][alignment][color][i] = ibuf[idx];
-                    q_chroma[polarity][alignment][color][i] = qbuf[idx];
-                }
+                //int off = alignment * 40;
+                //float level = yiq_table[color][0] + polf * chroma_output[color][(i/5 + alignment*8)%12];
+                downsample_composite(&y_output[polarity][alignment][color][0], 
+                                     &i_chroma[polarity][alignment][color][0], 
+                                     &q_chroma[polarity][alignment][color][0], 
+                                     polf, 
+                                     alignment, 
+                                     yiq_table[color][0], 
+                                     &chroma_output[color][0]);
             }
         }
     }
@@ -337,7 +322,7 @@ void precompute_downsampling (void)
 void ntsc_filter (void)
 {
     double twelfth = 2.0 * M_PI / 12.0;
-    double tint = 0.4;
+    double tint = 0.0;
     double tint_radians = tint * twelfth;
     memset(chroma_output, 0, sizeof(chroma_output));
 
@@ -369,7 +354,7 @@ void ntsc_filter (void)
         //double intensities[4] = { 0.15, 0.6, 1.0, 1.2 };
         double saturations[4] = { 0.8, 0.65, 0.42, 0.26 };
         double saturation = saturations[col>>4];
-        double intensities[4] = { 1.0, 1.0, 1.0, 1.2 };
+        double intensities[4] = { 0.8, 1.0, 1.0, 1.2 };
 
         yiq[0] = 0.0;
         yiq[1] = 0.0;
@@ -380,9 +365,9 @@ void ntsc_filter (void)
             yiq[0] = (1.0-saturation) * intensities[col >> 4];            
 
             if (x == 0) {
-                yiq[0] += 0.4;// * (1.0 - saturation);
+                yiq[0] += 0.2;// * (1.0 - saturation);
             } else if (x == 0x0D) {
-                yiq[0] -= intensities[0] * (1.0 - saturation);
+
             } else if (x < 0xD) {
                 double phase = ((double)(x-1) + tint) * 2.0 * M_PI / 12.0;
                 yiq[1] = saturation * -cos(phase);
