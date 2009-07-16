@@ -136,6 +136,7 @@ float chroma_output[64][12];
 float color_saturation[64];
 float kern_i12[12];
 float kern_q12[12];
+float y_output[2][3][64][64];
 float i_chroma[2][3][64][64];
 float q_chroma[2][3][64][64];
 
@@ -183,7 +184,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
         float y = yiq_table[col][0];
-        float total_y = 5.0 * y;
+        //float total_y = 5.0 * y;
 
         /* This way of modelling the chroma leakage neglects that the
          * phase of the chroma pulse varies. In fact, this is pretty
@@ -193,65 +194,36 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
          * downsampled IRs for the luminance component, operating
          * entirely at the output resolution (instead of 2x).  */
         
-        if (!((x&1) ^ ((col&15)>8))) total_y += chroma_polarity * color_saturation[col];
+        //if (!((x&1) ^ ((col&15)>8))) total_y += chroma_polarity * color_saturation[col];
 
-        const float ykernel[25] =
-            {-0.0016978685, -0.0032530662, -0.0048049833, -0.0052334326, -0.002848882, 0.004248273, 0.017522218, 0.037256636, 0.062008455, 0.08854916, 0.11243146, 0.12907685, 0.13505009, 0.12907685, 0.11243146, 0.08854916, 0.062008455, 0.037256636, 0.017522218, 0.004248273, -0.002848882, -0.0052334326, -0.0048049833, -0.0032530662, -0.0016978685 };
+/*        const float ykernel[25] =
+          {-0.0016978685, -0.0032530662, -0.0048049833, -0.0052334326, -0.002848882, 0.004248273, 0.017522218, 0.037256636, 0.062008455, 0.08854916, 0.11243146, 0.12907685, 0.13505009, 0.12907685, 0.11243146, 0.08854916, 0.062008455, 0.037256636, 0.017522218, 0.004248273, -0.002848882, -0.0052334326, -0.0048049833, -0.0032530662, -0.0016978685 }; */
 
-        for (int i=0; i<25; i++) ybuf[padding + x*5 + i - 12] += total_y*ykernel[i];
+        //for (int i=0; i<25; i++) ybuf[padding + x*5 + i - 12] += total_y*ykernel[i];
 
 
-        for (int i=0; i<42; i++) {
+        int off = x & 1;
+        float *yseq = &y_output[polarity_mode][step_vs_chroma][col][off];
+        float *iseq = &i_chroma[polarity_mode][step_vs_chroma][col][off];
+        float *qseq = &q_chroma[polarity_mode][step_vs_chroma][col][off];
+
+        for (int i=off; i<42; i+=2) {
             int idx = padding + x*5 + i - 18;
-//            float yib = y * 2.0 * yibleed[step_vs_chroma][i] * chroma_polarity;
-//            float yqb = y * 2.0 * yqbleed[step_vs_chroma][i] * chroma_polarity;            
-//            float ix = 0.0;
-//            float qx = 0.0;
+            ybuf[idx] += *yseq;
+            ibuf[idx] += *iseq;
+            qbuf[idx] += *qseq;
+            yseq+=2;
+            iseq+=2;
+            qseq+=2;
 
-            ibuf[idx] += i_chroma[polarity_mode][step_vs_chroma][col][i];
-            qbuf[idx] += q_chroma[polarity_mode][step_vs_chroma][col][i];
-
+//            ybuf[idx] += y_output[polarity_mode][step_vs_chroma][col][i];
+//            ibuf[idx] += i_chroma[polarity_mode][step_vs_chroma][col][i];
+//            qbuf[idx] += q_chroma[polarity_mode][step_vs_chroma][col][i];
         }
 
         step_vs_chroma++;
         if (step_vs_chroma == 3) step_vs_chroma = 0;
     }
-
-//    printf("------------------------------------------------------\n%i: ", line);
-    for (int i=0; i<40; i++) {
-//        printf("%3i ", (int)(qbuf[i+640] * 256.0));
-    }
-//    printf("\n");
-
-   /* Old composite render: */
-/*  
-        for (int i=0; i<8; i++) {
-            float level = yiq_table[col][0] + chroma_polarity * chroma_output[col][stepmod];
-            int base = (step+pad)*5;
-            rbuf[base+0] = level * 5.0;
-            step++;
-            stepmod++;
-            if (stepmod == 12) stepmod = 0;
-        }
-*/
-
-
-    // Lowpass filter
-/*
-    for (int i=0; i < sizeof(ibuf)/sizeof(ibuf[0]); i++) {
-        float si = rbuf[i] * kern_i[i%60] * chroma_polarity;
-        float sq = rbuf[i] * kern_q[i%60] * chroma_polarity;
-
-        for (int j=0; j<K120SIZE; j++) {
-            ibuf[i+j] += si * kern_sinc_120[j];
-            qbuf[i+j] += sq * kern_sinc_120[j];
-        }
-
-        for (int j=0; j<K90SIZE; j++) {
-            ybuf[i+j] += rbuf[i] * kern_sinc_90[j];
-        }
-    }
-*/
 
     // Filter to YIQ and produce pixels:
     for (int x=0; x<640; x++) {
@@ -262,18 +234,14 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 
         float scale = 12.0 * 0.5;
 
-        yiq[0] = ybuf[cidx];
-//        yiq[1] = ibuf[padding + 2*x];
-//        yiq[2] = qbuf[padding + 2*x];
-//        yiq[1] = 0.0;
-//        yiq[2] = 0.0;
-
+        yiq[0] = ybuf[cidx] * 5.0;
         yiq[1] = ibuf[cidx] * scale * 1.7;
         yiq[2] = qbuf[cidx] * scale * 1.7;
         yiq[1] *= yiq[0] * 3.9;
         yiq[2] *= yiq[0] * 3.9;
 
         yiq2rgb(yiq, rgb); 
+
         //*dest0++ = rgbf(rgb[0], rgb[1], rgb[2]);
 
 
@@ -327,6 +295,7 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
 
 void precompute_downsampling (void)
 {
+    float ybuf[40+K120SIZE];
     float ibuf[40+K120SIZE];
     float qbuf[40+K120SIZE];
     
@@ -334,6 +303,7 @@ void precompute_downsampling (void)
         float polf = polarity? -1.0 : 1.0;
         for (int alignment=0; alignment<3; alignment++) {
             for (int color=0; color<64; color++) {
+                memset(ybuf, 0, sizeof(ibuf));
                 memset(ibuf, 0, sizeof(ibuf));
                 memset(qbuf, 0, sizeof(qbuf));
 
@@ -346,11 +316,16 @@ void precompute_downsampling (void)
                         ibuf[i+j] += level * polf * kern_i[(off+i)%60]*bkern_sinc_90[j];
                         qbuf[i+j] += level * polf * kern_q[(off+i)%60]*bkern_sinc_90[j];
                     }
+
+                    for (int j=0; j<K120SIZE; j++) {
+                        ybuf[i+j] += level * bkern_sinc_90[j];
+                    }
                 }
                 
                 for (int i=0; i<42; i++) {
                     int idx = i * 8 + 14*8;
                     //printf("%i %i %i %i: %f %f\n", polarity, alignment, color, i, ibuf[idx], qbuf[idx]);
+                    y_output[polarity][alignment][color][i] = ybuf[idx];
                     i_chroma[polarity][alignment][color][i] = ibuf[idx];
                     q_chroma[polarity][alignment][color][i] = qbuf[idx];
                 }
