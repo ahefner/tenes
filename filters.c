@@ -132,9 +132,9 @@ static inline void yiq2rgb (float yiq[3], float rgb[3])
 }
 
 float composite_output[64][12];
-float y_output[2][3][64][64];
-float i_chroma[2][3][64][64];
-float q_chroma[2][3][64][64];
+float y_output[3][64][64];
+float i_chroma[3][64][64];
+float q_chroma[3][64][64];
 
 /* Size of filter kernels: */
 #define KSIZE 513
@@ -151,7 +151,6 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
     Uint32 *line0 = dest0;
     Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
-    int polarity_mode = ((nes.time ^ line) & 1)? 1 : 0;
 
 #define padding 32
     float ybuf[1280+padding*2];
@@ -169,9 +168,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         byte col = colors[x] & 63;
 
         int off = x & 1;
-        float *yseq = &y_output[polarity_mode][step_vs_chroma][col][off];
-        float *iseq = &i_chroma[polarity_mode][step_vs_chroma][col][off];
-        float *qseq = &q_chroma[polarity_mode][step_vs_chroma][col][off];
+        float *yseq = &y_output[step_vs_chroma][col][off];
+        float *iseq = &i_chroma[step_vs_chroma][col][off];
+        float *qseq = &q_chroma[step_vs_chroma][col][off];
 
         for (int i=off; i<42; i+=2) {
             int idx = padding + x*5 + i - 18;
@@ -294,17 +293,15 @@ void precompute_downsampling (void)
     build_sinc_filter(ifilter, KSIZE, 0.7 / 142.8);
     build_sinc_filter(qfilter, KSIZE, 0.7 / 428.4);
 
-    for (int polarity=0; polarity<2; polarity++) {
-        for (int alignment=0; alignment<3; alignment++) {
-            // Precompute colors
-            for (int color=0; color<64; color++) {
-                downsample_composite(&y_output[polarity][alignment][color][0], 
-                                     &i_chroma[polarity][alignment][color][0], 
-                                     &q_chroma[polarity][alignment][color][0], 
-                                     yfilter, ifilter, qfilter,
-                                     alignment,
-                                     &composite_output[color][0]);
-            }
+    for (int alignment=0; alignment<3; alignment++) {
+        // Precompute colors
+        for (int color=0; color<64; color++) {
+            downsample_composite(&y_output[alignment][color][0], 
+                                 &i_chroma[alignment][color][0], 
+                                 &q_chroma[alignment][color][0], 
+                                 yfilter, ifilter, qfilter,
+                                 alignment,
+                                 &composite_output[color][0]);
         }
     }
 }
