@@ -112,13 +112,13 @@ static inline Uint32 rgbi (byte r, byte g, byte b)
 static inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
-    if (r < 0) r = 0.0;
+    if (r < 0.0) r = 0.0;
     if (r > 255.0) r = 255.0;
     g *= 255.0;
-    if (g < 0) g = 0.0;
+    if (g < 0.0) g = 0.0;
     if (g > 255.0) g = 255.0;
     b *= 255.0;
-    if (b < 0) b = 0.0;
+    if (b < 0.0) b = 0.0;
     if (b > 255.0) b = 255.0;
 
     return rgbi(r,g,b);
@@ -131,34 +131,20 @@ static inline void yiq2rgb (float yiq[3], float rgb[3])
     rgb[2] = yiq[0] + -1.1070*yiq[1] +  1.7046*yiq[2];
 }
 
-float yiq_table[64][3];
-float chroma_output[64][12];
-float color_saturation[64];
-float kern_i12[12];
-float kern_q12[12];
+float composite_output[64][12];
 float y_output[2][3][64][64];
 float i_chroma[2][3][64][64];
 float q_chroma[2][3][64][64];
-float emph_i[2][3][64];
-float emph_q[2][3][64];
 
-#define K160SIZE 769
-float kern_sinc_160[K160SIZE];
+/* Size of filter kernels: */
+#define KSIZE 513
 
-#define K120SIZE 513
-float kern_sinc_120[K120SIZE] ;
-
-#define K90SIZE 385
-float kern_sinc_90[K90SIZE];
-
-#define BK90SIZE 513
-float bkern_sinc_90[BK90SIZE];
-
-#define K60SIZE 257
-float kern_sinc_60[K60SIZE];
-
-#define KCSIZE 65
-float kern_i[KCSIZE*2], kern_q[KCSIZE*2];
+/* This is the color subcarrier for the I/Q channels. It's really 60
+ * samples long - the kernels are generated at 214 MHz, so we can
+ * downsample 5:1 to 640 pixels out, but we repeat this to fill the
+ * width of the FIR kernels. */
+#define SCLEN 513
+float kern_i[SCLEN], kern_q[SCLEN];
 
 void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 {
@@ -168,17 +154,17 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     int polarity_mode = ((nes.time ^ line) & 1)? 1 : 0;
 
 #define padding 32
-    float ybuf[1280+padding*2];   
+    float ybuf[1280+padding*2];
     float ibuf[1280+padding*2];
     float qbuf[1280+padding*2];
 
-    // Generate video signal:
     memset(ybuf, 0, sizeof(ybuf));
     memset(ibuf, 0, sizeof(ibuf));
     memset(qbuf, 0, sizeof(qbuf));
 
-    int step_vs_chroma = 0;
-    
+    //printf("%i %i\n", nes.time, line);
+    int step_vs_chroma = 2 - ((line + (nes.time & 1)) % 3);
+
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
 
@@ -205,24 +191,25 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     for (int x=0; x<640; x++) {
         float rgb[3];
         float yiq[3] = { 0.0f, 0.0f, 0.0f };
-        //int cidx = 8 + pad*5 + x*16;
         int cidx = padding + 2*x;
 
-        float scale = 12.0 * 0.5;
+        float scale = 7.5;
 
-        yiq[0] = ybuf[cidx] * 5.0;
-        yiq[1] = ibuf[cidx] * scale * 1.7;
-        yiq[2] = qbuf[cidx] * scale * 1.7;
-        yiq[1] *= yiq[0] * 3.9;
-        yiq[2] *= yiq[0] * 3.9;
+        yiq[0] = ybuf[cidx] * scale * 0.7;
+        yiq[1] = ibuf[cidx] * scale;
+        yiq[2] = qbuf[cidx] * scale;
 
         yiq2rgb(yiq, rgb); 
 
         //*dest0++ = rgbf(rgb[0], rgb[1], rgb[2]);
 
         Uint32 ox = dest0[0];
+        const float fadein = 0.6;
+        const float fadeout = (1.0 - fadein) * 1.0 / 256.0;
         byte r = ox >> 16, g = (ox >> 8) & 0xFF, b = ox & 0xFF;
-        *dest0++ = rgbf(rgb[0]*0.5 + r/512.0, rgb[1]*0.5 + g/512.0, rgb[2]*0.5 + b/512.0);
+        *dest0++ = rgbf(rgb[0]*fadein + r*fadeout,
+                        rgb[1]*fadein + g*fadeout,
+                        rgb[2]*fadein + b*fadeout);
     }
 
     // Render alternate scanlines
@@ -230,9 +217,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         
         Uint32 nx = line0[x];
         byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
-/*        r = r>>1; 
+        r = r>>1; 
         g = g>>1; 
-        b = b>>1;*/
+        b = b>>1;
         nx = rgbi(r, g, b);
         line1[x] = nx;
     }
@@ -263,33 +250,30 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
         buf[i] = blackman(i, n-1) * sinc(cutoff, ((double)i) - 0.5 * ((double)(n-1)));
         sum += buf[i];
     }
-
-    printf("sinc %i / %f: sums to %f\n", n, cutoff, sum);
 }
 
-void downsample_composite (float *y_out, float *i_out, float *q_out, float cpol, int modthree, float luminance, float *chroma)
+void downsample_composite (float *y_out, float *i_out, float *q_out, 
+                           float *ykern, float *ikern, float *qkern,
+                           int modthree, float *chroma)
 {
-    float ybuf[40+K120SIZE];
-    float ibuf[40+K120SIZE];
-    float qbuf[40+K120SIZE];
+    float ybuf[40+KSIZE];
+    float ibuf[40+KSIZE];
+    float qbuf[40+KSIZE];
     memset(ybuf, 0, sizeof(ibuf));
     memset(ibuf, 0, sizeof(ibuf));
-    memset(qbuf, 0, sizeof(qbuf));
+    memset(qbuf, 0, sizeof(qbuf));    
 
     for (int i=0; i<40; i+=5) {
-        float level = luminance + cpol * chroma[(i/5 + modthree*8)%12];
+        float level = chroma[(i/5 + modthree*8)%12];
 
-        for (int j=0; j<K120SIZE; j++) {
+        for (int j=0; j<KSIZE; j++) {
             int filter_index = (modthree*40+i)%60;
-            ibuf[i+j] += level * cpol * kern_i[filter_index]*bkern_sinc_90[j];
-            qbuf[i+j] += level * cpol * kern_q[filter_index]*bkern_sinc_90[j];
-        }
-        
-        for (int j=0; j<K120SIZE; j++) {
-            ybuf[i+j] += level * bkern_sinc_90[j];
+            ibuf[i+j] += level * ikern[j] * kern_i[filter_index];
+            qbuf[i+j] += level * qkern[j] * kern_q[filter_index];
+            ybuf[i+j] += level * ykern[j];
         }
     }
-    
+
     for (int i=0; i<42; i++) {
         int idx = i * 8 + 14*8;
         y_out[i] = ybuf[idx];
@@ -300,20 +284,26 @@ void downsample_composite (float *y_out, float *i_out, float *q_out, float cpol,
 
 void precompute_downsampling (void)
 {
+    /* The correct cutoff frequencies for the YIQ channels are 3.5
+     * MHz, 1.5 MHz, and 0.5 MHz respectively, but my filters suck (I
+     * really should measure what's going on or use better ones), so I
+     * have to set them a bit lower to keep the leakage under
+     * control. */
+    float yfilter[KSIZE], ifilter[KSIZE], qfilter[KSIZE];
+    build_sinc_filter(yfilter, KSIZE, 0.7 / 60.0);
+    build_sinc_filter(ifilter, KSIZE, 0.7 / 142.8);
+    build_sinc_filter(qfilter, KSIZE, 0.7 / 428.4);
+
     for (int polarity=0; polarity<2; polarity++) {
-        float polf = polarity? -1.0 : 1.0;
         for (int alignment=0; alignment<3; alignment++) {
             // Precompute colors
             for (int color=0; color<64; color++) {
-                //int off = alignment * 40;
-                //float level = yiq_table[color][0] + polf * chroma_output[color][(i/5 + alignment*8)%12];
                 downsample_composite(&y_output[polarity][alignment][color][0], 
                                      &i_chroma[polarity][alignment][color][0], 
                                      &q_chroma[polarity][alignment][color][0], 
-                                     polf, 
-                                     alignment, 
-                                     yiq_table[color][0], 
-                                     &chroma_output[color][0]);
+                                     yfilter, ifilter, qfilter,
+                                     alignment,
+                                     &composite_output[color][0]);
             }
         }
     }
@@ -322,100 +312,48 @@ void precompute_downsampling (void)
 void ntsc_filter (void)
 {
     double twelfth = 2.0 * M_PI / 12.0;
-    double tint = 0.0;
+    double tint = -1.1;         /* 33 degrees */
     double tint_radians = tint * twelfth;
-    memset(chroma_output, 0, sizeof(chroma_output));
+    memset(composite_output, 0, sizeof(composite_output));
 
-    // Base YIQ sinusoid for testing
-    for (int step=0; step<12; step++) {
-        double phase = ((double)step) * twelfth + tint_radians;
-        kern_i12[step] = -cos(phase);
-        kern_q12[step] = sin(phase);
-    }
-
-    // Build I/Q decoder kernels
-    for (int i=0; i<2*KCSIZE; i++) {
+    // Chroma subcarrier
+    for (int i=0; i<SCLEN; i++) {
         double phase = ((double)i) * 2.0 * M_PI / 60.0 + tint_radians;
         kern_i[i] = -cos(phase);
-        kern_q[i] =  sin(phase);
+        kern_q[i] = -sin(phase);
     }
 
-    build_sinc_filter(kern_sinc_160, 769, 1.0 / 160.0);
-    build_sinc_filter(kern_sinc_120, 513, 1.0 / 120.0);
-    build_sinc_filter(kern_sinc_90,  385, 1.0 /  90.0);
-    build_sinc_filter(kern_sinc_60,  257, 1.0 /  60.0);
-    build_sinc_filter(bkern_sinc_90, 513, 1.0 /  90.0);
-    
-    // Generate a YIQ palette 
+    // Generate composite waveform at 12 * 3.57 MHz:
     for (int col=0; col<64; col++) {
-        float *yiq = &yiq_table[col][0];
         int x = col & 15;        
-        //double saturations[4] = { 0.260, 0.460, 0.400, 0.260 };
-        //double intensities[4] = { 0.15, 0.6, 1.0, 1.2 };
-        double saturations[4] = { 0.8, 0.65, 0.42, 0.26 };
-        double saturation = saturations[col>>4];
-        double intensities[4] = { 0.8, 1.0, 1.0, 1.2 };
+        double black = 0.518;
+        double output_black = 0.04;
+        double low[4]  = { 0.350, 0.518, 0.962, 1.550 };
+        double high[4] = { 1.090, 1.500, 1.960, 1.960 };
+        double scale = (1.0 - output_black) / (high[3] - black);
 
-        yiq[0] = 0.0;
-        yiq[1] = 0.0;
-        yiq[2] = 0.0;
-        color_saturation[col] = 0.0;
+        double *lo = low;
+        double *hi = high;
 
-        if (x < 0xE) {
-            yiq[0] = (1.0-saturation) * intensities[col >> 4];            
+        if (x == 0x0D) hi = low;
+        if (x == 0x00) lo = high;
+        if (x > 0x0D) scale = 0.0;
 
-            if (x == 0) {
-                yiq[0] += 0.2;// * (1.0 - saturation);
-            } else if (x == 0x0D) {
-
-            } else if (x < 0xD) {
-                double phase = ((double)(x-1) + tint) * 2.0 * M_PI / 12.0;
-                yiq[1] = saturation * -cos(phase);
-                yiq[2] = saturation * sin(phase);
-                color_saturation[col] = saturation;
-                chroma_output[col][x-1] += saturation;
-            }
-
+        for (int i=0; i< 6; i++) {
+            composite_output[col][(i-x-1+24)%12] += output_black + scale * (hi[col>>4] - black);
+            composite_output[col][(i-x-1+24+6)%12] += output_black + scale * (lo[col>>4] - black);
         }
+
     }
 
     precompute_downsampling();
 
-    vid_width = 640;
+    vid_width = 768;
     vid_height = 480;
     vid_bpp = 32;
     filter_output_line = ntsc_emitter;
+    //filter_output_line = yiq_test_emitter;
 }
 
 
 
-void yiq_test_emitter (unsigned y, byte *colors, byte *emphasis)
-{
-    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2) * window_surface->pitch);
-    Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+1) * window_surface->pitch);
-    
-    for (int x = 0; x < 256; x++) {
-        byte col = colors[x];
-        Uint32 px;
-        float rgb[3];
-        //float yiq[3] = { 0.250*(col>>4), 0.0, 0.0 };
-
-        yiq2rgb(yiq_table[col&63], rgb);
-        px = rgbf(rgb[0], rgb[1], rgb[2]);
-        
-
-        *dest0++ = px; 
-        *dest0++ = px;
-
-        Uint32 nx = px;
-        byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
-        r = r*2/4; 
-        g = g*2/4; 
-        b = b*2/4;
-        nx = rgbi(r, g, b);
-
-        dest1[1] = dest1[0] = nx;
-        dest1 += 2;
-
-    }
-}
