@@ -1,0 +1,129 @@
+                           NES Video Voltage Levels
+                           ------------------------
+
+
+09/22/06
+V1.00
+K.Horton
+----
+
+
+
+I got bored one day and decided to throw the NES' video up on the
+scope and see what it was outputting.  I used an Agilent 54622D
+mixed signal scope for the tests.
+
+For testing, I wrote a small palette test program that output four
+solid colour bars, left to right, with a 2 pixel divider between
+each coloured area.  These dividers made convenient reference marks
+when looking at the signal on the scope.
+
+I measured the voltage on the emitter of the amplifier transistor
+connected to the PPU's video output pin.  An original model top loader
+was used for the tests.
+
+
+
+                                   /-- C.B. High Level
+                               ^^^^^
+ Black Level ->  -----       --VVVVV
+                      |     |      \-- C.B. Low Level
+       Synch Level -> |_____|
+
+
+           
+           NES blanking/burst/black level diagram
+         
+
+
+
+The above represents the start of a scanline on the NES.  There are four
+key voltages indicated:  black level, synch, and the burst high/low
+voltage that it oscillates between to generate the burst.  There are exactly
+10 cycles of 3.579MHz making up the burst. Because the NES inserts an
+extra pixel every other frame, this forces the burst to have 1 of 2 different
+phasings.  This is clearly seen on the scope.
+
+As for the actual rendered video, there are only 8 different voltage levels.
+The two grey sets, 00h and 0dh, conveniently output 4 of each voltage level.
+This made testing rather simple.  First, I output colours 00h, 10h, 20h,
+and 30h, and then colours 0dh, 1dh, 2dh, and 3dh.  The voltage levels of both
+were measured.
+
+
+                                 
+                     L2,L3 hi -> /-----\    /-----\
+                                /       \  /       \
+           L1 hi -> /------\   <         ><________/| <- L3 lo
+                   /        \ | \       /           |
+                  <          >   \-----/ <- L2 lo   |
+L0 hi ->  -----  | \        /                       |
+         /     \ |  \------/ <- L1 lo               |
+  ------<- - - -> - - - - - - - - - - - - - - - - - -----  <- black level
+L0 lo -> -------                                   
+
+
+               Approximate relative amplitudes, somewhat.
+               
+
+The video output itself is somewhat interesting; The two voltages each
+colour luminance value oscillates between are the same as the static
+greys, as discussed above.  For example, colour 15h is oscillating
+between colour 1dh and 10h at a 3.579MHz rate.  The phase of this
+relative to the phase of the colourburst determines the colour seen.
+
+Interestingly, the saturation varies among the luminance values- the middle
+two luma values (1 and 2) have the same saturation, but 0 and 3 are
+"squashed".  Luminance 0 actually dips below the black level a tad, and
+this is the cause of the issues if you use colour 0dh.  This "blacker than
+black" really isn't THAT far below the black level, and it really is a long
+ways from synch.  So, on most TVs, this shouldn't be too much of an issue
+if you use colour 0dh for your black.
+
+Luminance 2 and 3 both have the same upper voltage, which explains why
+colours 20h and 30h give the same colour; bright white.  Incidentally, this
+is the brightest colour the NES can produce, yielding the highest voltage.
+
+
+Now for the data.  All voltage levels are indicated two ways:  absolute
+and relative.  The absolute voltage is just that- the voltage above
+ground.  The relative voltage is based off of the synch level.  No part
+of the waveform has a voltage lower than synch.  Refer to the above two
+diagrams for the points measured.
+
+
+
+            |    Normal     |   Emphasis    |
+            +-------+-------+-------+-------+
+Signal name |  Abs  |  Rel  |  Abs  |  Rel  |
+------------+-------+-------+-------+-------+
+synch level | 0.781 | 0.000 | 0.781 | 0.000 |
+black level | 1.300 | 0.518 | 1.300 | 0.518 |
+    C.B. lo | 1.000 | 0.218 | 1.000 | 0.218 |
+    C.B. hi | 1.712 | 0.931 | 1.712 | 0.931 |
+        ----+-------+-------+-------+-------+
+      L0 lo | 1.131 | 0.350 | 1.043 | 0.262 |
+      L0 hi | 1.875 | 1.090 | 1.593 | 0.812 |
+      L1 lo | 1.300 | 0.518 | 1.162 | 0.381 |
+      L1 hi | 2.287 | 1.500 | 1.906 | 1.120 |
+        ----+-------+-------+-------+-------+
+      L2 lo | 1.743 | 0.962 | 1.493 | 0.712 |
+      L2 hi | 2.743 | 1.960 | 2.243 | 1.460 | *
+      L3 lo | 2.331 | 1.550 | 1.943 | 1.160 |
+      L3 hi | 2.743 | 1.960 | 2.243 | 1.460 | *
+        ----+-------+-------+-------+-------+
+
+        * these two are the same voltage level
+
+
+For the "emphasis" values, I turned all 3 emphasis bits on at once and then
+recorded the requisite voltages.  As was noted elsewhere, the emphasis bits
+really are attenuation bits.  Turning 1 or more bits on always results in a
+REDUCTION of output level, either modulated with the colour carrier(s), or
+in the case of all bits on at once, a static value.  As one would guess,
+the emphasis values do not affect colour burst, synch, or black level. 
+
+In all cases, the ratio of normal to emphasis is from 1.33 to 1.35, most of
+the error probably being in measurement.  So, flipping it around and making
+it a percentage, turning on all of the bits will reduce the brightness by
+74% to 75%. 
