@@ -131,10 +131,10 @@ static inline void yiq2rgb (float yiq[3], float rgb[3])
     rgb[2] = yiq[0] + -1.1070*yiq[1] +  1.7046*yiq[2];
 }
 
-float composite_output[64][12];
-float y_output[3][64][64];
-float i_chroma[3][64][64];
-float q_chroma[3][64][64];
+float composite_output[8][64][12];
+float y_output[8][3][64][64];
+float i_chroma[8][3][64][64];
+float q_chroma[8][3][64][64];
 
 /* Size of filter kernels: */
 #define KSIZE 513
@@ -166,11 +166,13 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
+        byte emph = emphasis[x] >> 5;
+        if (emphasis[x] & 1) col &= 0x30;
 
         int off = x & 1;
-        float *yseq = &y_output[step_vs_chroma][col][off];
-        float *iseq = &i_chroma[step_vs_chroma][col][off];
-        float *qseq = &q_chroma[step_vs_chroma][col][off];
+        float *yseq = &y_output[emph][step_vs_chroma][col][off];
+        float *iseq = &i_chroma[emph][step_vs_chroma][col][off];
+        float *qseq = &q_chroma[emph][step_vs_chroma][col][off];
 
         for (int i=off; i<42; i+=2) {
             int idx = padding + x*5 + i - 18;
@@ -293,15 +295,16 @@ void precompute_downsampling (void)
     build_sinc_filter(ifilter, KSIZE, 0.7 / 142.8);
     build_sinc_filter(qfilter, KSIZE, 0.7 / 428.4);
 
-    for (int alignment=0; alignment<3; alignment++) {
-        // Precompute colors
-        for (int color=0; color<64; color++) {
-            downsample_composite(&y_output[alignment][color][0], 
-                                 &i_chroma[alignment][color][0], 
-                                 &q_chroma[alignment][color][0], 
-                                 yfilter, ifilter, qfilter,
-                                 alignment,
-                                 &composite_output[color][0]);
+    for (int emphasis=0; emphasis<8; emphasis++) {
+        for (int alignment=0; alignment<3; alignment++) {
+            for (int color=0; color<64; color++) {
+                downsample_composite(&y_output[emphasis][alignment][color][0], 
+                                     &i_chroma[emphasis][alignment][color][0], 
+                                     &q_chroma[emphasis][alignment][color][0], 
+                                     yfilter, ifilter, qfilter,
+                                     alignment,
+                                     &composite_output[emphasis][color][0]);
+            }
         }
     }
 }
@@ -336,9 +339,27 @@ void ntsc_filter (void)
         if (x == 0x00) lo = high;
         if (x > 0x0D) scale = 0.0;
 
-        for (int i=0; i< 6; i++) {
-            composite_output[col][(i-x-1+24)%12] += output_black + scale * (hi[col>>4] - black);
-            composite_output[col][(i-x-1+24+6)%12] += output_black + scale * (lo[col>>4] - black);
+        for (int emph=0; emph<8; emph++) {
+            const int emap[3][12] = {{ 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
+                                     { 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1 },
+                                     { 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 }};
+
+            // Generate color waveform:
+            for (int i=0; i<6; i++) {
+                composite_output[emph][col][(i-x-1+24)%12] += output_black + scale * (hi[col>>4] - black);
+                composite_output[emph][col][(i-x-1+24+6)%12] += output_black + scale * (lo[col>>4] - black);
+            }
+            
+            // Apply color emphasis:
+            for (int i=0; i<12; i++) {
+                float dim = 0.746;
+                float em = 1.0;
+                if ((emph & 1) && emap[0][i]) em = dim;
+                if ((emph & 2) && emap[1][i]) em = dim;
+                if ((emph & 4) && emap[2][i]) em = dim;
+                composite_output[emph][col][i] *= em;
+            }
+
         }
 
     }
@@ -349,7 +370,6 @@ void ntsc_filter (void)
     vid_height = 480;
     vid_bpp = 32;
     filter_output_line = ntsc_emitter;
-    //filter_output_line = yiq_test_emitter;
 }
 
 
