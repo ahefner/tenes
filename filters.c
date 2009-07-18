@@ -136,8 +136,18 @@ float y_output[8][3][64][42];
 float i_chroma[8][3][64][42];
 float q_chroma[8][3][64][42];
 
-float rgb_output[8][3][64][42][3];
 
+#define RGB_SCALE 64
+#define RGB_SHIFT 6
+short rgb_output[8][3][64][42][3];
+
+static inline byte clamp_to_u8 (short x)
+{
+    x >>= RGB_SHIFT;
+    if (x < 0) return 0;
+    if (x > 255) return 255;
+    else return x;
+}
 
 /* Size of filter kernels: */
 #define KSIZE 513
@@ -156,15 +166,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
 
 #define padding 32
-    float rbuf[1280+padding*2];
-    float gbuf[1280+padding*2];
-    float bbuf[1280+padding*2];
+    short vbuf[1280+padding*2][4];
+    memset(vbuf, 0, sizeof(vbuf));
 
-    memset(rbuf, 0, sizeof(rbuf));
-    memset(gbuf, 0, sizeof(gbuf));
-    memset(bbuf, 0, sizeof(bbuf));
-
-    //printf("%i %i\n", nes.time, line);
     int step_vs_chroma = 2 - ((line + (nes.time & 1)) % 3);
 
 
@@ -174,13 +178,13 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         if (emphasis[x] & 1) col &= 0x30;
 
         int off = x & 1;
-        float *rgb = &rgb_output[emph][step_vs_chroma][col][off][0];
+        short *rgb = &rgb_output[emph][step_vs_chroma][col][off][0];
 
         for (int i=off; i<42; i+=2) {
             int idx = padding + x*5 + i - 18;
-            rbuf[idx] += rgb[0];
-            gbuf[idx] += rgb[1];
-            bbuf[idx] += rgb[2];
+            vbuf[idx][2] += rgb[0];
+            vbuf[idx][1] += rgb[1];
+            vbuf[idx][0] += rgb[2];
             rgb += 6;
         }
 
@@ -190,36 +194,24 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 
     // Output pixels:
     for (int x=0; x<640; x++) {
-        float rgb[3];
         int cidx = padding + 2*x;
-
-        rgb[0] = rbuf[cidx];
-        rgb[1] = gbuf[cidx];
-        rgb[2] = bbuf[cidx];
-
-        //*dest0++ = rgbf(rgb[0], rgb[1], rgb[2]);
-
-        Uint32 ox = dest0[0];
-        const float fadein = 0.6;
-        const float fadeout = (1.0 - fadein) * 1.0 / 256.0;
-        byte r = ox >> 16, g = (ox >> 8) & 0xFF, b = ox & 0xFF;
-        *dest0++ = rgbf(rgb[0]*fadein + r*fadeout,
-                        rgb[1]*fadein + g*fadeout,
-                        rgb[2]*fadein + b*fadeout);
-
+        byte r = clamp_to_u8(vbuf[cidx][2]);
+        byte g = clamp_to_u8(vbuf[cidx][1]);
+        byte b = clamp_to_u8(vbuf[cidx][0]);
+        Uint32 px = rgbi(r,g,b);
+        *dest0++ = px;
     }
 
-    // Render alternate scanlines
-
-    for (int x=0; x<640; x++) {
-        
-        Uint32 nx = line0[x];
-        byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
-        r = r>>1; 
-        g = g>>1; 
-        b = b>>1;
-        nx = rgbi(r, g, b);
-        line1[x] = nx;
+    // Interpolate scanlines
+    if (line) {
+        for (int x=0; x<640; x++) {
+            
+            Uint32 nx = line0[x];
+            nx >>= 1;
+            nx &= 0x7F7F7F;
+            nx += (line0[x-640-640] >> 1) & 0x7F7F7F;
+            line0[x-640] = nx;
+        }
     }
 
 #undef padding
@@ -252,7 +244,7 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
 
 void downsample_composite (float *y_out, float *i_out, float *q_out,                            
                            float *ykern, float *ikern, float *qkern,
-                           float *rgb, int modthree, float *chroma)
+                           short *rgb, int modthree, float *chroma)
 {
     float ybuf[40+KSIZE];
     float ibuf[40+KSIZE];
@@ -278,12 +270,15 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         i_out[i] = ibuf[idx];
         q_out[i] = qbuf[idx];
 
-        float yiq[3];
+        float yiq[3], rgbf[8];
         yiq[0] = ybuf[idx] * 0.7;
         yiq[1] = ibuf[idx];
         yiq[2] = qbuf[idx];
         for (int j=0; j<3; j++) yiq[j] *= 7.5;
-        yiq2rgb(yiq, &rgb[3*i]);
+        yiq2rgb(yiq, rgbf);
+        rgb[3*i+0] = rgbf[0] * 255.0 * (float)RGB_SCALE;
+        rgb[3*i+1] = rgbf[1] * 255.0 * (float)RGB_SCALE;
+        rgb[3*i+2] = rgbf[2] * 255.0 * (float)RGB_SCALE;
     }
 }
 
@@ -320,6 +315,7 @@ void ntsc_filter (void)
     double tint = -1.1;         /* 33 degrees */
     double tint_radians = tint * twelfth;
     memset(composite_output, 0, sizeof(composite_output));
+    memset(rgb_output, 0, sizeof(rgb_output));
 
     // Chroma subcarrier
     for (int i=0; i<SCLEN; i++) {
