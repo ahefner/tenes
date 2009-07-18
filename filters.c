@@ -132,9 +132,12 @@ static inline void yiq2rgb (float yiq[3], float rgb[3])
 }
 
 float composite_output[8][64][12];
-float y_output[8][3][64][64];
-float i_chroma[8][3][64][64];
-float q_chroma[8][3][64][64];
+float y_output[8][3][64][42];
+float i_chroma[8][3][64][42];
+float q_chroma[8][3][64][42];
+
+float rgb_output[8][3][64][42][3];
+
 
 /* Size of filter kernels: */
 #define KSIZE 513
@@ -143,7 +146,7 @@ float q_chroma[8][3][64][64];
  * samples long - the kernels are generated at 214 MHz, so we can
  * downsample 5:1 to 640 pixels out, but we repeat this to fill the
  * width of the FIR kernels. */
-#define SCLEN 513
+#define SCLEN KSIZE
 float kern_i[SCLEN], kern_q[SCLEN];
 
 void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
@@ -153,16 +156,17 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
 
 #define padding 32
-    float ybuf[1280+padding*2];
-    float ibuf[1280+padding*2];
-    float qbuf[1280+padding*2];
+    float rbuf[1280+padding*2];
+    float gbuf[1280+padding*2];
+    float bbuf[1280+padding*2];
 
-    memset(ybuf, 0, sizeof(ybuf));
-    memset(ibuf, 0, sizeof(ibuf));
-    memset(qbuf, 0, sizeof(qbuf));
+    memset(rbuf, 0, sizeof(rbuf));
+    memset(gbuf, 0, sizeof(gbuf));
+    memset(bbuf, 0, sizeof(bbuf));
 
     //printf("%i %i\n", nes.time, line);
     int step_vs_chroma = 2 - ((line + (nes.time & 1)) % 3);
+
 
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
@@ -170,37 +174,28 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         if (emphasis[x] & 1) col &= 0x30;
 
         int off = x & 1;
-        float *yseq = &y_output[emph][step_vs_chroma][col][off];
-        float *iseq = &i_chroma[emph][step_vs_chroma][col][off];
-        float *qseq = &q_chroma[emph][step_vs_chroma][col][off];
+        float *rgb = &rgb_output[emph][step_vs_chroma][col][off][0];
 
         for (int i=off; i<42; i+=2) {
             int idx = padding + x*5 + i - 18;
-            ybuf[idx] += *yseq;
-            ibuf[idx] += *iseq;
-            qbuf[idx] += *qseq;
-            yseq+=2;
-            iseq+=2;
-            qseq+=2;
+            rbuf[idx] += rgb[0];
+            gbuf[idx] += rgb[1];
+            bbuf[idx] += rgb[2];
+            rgb += 6;
         }
 
         step_vs_chroma++;
         if (step_vs_chroma == 3) step_vs_chroma = 0;
     }
 
-    // Filter to YIQ and produce pixels:
+    // Output pixels:
     for (int x=0; x<640; x++) {
         float rgb[3];
-        float yiq[3] = { 0.0f, 0.0f, 0.0f };
         int cidx = padding + 2*x;
 
-        float scale = 7.5;
-
-        yiq[0] = ybuf[cidx] * scale * 0.7;
-        yiq[1] = ibuf[cidx] * scale;
-        yiq[2] = qbuf[cidx] * scale;
-
-        yiq2rgb(yiq, rgb); 
+        rgb[0] = rbuf[cidx];
+        rgb[1] = gbuf[cidx];
+        rgb[2] = bbuf[cidx];
 
         //*dest0++ = rgbf(rgb[0], rgb[1], rgb[2]);
 
@@ -211,9 +206,11 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         *dest0++ = rgbf(rgb[0]*fadein + r*fadeout,
                         rgb[1]*fadein + g*fadeout,
                         rgb[2]*fadein + b*fadeout);
+
     }
 
     // Render alternate scanlines
+
     for (int x=0; x<640; x++) {
         
         Uint32 nx = line0[x];
@@ -253,9 +250,9 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
     }
 }
 
-void downsample_composite (float *y_out, float *i_out, float *q_out, 
+void downsample_composite (float *y_out, float *i_out, float *q_out,                            
                            float *ykern, float *ikern, float *qkern,
-                           int modthree, float *chroma)
+                           float *rgb, int modthree, float *chroma)
 {
     float ybuf[40+KSIZE];
     float ibuf[40+KSIZE];
@@ -280,6 +277,13 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         y_out[i] = ybuf[idx];
         i_out[i] = ibuf[idx];
         q_out[i] = qbuf[idx];
+
+        float yiq[3];
+        yiq[0] = ybuf[idx] * 0.7;
+        yiq[1] = ibuf[idx];
+        yiq[2] = qbuf[idx];
+        for (int j=0; j<3; j++) yiq[j] *= 7.5;
+        yiq2rgb(yiq, &rgb[3*i]);
     }
 }
 
@@ -302,6 +306,7 @@ void precompute_downsampling (void)
                                      &i_chroma[emphasis][alignment][color][0], 
                                      &q_chroma[emphasis][alignment][color][0], 
                                      yfilter, ifilter, qfilter,
+                                     &rgb_output[emphasis][alignment][color][0][0],
                                      alignment,
                                      &composite_output[emphasis][color][0]);
             }
@@ -359,14 +364,12 @@ void ntsc_filter (void)
                 if ((emph & 4) && emap[2][i]) em = dim;
                 composite_output[emph][col][i] *= em;
             }
-
         }
-
     }
 
     precompute_downsampling();
 
-    vid_width = 768;
+    vid_width = 640;
     vid_height = 480;
     vid_bpp = 32;
     filter_output_line = ntsc_emitter;
