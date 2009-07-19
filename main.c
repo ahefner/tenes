@@ -69,7 +69,6 @@ void calibrate_aux_stick (void)
     if (joy) {
         aux_axis[0] = SDL_JoystickGetAxis (joy, 2);
         aux_axis[1] = SDL_JoystickGetAxis (joy, 3);
-        printf("Calibrated aux stick: %i,%i\n", aux_axis[0], aux_axis[1]);
     }
 }
 
@@ -134,14 +133,17 @@ byte keyboard_input = 0;
 void process_key_event (SDL_KeyboardEvent * key)
 {
     int idx;
-    int symtable[8] = { SDLK_s, SDLK_a, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN,
-                        SDLK_LEFT, SDLK_RIGHT };
 
-    if ((key->keysym.mod & KMOD_CTRL) && (key->type == SDL_KEYUP)) {
+    // Ignore modified keys down, so as not to confuse the input code.
+    if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT)) 
+        && (key->type == SDL_KEYDOWN)) return;
+
+    // Actions occur on key up.
+    if ((key->keysym.mod & KMOD_CTRL ) && (key->type == SDL_KEYUP)) {
         process_control_key(key->keysym.sym);
         return;
     }
-
+    
     if ((key->keysym.mod & KMOD_ALT) && 
         (key->type == SDL_KEYUP) && 
         (key->keysym.sym == SDLK_RETURN)) 
@@ -150,10 +152,11 @@ void process_key_event (SDL_KeyboardEvent * key)
         return;
     }
 
+    // Match keysym against keyboard -> button mapping:
     if (cfg_disable_keyboard) idx = 8;
     else {
         for (idx = 0; idx < 8; idx++) {
-            if (symtable[idx] == key->keysym.sym) break;
+            if (keymap[idx] == key->keysym.sym) break;
         }
     }
 
@@ -210,8 +213,6 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
             
         case SDLK_F7:
-            /* If the state restore fails, the state of the machine will be corrupt, so reset. */
-            /* (Although a corrupt machine state is potentially interesting in its own right.. ;) */
             if (!restore_state_from_disk()) reset_nes(&nes);
             break;
 
@@ -289,7 +290,7 @@ void runframe (byte extra_input)
     // Quick hack. Probably better we move the input processing out of here entirely.
     nes.joypad.pad[0] |= extra_input;
     nes.joypad.pad[keyboard_controller] |= keyboard_input;
-    
+
     if (movie_input) {
         byte tmp[4];
         if (fread(&tmp, 4, 1, movie_input)) {
@@ -341,9 +342,21 @@ void runframe (byte extra_input)
     }
 }
 
+void describe_keymap (void)
+{
+    char *buttons[8] = { "A", "B", "Select", "Start", "Up", "Down", "Left", "Right"};
+    for (int idx = 0; idx < 8; idx++) {
+        printf("  %6s <= %s\n", buttons[idx], SDL_GetKeyName(keymap[idx]));
+    }
+}
+
+void load_config (void)
+{
+}
   
 int main (int argc, char **argv)
 {
+    load_config();
     cfg_parseargs(argc, argv);
 
     nes.rom = load_nes_rom (romfilename);
@@ -363,7 +376,7 @@ int main (int argc, char **argv)
         else printf("Recording movie to '%s'\n", movie_output_filename);
     }
 
-    sys_init();
+    sys_init();   
 
     fs_add_chunk("ram", nes.ram, sizeof(nes.ram), 1);
     fs_add_chunk("sram", nes.save, sizeof(nes.save), 1);
@@ -378,9 +391,9 @@ int main (int argc, char **argv)
     fs_add_chunk("rom-hash", hashbuf, strlen(hashbuf), 0);
 
     if (joystick[0]) calibrate_aux_stick();
-    if (snd_init() == -1) {
-        sound_globalenabled = 0;
-    }
+    if (snd_init() == -1) sound_globalenabled = 0;
+
+    //if (!cfg_disable_keyboard) describe_keymap();
 
     init_nes(&nes);
     reset_nes(&nes);

@@ -1,5 +1,9 @@
 #define FILTERS_C
 
+#include <emmintrin.h>
+typedef short v8hi __attribute__ ((__vector_size__ (16)));
+typedef unsigned char v16qu __attribute__ ((__vector_size__ (16)));
+
 #include <math.h>
 #include "nespal.h"
 #include "filters.h"
@@ -136,10 +140,9 @@ float y_output[8][3][64][42];
 float i_chroma[8][3][64][42];
 float q_chroma[8][3][64][42];
 
-
 #define RGB_SCALE 64
 #define RGB_SHIFT 6
-short rgb_output[8][3][64][42][3];
+short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
 static inline byte clamp_to_u8 (short x)
 {
@@ -163,14 +166,13 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 {
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
     Uint32 *line0 = dest0;
-    Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
+    //Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
 
-#define padding 32
-    short vbuf[1280+padding*2][4];
+#define padding 30
+    short __attribute__((aligned(16))) vbuf[1280+padding*2][4];
     memset(vbuf, 0, sizeof(vbuf));
 
     int step_vs_chroma = 2 - ((line + (nes.time & 1)) % 3);
-
 
     for (int x=0; x < 256; x++) {
         byte col = colors[x] & 63;
@@ -178,28 +180,79 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         if (emphasis[x] & 1) col &= 0x30;
 
         int off = x & 1;
-        short *rgb = &rgb_output[emph][step_vs_chroma][col][off][0];
+        short *rgb = &rgb_output[emph][step_vs_chroma][col][off][0][0];
 
-        for (int i=off; i<42; i+=2) {
-            int idx = padding + x*5 + i - 18;
-            vbuf[idx][2] += rgb[0];
+        int idx = (padding + x*5 + off - 18)>>1;
+
+#if 0
+        for (int i=0; i<22; i++) {            
+            vbuf[idx][0] += rgb[0];
             vbuf[idx][1] += rgb[1];
-            vbuf[idx][0] += rgb[2];
-            rgb += 6;
+            vbuf[idx][2] += rgb[2];
+            rgb += 4;
+            idx++;
         }
+#else
+        v8hi *in = (v8hi *)rgb;
+        v8hi *out = &vbuf[idx][0];
+        
+        /* Performance of aligned versus unaligned loads: On the Core
+         * 2 Quad (2.4 GHz), we gain hugely from switching to aligned
+         * loads (at the cost of correctness; we might lose some of
+         * that due to memory pressure because we'll double the size
+         * of the kernels to support both possible
+         * alignments). Tentatively, we go from 9.4s down to 6.7s, but
+         * the base work is somewhere around 4.5s, so the speed of
+         * this particular operation at least doubles. On the other
+         * hand, we're more than fast enough on that machine, whereas
+         * my Pentium M 2.0 GHz laptop, whose lackluster performance
+         * motivated the SSE rewrite in the first place, hardly gains
+         * at all (dropping from ~15s to ~14s), but that's still well
+         * faster than real time, so I'm not inclined to spend any
+         * more time here.
+        */
 
+        // Awful alignment kludge for benchmarking:
+        // if ((idx) & 1) out = &vbuf[idx-1][0];
+
+        // if ((((size_t)out)&0xF) != 0) printf("Output pointer not aligned! %p vbuf=%p idx=%i off=%i x=%i\n", out, vbuf, idx, off, x);
+        for (int i=0; i<11; i++) {
+            // If I fixed the alignment issue, I could do this:
+            //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);            
+            //out[i] += in[i];
+
+            v8hi old = __builtin_ia32_loaddqu(out);
+            __builtin_ia32_storedqu(out, in[i] + old);
+            out++;
+        }
+#endif        
         step_vs_chroma++;
         if (step_vs_chroma == 3) step_vs_chroma = 0;
     }
 
     // Output pixels:
+/*
     for (int x=0; x<640; x++) {
-        int cidx = padding + 2*x;
+        int cidx = padding + x;
         byte r = clamp_to_u8(vbuf[cidx][2]);
         byte g = clamp_to_u8(vbuf[cidx][1]);
         byte b = clamp_to_u8(vbuf[cidx][0]);
         Uint32 px = rgbi(r,g,b);
         *dest0++ = px;
+    }
+*/
+    if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned! Fuck!\n");
+    if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned! Fuck!\n");
+
+    __v16qi *out = (v16qu *)dest0;
+    for (int x=0; x<640; x+=4) {
+        int cidx = padding + x;
+        v8hi v1 = *(v8hi *)(&vbuf[cidx][0]);
+        v8hi v2 = *(v8hi *)(&vbuf[cidx+2][0]);
+        v1 = __builtin_ia32_psrawi128(v1, RGB_SHIFT);
+        v2 = __builtin_ia32_psrawi128(v2, RGB_SHIFT);
+        *out = __builtin_ia32_packuswb128(v1, v2);
+        out++;
     }
 
     // Interpolate scanlines
@@ -244,7 +297,8 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
 
 void downsample_composite (float *y_out, float *i_out, float *q_out,                            
                            float *ykern, float *ikern, float *qkern,
-                           short *rgb, int modthree, float *chroma)
+                           short *rgb_even, short *rgb_odd,
+                           int modthree, float *chroma)
 {
     float ybuf[40+KSIZE];
     float ibuf[40+KSIZE];
@@ -276,9 +330,10 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         yiq[2] = qbuf[idx];
         for (int j=0; j<3; j++) yiq[j] *= 7.5;
         yiq2rgb(yiq, rgbf);
-        rgb[3*i+0] = rgbf[0] * 255.0 * (float)RGB_SCALE;
-        rgb[3*i+1] = rgbf[1] * 255.0 * (float)RGB_SCALE;
-        rgb[3*i+2] = rgbf[2] * 255.0 * (float)RGB_SCALE;
+        short *rgb = ((i&1)? rgb_odd : rgb_even) + 4*(i>>1);
+        rgb[2] = rgbf[0] * 255.0 * (float)RGB_SCALE;
+        rgb[1] = rgbf[1] * 255.0 * (float)RGB_SCALE;
+        rgb[0] = rgbf[2] * 255.0 * (float)RGB_SCALE;
     }
 }
 
@@ -301,7 +356,8 @@ void precompute_downsampling (void)
                                      &i_chroma[emphasis][alignment][color][0], 
                                      &q_chroma[emphasis][alignment][color][0], 
                                      yfilter, ifilter, qfilter,
-                                     &rgb_output[emphasis][alignment][color][0][0],
+                                     &rgb_output[emphasis][alignment][color][0][0][0],
+                                     &rgb_output[emphasis][alignment][color][1][0][0],
                                      alignment,
                                      &composite_output[emphasis][color][0]);
             }
@@ -341,14 +397,19 @@ void ntsc_filter (void)
         if (x > 0x0D) scale = 0.0;
 
         for (int emph=0; emph<8; emph++) {
+            /* Something quite possibly wrong here. */
             const int emap[3][12] = {{ 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
                                      { 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1 },
                                      { 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 }};
 
             // Generate color waveform:
-            for (int i=0; i<6; i++) {
-                composite_output[emph][col][(i-x-1+24)%12] += output_black + scale * (hi[col>>4] - black);
-                composite_output[emph][col][(i-x-1+24+6)%12] += output_black + scale * (lo[col>>4] - black);
+            for (int i=0; i<6; i++) 
+            {
+                composite_output[emph][col][(i-x-1+24)%12] += 
+                    output_black + scale * (hi[col>>4] - black);
+
+                composite_output[emph][col][(i-x-1+24+6)%12] += 
+                    output_black + scale * (lo[col>>4] - black);
             }
             
             // Apply color emphasis:

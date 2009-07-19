@@ -52,12 +52,25 @@ SDL_Color palette[129];
 SDL_Joystick *joystick[4];
 int numsticks = 0;
 
-void sys_init (void)
+void print_video_info (void)
 {
-    int i, tmp;
-    int surfaceflags = SDL_DOUBLEBUF | SDL_SWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
+    SDL_VideoInfo *vi = SDL_GetVideoInfo();
+    char namebuf[64];
+    printf("Video driver: %s\n", SDL_VideoDriverName(namebuf, 64));
+    printf("Video memory: %i KB   BPP: %i %X/%X/%X   HW? %s   Accel: %s %s\n",
+           vi->video_mem, 
+           vi->vfmt->BitsPerPixel, vi->vfmt->Rmask, vi->vfmt->Gmask, vi->vfmt->Bmask, 
+           vi->hw_available? "yes" : "no", 
+           vi->blit_hw? "HW" : "",
+           vi->blit_sw? "SW" : "");
+}
 
-    if (SDL_Init (SDL_INIT_AUDIO | SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
+void sys_init (void)
+{    
+    int i, tmp;
+    int surfaceflags = SDL_DOUBLEBUF | SDL_HWACCEL | SDL_HWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
+
+    if (SDL_Init (SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
         printf ("Could not initialize SDL!\n");
         exit (1);
     }
@@ -69,11 +82,10 @@ void sys_init (void)
     window_width = max(window_width, vid_width);
     window_height = max(window_height, vid_height);
       
-      printf ("Initializing video... \n");
-      window_surface = SDL_SetVideoMode (window_width, window_height, vid_bpp, surfaceflags);
+      window_surface = SDL_SetVideoMode(window_width, window_height, vid_bpp, surfaceflags);
       if (window_surface == NULL) {
-          printf ("Could not set desired display mode!\n");
-          exit (1);
+          printf("Could not set desired display mode!\n");
+          exit(1);
       }
 
       SDL_WM_SetCaption (nes.rom.title, nes.rom.title);

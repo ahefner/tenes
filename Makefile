@@ -23,7 +23,7 @@ endif
 # Build:
 
 CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags` -mmmx
+CFLAGS= -Wall -O3 -g `sdl-config --cflags` -msse2 -flax-vector-conversions
 OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o utility.o font.o filesystem.o
 INCLUDEDIRS= -IM6502
 DEFINES=$(FUSE_FLAGS)
