@@ -162,13 +162,11 @@ void shutdown_nes (struct nes_machine *nes);
 void reset_nes (struct nes_machine *nes);
 void nes_emulate_frame(void);
 
-void runframe (byte extra_input); /* main.c: steps input, movies, emulation, video, etc.  */
-
 char *nes_time_string (void);
 void nes_printtime (void);
 
-void save_state_to_disk (void);
-int restore_state_from_disk (void);
+void save_state_to_disk (char *filename);
+int restore_state_from_disk (char *filename);
 
 #define MEMSTATE_MAX_CHUNKS 32
 struct saved_state {

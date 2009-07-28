@@ -9,11 +9,6 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <limits.h>
 
 #include "nespal.h"
 #include "nes.h"
@@ -76,6 +71,7 @@ void sys_init (void)
     }
     
     /* Initializes video fitering */
+    build_color_maps();
     if (vid_fullscreen && (vid_filter == no_filter)) vid_filter = rescale_2x;
     vid_filter();
 
@@ -135,40 +131,7 @@ void sys_init (void)
       } else printf("Joysticks are disabled.\n");
 }
 
-char config_dir[PATH_MAX];
-char *ensure_config_dir (void)
-{
-    struct passwd *pwd = getpwuid(getuid());
 
-    if (getenv("HOME")) {
-        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", getenv("HOME"));
-    } else if (!pwd) {
-        snprintf(config_dir, sizeof(config_dir), "/tmp/nes-emulator-%i", (int)getuid());
-    } else {
-        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", pwd->pw_dir);
-    }
-
-    mkdir(config_dir, 0777);
-    return config_dir;
-}
-
-char save_dir[PATH_MAX];
-char *ensure_save_dir (void)
-{
-    snprintf(save_dir, sizeof(save_dir), "%s/sram", ensure_config_dir());
-    mkdir(save_dir, 0777);
-    return save_dir;
-}
-
-char state_dir[PATH_MAX];
-char *ensure_state_dir (long long hash)
-{
-    snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
-    mkdir(state_dir, 0777);
-    snprintf(state_dir, sizeof(state_dir), "%s/state/%llX", ensure_config_dir(), hash);
-    mkdir(state_dir, 0777);
-    return state_dir;
-}
 
 void sys_shutdown (void)
 {
@@ -178,7 +141,6 @@ void sys_shutdown (void)
         if (joystick[i]) SDL_JoystickClose (joystick[i]);
     }
 
-    SDL_SetTimer (0, NULL);
     SDL_FreeSurface (window_surface);
     SDL_Quit (); 
 }

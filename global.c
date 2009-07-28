@@ -5,7 +5,7 @@
 /* An impressive collection of global state.
    Most of this is read-only configuration options. */
 
-char *romfilename = "";
+char *romfilename = NULL;
 int running = 1;
 int sound_globalenabled = 1;
 int sound_muted = 0;            /* Mutable (hah!) */
@@ -29,9 +29,6 @@ int cfg_disable_joysticks = 0;
 int cfg_disable_keyboard = 0;
 
 float aux_position[2] = {0,0};  /* Mutable */
-int mouse_x = - 1, mouse_y = -1; /* Mouse state is mutable */
-int mouse_clicked = 0;
-int mouse_pressed = 0;
 
 char *movie_output_filename = NULL;
 char *movie_input_filename = NULL;
@@ -52,6 +49,9 @@ int tv_scanline = 0;            /* Mutable */
 int rendering_scanline = 0;
 
 SDL_Surface *window_surface=NULL;
+
+/* Frame buffer, for screenshots. First dimension separates color versus emphasis. */
+byte frame_buffer[2][SCREEN_HEIGHT][SCREEN_WIDTH];
 
 void (*vid_filter) (void) = rescale_2x;
 void (*filter_output_line) (unsigned y, byte *colors, byte *emphasis) = NULL;

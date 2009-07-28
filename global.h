@@ -5,10 +5,11 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "config.h"
 #include "nes.h"
+#include "config.h"
 #include "filters.h"
 #include "utility.h"
+#include "ui.h"
 #include "M6502/M6502.h"
 
 /* Normally instruction tracing should be off.. */
@@ -49,10 +50,6 @@ extern SDLKey keymap[8];
 extern int cfg_disable_joysticks;
 extern int cfg_disable_keyboard;
 
-extern int mouse_x, mouse_y;
-extern int mouse_clicked;
-extern int mouse_pressed;
-
 extern char *movie_output_filename;
 extern char *movie_input_filename;
 extern FILE *movie_output, *movie_input;
@@ -89,6 +86,7 @@ extern byte color_buffer[256];
 extern byte emphasis_buffer[256];
 extern int emphasis_position;
 
+extern byte frame_buffer[2][SCREEN_HEIGHT][SCREEN_WIDTH];
 
 /* Initialize the video filter (set output width/height, function pointers, ... */
 extern void (*vid_filter) (void);

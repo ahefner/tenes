@@ -36,10 +36,15 @@ static inline unsigned convert_pixel (byte color, byte emphasis)
     }
 }
 
+void inline emit_unscaled (Uint32 *out, byte *colors, byte *emphasis, size_t n)
+{
+    for (int x = 0; x < n; x++) out[x] = convert_pixel(colors[x], emphasis[x]);
+}
+
 void no_filter_emitter (unsigned y, byte *colors, byte *emphasis)
 {
-    Uint32 *dest = (Uint32 *)(((byte *)window_surface->pixels) + y * window_surface->pitch);
-    for (int x = 0; x < 256; x++) *dest++ = convert_pixel(colors[x], emphasis[x]);
+    Uint32 *dest = display_ptr(0,y);
+    emit_unscaled(dest, colors, emphasis, 256);
 }
 
 void no_filter (void)
@@ -48,7 +53,6 @@ void no_filter (void)
     vid_height = 240;
     vid_bpp = 32;
     filter_output_line = no_filter_emitter;
-    build_color_maps();
 }
 
 void filter_finish_nop (void)
@@ -74,7 +78,6 @@ void rescale_2x (void)
     vid_height = 480;
     vid_bpp = 32;
     filter_output_line = rescale_2x_emitter;
-    build_color_maps();
 }
 
 /* Scanline filter with alternating fields */
@@ -108,11 +111,6 @@ void scanline_filter (void)
 
 /* NTSC filter */
 
-static inline Uint32 rgbi (byte r, byte g, byte b)
-{
-    return (r << 16) | (g << 8) | b;
-}
-
 static inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
@@ -144,7 +142,7 @@ float q_chroma[8][3][64][42];
 #define RGB_SHIFT 6
 short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
-static inline byte clamp_to_u8 (short x)
+static inline byte shift_clamp_to_u8 (int x)
 {
     x >>= RGB_SHIFT;
     if (x < 0) return 0;
@@ -234,9 +232,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 /*
     for (int x=0; x<640; x++) {
         int cidx = padding + x;
-        byte r = clamp_to_u8(vbuf[cidx][2]);
-        byte g = clamp_to_u8(vbuf[cidx][1]);
-        byte b = clamp_to_u8(vbuf[cidx][0]);
+        byte r = shift_clamp_to_u8(vbuf[cidx][2]);
+        byte g = shift_clamp_to_u8(vbuf[cidx][1]);
+        byte b = shift_clamp_to_u8(vbuf[cidx][0]);
         Uint32 px = rgbi(r,g,b);
         *dest0++ = px;
     }
@@ -367,6 +365,7 @@ void precompute_downsampling (void)
 
 void ntsc_filter (void)
 {
+    long long start_time = usectime();
     double twelfth = 2.0 * M_PI / 12.0;
     double tint = -1.1;         /* 33 degrees */
     double tint_radians = tint * twelfth;
@@ -427,9 +426,15 @@ void ntsc_filter (void)
     precompute_downsampling();
 
     vid_width = 640;
+
+    // Stupid 16:10 stretch kludge. Do this elsewhere:
+    if (vid_fullscreen) vid_width = 768;
+
     vid_height = 480;
     vid_bpp = 32;
     filter_output_line = ntsc_emitter;
+    long long end_time = usectime();
+    printf("NTSC init took %f ms.\n", (end_time - start_time) / 1000.0);
 }
 
 

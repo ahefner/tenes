@@ -6,9 +6,9 @@
 #include <signal.h>
 #include <math.h>
 #include "sys.h"
-#include "config.h"
 #include "nes.h"
 #include "sound.h"
+
 
 /* TODO: Move audio state out of random global variables and into the NES struct.   
    

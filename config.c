@@ -1,8 +1,30 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <limits.h>
+#include <errno.h>
 
 #include "global.h"
+
+void scan_video_option (char *arg)
+{
+    void *mode = NULL;
+
+    if (arg == NULL) return;
+    if (!strcmp(arg, "noscale")) mode = no_filter;
+    if (!strcmp(arg, "scale")) mode = rescale_2x;
+    if (!strcmp(arg, "scanline")) mode = scanline_filter;
+    if (!strcmp(arg, "ntsc")) mode = ntsc_filter;
+
+    if (mode) {
+        save_pref_string("video-mode", arg);
+        vid_filter = mode;
+    }
+}
 
 void print_usage (void)
 {
@@ -30,6 +52,7 @@ void print_usage (void)
            " -play FILE      Play back controller input from file\n"
            " -playquit       Quit after movie playback is complete\n"
            " -restorestate   Restore from last saved state at startup\n"
+           " -reset          Reset NES at startup\n"
            " -stripe FILE    Dump a vertical stripe of video to a file\n"
            " -stripex X      X coordinate of stripe (default is 128)\n"
            " -striperate FRAMES (default=1)\n"
@@ -75,7 +98,10 @@ void cfg_parseargs (int argc, char **argv)
   int i;
   for (i = 1; i < argc; i++) {
     char *txt = argv[i];
+
     if (txt[0] == '-') {
+        
+      scan_video_option(txt+1);
 
       if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) print_usage();
       if (!strcmp(txt, "-nosound")) sound_globalenabled = 0;
@@ -184,12 +210,10 @@ void cfg_parseargs (int argc, char **argv)
           video_stripe_rate = atoi(argv[i]) - 1;          
       }      
 
-      if (!strcmp(txt, "-noscale")) vid_filter = no_filter;
-      if (!strcmp(txt, "-scale")) vid_filter = rescale_2x;
-      if (!strcmp(txt, "-scanline")) vid_filter = scanline_filter;
-      if (!strcmp(txt, "-ntsc")) vid_filter = ntsc_filter;
+      
 
       if (!strcmp(txt, "-restorestate")) startup_restore_state = 1;
+      if (!strcmp(txt, "-reset")) startup_restore_state = -1;
 
 #ifdef USE_FUSE
       if (!strcmp(txt, "-mountpoint")) {
@@ -207,8 +231,106 @@ void cfg_parseargs (int argc, char **argv)
     }
   }
 
-  if (!strlen(romfilename)) {
+  /* If no name supplied, try the last file loaded.. but, if it 
+     doesn't exist, I'd rather pretend we didn't and show the
+     usage message as normal, rather than confuse the user by
+     erring on a file they didn't explicitly specify. */
+  if (!romfilename) {
+      romfilename = (char *)pref_string("lastfile", NULL);
+      if (!romfilename || !probe_file(romfilename)) romfilename = NULL;
+  }
+
+  if (!romfilename) {
       print_usage();
       exit(1);
   }
+}
+
+/* User preferences and save data */
+
+
+char config_dir[PATH_MAX];
+char *ensure_config_dir (void)
+{
+    struct passwd *pwd = getpwuid(getuid());
+
+    if (getenv("HOME")) {
+        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", getenv("HOME"));
+    } else if (!pwd) {
+        snprintf(config_dir, sizeof(config_dir), "/tmp/nes-emulator-%i", (int)getuid());
+    } else {
+        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", pwd->pw_dir);
+    }
+
+    mkdir(config_dir, 0755);
+    return config_dir;
+}
+
+char save_dir[PATH_MAX];
+char *ensure_save_dir (void)
+{
+    snprintf(save_dir, sizeof(save_dir), "%s/sram", ensure_config_dir());
+    mkdir(save_dir, 0755);
+    return save_dir;
+}
+
+char state_dir[PATH_MAX];
+char *ensure_state_dir (long long hash)
+{
+    snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
+    mkdir(state_dir, 0755);
+    snprintf(state_dir, sizeof(state_dir), "%s/state/%llX", ensure_config_dir(), hash);
+    mkdir(state_dir, 0755);
+    return state_dir;
+}
+
+char *sram_filename (struct nes_rom *rom)
+{
+    static char path[PATH_MAX];    
+    snprintf(path, sizeof(path), "%s/%llX", ensure_save_dir(), rom->hash);
+    return path;
+}
+
+char *state_filename (struct nes_rom *rom, unsigned index)
+{
+    static char path[PATH_MAX];    
+    snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
+    return path;
+}
+
+char *pref_filename (char *name)
+{
+    static char buf[PATH_MAX];
+    snprintf(buf, sizeof(buf), "%s/%s", ensure_config_dir(), name);
+    return buf;
+}
+
+char *pref_string (char *name, char *defaultval)
+{
+    /* Load binary file adds a terminator for us, just in case. */
+    char *string = (char *)load_binary_file(pref_filename(name), NULL);
+    if (!string) return defaultval;
+    else return string;
+}
+
+void save_pref_file (char *name, byte *data, size_t size)
+{
+    save_binary_data(pref_filename(name), data, size);
+}
+
+void save_pref_string (char *name, char *string)
+{
+    save_pref_file(name, (byte *)string, strlen(string));
+}
+
+
+void load_config (void)
+{
+    scan_video_option(pref_string("video-mode", NULL));
+    if (!strcmp(pref_string("sound_muted", ""), "true")) sound_muted = 1;
+}
+
+void save_config (void)
+{
+    save_pref_string("sound_muted", sound_muted? "true" : "false");
 }

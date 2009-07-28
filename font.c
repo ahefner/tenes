@@ -275,3 +275,20 @@ int draw_string (int x0, int baseline, char *string, unsigned color)
     return x;
 }
 
+int outlined_string (int x0, int baseline, char *string, unsigned color, unsigned outline)
+{
+    draw_string(x0-1, baseline+1, string, outline);
+    draw_string(x0-1, baseline-1, string, outline);
+    draw_string(x0+1, baseline-1, string, outline);
+    draw_string(x0+1, baseline+1, string, outline);
+    draw_string(x0+1, baseline, string, outline);
+    draw_string(x0-1, baseline, string, outline);
+    draw_string(x0, baseline+1, string, outline);
+    draw_string(x0, baseline-1, string, outline);
+    return draw_string(x0, baseline, string, color);
+}
+
+int drop_string (int x0, int baseline, char *string, unsigned color)
+{
+    return outlined_string(x0, baseline, string, color, 0);
+}

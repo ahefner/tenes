@@ -104,19 +104,7 @@ void reset_nes (struct nes_machine *nes)
   printf ("NES reset.\n");
 }
 
-char *sram_filename (struct nes_rom *rom)
-{
-    static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%llX", ensure_save_dir(), rom->hash);
-    return path;
-}
 
-char *state_filename (struct nes_rom *rom, unsigned index)
-{
-    static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
-    return path;
-}
 
 
 int file_write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
@@ -148,24 +136,30 @@ int file_read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 leng
     return 1;
 }
 
-void save_state_to_disk (void)
+void save_state_to_disk (char *filename)
 {
-    char *filename = state_filename(&nes.rom, 0);
+    if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *out = fopen(filename, "wb");
     if (!out) printf("Unable to create state file %s\n", filename);
     else {
         if (!(file_write_state_chunk(out, "NES Machine", &nes, sizeof(nes)) &&
               mapper->save_state((chunk_writer_t)file_write_state_chunk, out))) {
             printf("Error writing state file to %s\n", filename);
-        }
+        }        
+
         fclose(out);
+
+        char buf[PATH_MAX];
+        snprintf(buf, sizeof(buf), "%s.screen", filename);
+        printf("Saving screenshot as \"%s\"\n", buf);
+        save_binary_data(buf, frame_buffer, sizeof(frame_buffer));
     }
 }
 
-int restore_state_from_disk (void)
+int restore_state_from_disk (char *filename)
 {
     struct nes_rom rom;
-    char *filename = state_filename(&nes.rom, 0);
+    if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *in = fopen(filename, "rb");
 
     /* Awesome kludge: preserve nes.rom structure, except for mirroring state. */
@@ -782,6 +776,9 @@ static inline void begin_scanline (void)
 static void finish_scanline_rendering (void)
 {
     catchup_emphasis_to_x(256);
+    assert(tv_scanline < SCREEN_HEIGHT);
+    memcpy(&frame_buffer[0][tv_scanline][0], color_buffer, 256);
+    memcpy(&frame_buffer[1][tv_scanline][0], emphasis_buffer, 256);
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
     rendering_scanline = 0;
 

@@ -23,12 +23,12 @@ endif
 # Build:
 
 CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags` -msse2 -flax-vector-conversions
-OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o utility.o font.o filesystem.o
+CFLAGS= -Wall -O3 -g `sdl-config --cflags` `freetype-config --cflags` -msse2 -flax-vector-conversions
+OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o utility.o font.o filesystem.o ui.o main.o
 INCLUDEDIRS= -IM6502
 DEFINES=$(FUSE_FLAGS)
 
-LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs` $(FUSE_LIBS)
+LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs` `freetype-config --libs` $(FUSE_LIBS)
 MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c mappers/vrc6.c
 
 COBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
@@ -50,8 +50,14 @@ romloadtest: rom.o romloadtest.c
 listmappers:
 	$(CAPP) listmappers.c -o listmappers
 
-nesemu: Makefile $(OBJECTS) main.c
-	$(CAPP) main.c -o nesemu
+nesemu: Makefile $(OBJECTS)
+	$(CAPP) -o nesemu
+
+main.o: Makefile main.c global.h ui.h nes.h rom.h sys.h
+	$(COBJ) main.c
+
+ui.o: Makefile ui.c global.h
+	$(COBJ) ui.c
 
 dasm.o: Makefile dasm.c
 	$(COBJ) dasm.c

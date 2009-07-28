@@ -113,10 +113,7 @@ image_t sans_label (Uint32 color, unsigned text_height, char *string)
                               FT_LOAD_RENDER | 
                               FT_LOAD_NO_HINTING | 
                               FT_LOAD_TARGET_LIGHT);
-        if (error) {
-            printf("Fuck?\n");
-            continue;
-        }
+        if (error) continue;
 
         FT_Bitmap *bmp = &face_sans->glyph->bitmap;
         /*
@@ -139,12 +136,16 @@ image_t sans_label (Uint32 color, unsigned text_height, char *string)
             ix0 -= ox0;
             ox0 -= ox0;
         }
+
+        if (ox0 >= rwidth) break;
+
         // Clip to right edge
         int overflow = max(0, ox1 - rwidth);
         if (overflow) printf("POSTCLIP\n");
         ox1 -= overflow;
         ix1 -= overflow;
         int width = ox1 - ox0;
+        //printf("Compute width \"%s\" char '%c' -- %i - %i = %i\n", string, c, ox1, ox0, width);
         assert(width >= 0);
         assert(ix0 >= 0);
 
@@ -231,11 +232,13 @@ Uint32 cursor_color = 0xFFFFFF;
 
 void setcolor (Uint32 color) { cursor_color = color; }
 
-void print (char *fmt, ...)
+SDL_Rect print (char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     char buf[8192];
+    int xmin = cursor[0], xmax = cursor[0];
+    int ymin = cursor[1], ymax = cursor[1];
 
     vsnprintf(buf, sizeof(buf), fmt, args);
     buf[8191] = 0;
@@ -245,6 +248,10 @@ void print (char *fmt, ...)
         char *next = strchr(ptr, '\n');
         if (next) *next = 0;
         cursor[0] = drop_string(cursor[0], cursor[1], ptr, cursor_color);
+        xmin = min(xmin, cursor[0]);
+        xmax = max(xmax, cursor[0]);
+        ymin = min(ymin, cursor[1] - text_ascent);
+        ymax = max(ymax, cursor[1] + text_descent);
         
         if (next) {
             cursor[0] = cursor_base[0];
@@ -254,6 +261,8 @@ void print (char *fmt, ...)
     }
 
     va_end(args);
+
+    return (SDL_Rect){xmax-xmin, ymax-ymin, xmin, ymin};
 }
 
 void dim_to_y (int y)
@@ -338,6 +347,11 @@ image_t sound[2] = { NULL, NULL };
 image_t mute[2] = { NULL, NULL };
 image_t gamepak_top = NULL;
 image_t border_top_1 = NULL;
+image_t scroll_outer_top = NULL;
+image_t scroll_outer_bottom = NULL;
+image_t scroll_inner_top = NULL;
+image_t scroll_inner_bottom = NULL;
+
 
 #define decal(name) if (!name) name = loaddecal(#name".bmp");
 #define decals(name) \
@@ -365,6 +379,10 @@ void load_menu_media (void)
     decals(mute);
     decal(gamepak_top);
     decal(border_top_1);
+    decal(scroll_outer_top);
+    decal(scroll_outer_bottom);
+    decal(scroll_inner_top);
+    decal(scroll_inner_bottom);
 }
 
 void open_menu (void)
@@ -698,11 +716,6 @@ void run_main_menu (struct inputctx *input)
 
     //dim_y_target = max(dim_y_target, cursor[1] + text_height);
     dim_y_target = vid_height;
-
-    static image_t haters = NULL;
-    if (!haters) haters = sans_label(0x88FF77, 16, "Fuck the police!");
-    if (haters) drawimage(haters, 100, 100, left, baseline);
-
 }
 
 
@@ -762,8 +775,60 @@ float clampf (float min, float max, float value)
 
 int browser_ent_title_relation (struct gbent **a, struct gbent **b)
 {
-    printf("compare: %s   %s\n", (*a)->title, (*b)->title);
     return strcasecmp((*a)->title, (*b)->title);
+}
+
+int trailing_slash_p (char *str)
+{
+    return strlen(str) && (str[strlen(str)-1] == '/');
+}
+
+const char *dirsep (char *path)
+{
+    return trailing_slash_p(path)? "" : "/";
+}
+
+
+struct breadcrumb {
+    image_t label, highlight, shadow;
+    char name[PATH_MAX];
+    char path[1024];
+    struct breadcrumb *next;
+    int use_highlight;
+};
+
+struct breadcrumb *browser_breadcrumbs;
+
+void free_breadcrumb (struct breadcrumb *b)
+{
+    if (b->label) image_free(b->label);
+    if (b->highlight) image_free(b->highlight);
+    if (b->next) free_breadcrumb(b->next);
+    free(b);
+}
+
+struct breadcrumb *build_breadcrumbs (char *path)
+{
+    struct breadcrumb *root = calloc(1, sizeof(*root));
+    assert(root != NULL);
+    strcpy(root->name, "/");
+
+    char *ptr = path + strspn(path, "/");
+    struct breadcrumb *tail = root;
+
+    while (*ptr) {        
+        struct breadcrumb *next = calloc(1, sizeof(*next));
+        assert(next != NULL);
+        char *sep = strchrnul(ptr, '/');
+        if (*sep == '/') sep++;
+        memcpy(next->name, ptr, min(sizeof(next->name)-1, sep-ptr));
+        memcpy(next->path, path, min(sizeof(next->path)-1, sep-path));
+        ptr = sep + strspn(sep, "/");
+        tail->next = next;
+        tail = next;
+    }
+    
+    return root;
 }
 
 void browser_rescan (void)
@@ -782,14 +847,20 @@ void browser_rescan (void)
 
     if (dir == NULL) {
         perror("opendir");
-        return;
+        strcpy(browser_cwd, "/");
+        dir = opendir(browser_cwd);
+        if (!dir) return;
     }
+
+    if (browser_breadcrumbs) free_breadcrumb(browser_breadcrumbs);
+    browser_breadcrumbs = build_breadcrumbs(browser_cwd);
 
     struct dirent *dent;
 
     while ((dent = readdir(dir))) {
-        char filename[1024];
-        snprintf(filename, sizeof(filename), "%s/%s", browser_cwd, dent->d_name);
+        char filename[1024];        
+        snprintf(filename, sizeof(filename), "%s%s%s", 
+                 browser_cwd, dirsep(browser_cwd), dent->d_name);
         
         struct stat st;
         int exists = !stat(filename, &st);
@@ -798,7 +869,6 @@ void browser_rescan (void)
             game_filename_p(filename)) 
         {
             /* Add file to browser */
-            printf("Found %s\n", dent->d_name);
 
             struct gbent *ent = calloc(1, sizeof(struct gbent));
             assert(ent != NULL);
@@ -806,7 +876,6 @@ void browser_rescan (void)
             ent->path = strdup(filename);
             ent->title = filename_to_title(dent->d_name);
             ent->background = gamepak_top;
-            ent->y = browser_num_ents * (gamepak_top->h - 5);
 
             assert(browser_num_ents <= browser_max_ents);
             if (browser_num_ents == browser_max_ents) {
@@ -825,7 +894,11 @@ void browser_rescan (void)
         }
         else if (exists && S_ISDIR(st.st_mode) && (browser_num_dirs < max_dirs))
         {   /* Add directory to browser */
+            snprintf(filename, sizeof(filename), "%s%s%s/", 
+                     browser_cwd, dirsep(browser_cwd), dent->d_name);
+            if (!strcmp(dent->d_name, ".")) continue;
             struct gbent *ent = calloc(1, sizeof(struct gbent));
+
             assert(ent != NULL);
             ent->name = strdup(dent->d_name);
             ent->path = strdup(filename);
@@ -835,7 +908,7 @@ void browser_rescan (void)
             
 
             browser_dirs[browser_num_dirs++] = ent;
-        }
+        } else printf("-- %s ex=%i --\n", filename, exists);
     }
 
     closedir(dir);
@@ -849,6 +922,10 @@ void browser_rescan (void)
 
     qsort(browser_dirs, browser_num_dirs, sizeof(browser_dirs[0]),
           (int(*)(const void *, const void *))browser_ent_title_relation);
+
+    // We can't initialize the Y positions until we've sorted.
+    for (int i=0; i<browser_num_ents; i++) browser_ents[i]->y = i * (gamepak_top->h - 5);
+    for (int i=0; i<browser_num_dirs; i++) browser_dirs[i]->y = i * 20;
 }
 
 float approach (float target, float minrate, float rate, float current)
@@ -875,10 +952,30 @@ image_t render_gamepak_label (struct gbent *ent)
     if (label->w > max_width) {
         int oldw = label->w;
         image_free(label);
-        label = sans_label(0x4c1017, 15.0 * ((float)max_width)/((float)oldw), ent->title);
+        label = sans_label(0x4c1017, 16.0 * ((float)max_width)/((float)oldw), ent->title);
     }
 
     return label;    
+}
+
+void fill_rect (Uint32 color, unsigned x0, unsigned y0, unsigned x1, unsigned y1)
+{
+    int width = x1 - x0;
+    for (unsigned y=y0; y<y1; y++) {
+        Uint32 *ptr = display_ptr(x0, y);
+        for (int x=0; x<width; x++) ptr[x] = color;
+    }
+}
+
+void browser_set_path (char *path)
+{
+    save_pref_string("browser_cwd", path);
+    browser_cwd[0] = 0;
+}
+
+void select_breadcrumb (struct breadcrumb *b)
+{
+    browser_set_path(b->path);
 }
 
 void run_game_browser (struct inputctx *input)
@@ -896,17 +993,54 @@ void run_game_browser (struct inputctx *input)
     //setcolor(color10);
 
     int label_center = 161;
+    struct gbent *last = browser_num_ents? browser_ents[browser_num_ents-1] : NULL;
+    int max_y = last? last->y + last->background->h : 0;
     int y_top = 37;
-    int y_scroll = (input->my - y_top - 30) * 2;
+    int viewport_height = window_surface->h - y_top;
+    int y_scroll = (input->my - y_top - 30) * 2;    
     y_scroll = max(y_scroll, 0);
-    int y = y_top - y_scroll;
-    int x_base = window_surface->w - 330;
+    y_scroll = min(y_scroll, max_y - viewport_height);
+    int x_base = window_surface->w - 330; 
     int already_found = 0;    
     int i;
+    
+    if (max_y < viewport_height) { 
+        y_scroll = 0;
+        goto no_scrollbar;
+    }
+    
+
+    
+    int scroll_vpad = 8;
+    int scroll_height = viewport_height - 2*scroll_vpad - 16;    
+    int scroll_x0 = x_base - 24;
+    int scroll_top = y_top + scroll_vpad + 8;
+
+    fill_rect(0xFFFFFF, scroll_x0, scroll_top, scroll_x0 + 16, scroll_top + scroll_height);
+    drawimage(scroll_outer_top,    scroll_x0, scroll_top, left, bottom);
+    drawimage(scroll_outer_bottom, scroll_x0, scroll_top + scroll_height, left, top);
+
+    //float thumb_height = max(1.0, ((float)viewport_height / (float)max_y) * (float)scroll_height);
+    //float thumb_position = ((float)y_scroll / (float)max_y) * (float)scroll_height;
+    //if (thumb_height > scroll_height) thumb_height = scroll_height;
+
+    //int thumb_top = max(scroll_top, thumb_position - 0.5 * thumb_height);
+    //int thumb_bottom = min(scroll_top + scroll_height, thumb_position + 0.5 * thumb_height);
+    
+    float thumb_top = scroll_top + (float)scroll_height * (float)y_scroll / (float)max_y;
+    float thumb_bottom = scroll_top + (float)scroll_height * (float)(y_scroll + viewport_height) / (float)max_y;
+    printf("y_scroll: %i  max_y: %i  scroll_height: %i  viewport_height: %i  thumb:%f,%f\n",
+           y_scroll, max_y, scroll_height, viewport_height, thumb_top, thumb_bottom);
+
+    fill_rect(0x000000, scroll_x0+1, thumb_top, scroll_x0 + 15, thumb_bottom);
+    drawimage(scroll_inner_top, scroll_x0, thumb_top, left, bottom);
+    drawimage(scroll_inner_bottom, scroll_x0, thumb_bottom, left, top);
+
+no_scrollbar:
 
     for (i=0; i<browser_num_ents; i++) {
         struct gbent *ent = browser_ents[i];
-        int y = ent->y - y_scroll;;
+        int y = ent->y + y_top - y_scroll;
 
         if ((y > -gamepak_top->h) && (y < window_surface->h)) {
             int x = x_base + roundf(ent->xoffset);
@@ -933,14 +1067,58 @@ void run_game_browser (struct inputctx *input)
     }
     i++;
 
+    setcolor(color00);
+    //print("Directories get no love:\n");
+    //static image_t dir_label = NULL;
+    //if (!dir_label) dir_label = sans_label(color00, 16.0, "Directories:");
+    //drawimage(dir_label, 10, 50, left, baseline);
+    setcolor(color10);
+    
+
     for (int i=0; i<browser_num_dirs; i++) {
-        print("%s\n", browser_dirs[i]->title);
+        struct gbent *dir = browser_dirs[i];
+        int label_height = 18;
+        if (!dir->label) dir->label = sans_label(color10, label_height, dir->title);
+        SDL_Rect rect = drawimage(dir->label, 10, y_top + label_height + dir->y, left, baseline);
+
+        if (mouseover(input, rect) && (input->released & 1)) {
+
+            if (!strcmp(dir->name, "..")) {
+                char *str = strdup(browser_cwd);
+                if (trailing_slash_p(str)) str[strlen(str)-1] = 0;
+                char *tmp = strrchr(str, '/');
+
+                if (!tmp) browser_set_path("/");
+                else {
+                    *(tmp+1) = 0;
+                    browser_set_path(str);
+                }
+                free(str);
+            } else browser_set_path(dir->path);
+        }
     }
 
     draw_hborder(0, border_top_1, top);
+    static float bc_pos = 0;
+    
+    int width = 0;
 
-    drawimage(browser_dir_shadow, window_surface->w / 2 - 2, 22 + 2, center, baseline);
-    drawimage(browser_dir_label,  window_surface->w / 2, 22, center, baseline);
+    for (struct breadcrumb *b = browser_breadcrumbs; b != NULL; b = b->next) {
+        int bx = (int)(bc_pos + 0.5) + width;
+        if (!b->label) b->label = sans_label(color00, 24, b->name);
+        if (!b->shadow) b->shadow = sans_label(0x000000, 24, b->name);
+        if (!b->highlight) b->highlight = sans_label(color10, 24, b->name);
+        drawimage(b->shadow, bx-2, 22+2, left, baseline);
+        SDL_Rect rect = drawimage(b->use_highlight? b->highlight : b->label, bx, 22, left, baseline);
+        b->use_highlight = b->next && mouseover(input, rect);
+        width += b->label->w + 1;
+        if (b->use_highlight && (input->pressed & 1)) select_breadcrumb(b);
+    }
+
+    bc_pos = approach((window_surface->w - width)/2, 1.0, 0.1, bc_pos);
+
+//    drawimage(browser_dir_shadow, window_surface->w / 2 - 2, 22 + 2, center, baseline);
+//    drawimage(browser_dir_label,  window_surface->w / 2, 22, center, baseline);
 
 }
 

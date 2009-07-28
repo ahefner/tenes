@@ -9,5 +9,8 @@ static const int text_width = 8;
 static const Uint32 white = 0xFFFFFF;
 
 int draw_string (int x0, int baseline, char *string, unsigned color);
+int drop_string (int x0, int baseline, char *string, unsigned color);
+int outlined_string (int x0, int baseline, char *string, unsigned color, unsigned outline);
+
 
 #endif
