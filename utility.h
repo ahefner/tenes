@@ -9,4 +9,20 @@ int probe_file (char *path);
 int probe_regular_file (char *path);
 time_t file_write_date (char *path);
 
+char *make_absolute_filename (char *filename);
+
+static inline float clampf (float min, float max, float value)
+{
+    if (value < min) return min;
+    else if (value > max) return max;
+    else return value;
+}
+
+static inline int clampi (int min, int max, int value)
+{
+    if (value < min) return min;
+    else if (value > max) return max;
+    else return value;
+}
+
 #endif

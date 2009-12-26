@@ -162,7 +162,11 @@ float kern_i[SCLEN], kern_q[SCLEN];
 
 void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 {
-    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
+    int x_out = (window_surface->w - 640) / 2;
+    Uint32 *dest0 = display_ptr(x_out, line*2);
+    Uint32 *interpolate = display_ptr(x_out, line*2-1);
+    Uint32 *prevline = display_ptr(x_out, line*2-2);
+//    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
     Uint32 *line0 = dest0;
     //Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
 
@@ -195,7 +199,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         v8hi *out = &vbuf[idx][0];
         
         /* Performance of aligned versus unaligned loads: On the Core
-         * 2 Quad (2.4 GHz), we gain hugely from switching to aligned
+         * 2 Quad (2.4 GHz), we win big (2x) from switching to aligned
          * loads (at the cost of correctness; we might lose some of
          * that due to memory pressure because we'll double the size
          * of the kernels to support both possible
@@ -260,8 +264,8 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
             Uint32 nx = line0[x];
             nx >>= 1;
             nx &= 0x7F7F7F;
-            nx += (line0[x-640-640] >> 1) & 0x7F7F7F;
-            line0[x-640] = nx;
+            nx += (prevline[x] >> 1) & 0x7F7F7F;
+            interpolate[x] = nx;
         }
     }
 
@@ -428,7 +432,7 @@ void ntsc_filter (void)
     vid_width = 640;
 
     // Stupid 16:10 stretch kludge. Do this elsewhere:
-    if (vid_fullscreen) vid_width = 768;
+    //if (vid_fullscreen) vid_width = 768;
 
     vid_height = 480;
     vid_bpp = 32;

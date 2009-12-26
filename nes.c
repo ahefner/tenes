@@ -35,7 +35,7 @@ void init_nes (struct nes_machine *nes)
         mapper = &mapper_None;        
     }
   } else {
-      printf ("Unknown mapper (%i). Defaulting to mapper 0.\n", nes->rom.mapper);
+      printf("Unknown mapper (%i). Defaulting to mapper 0.\n", nes->rom.mapper);
       mapper = &mapper_None;
   }
 
@@ -73,6 +73,7 @@ void reset_nes (struct nes_machine *nes)
 
   memset ((void *) &nes->snd, 0, sizeof (nes->snd));
   Reset6502(&nes->cpu);
+  nes->cpu.Trace = cputrace;
   nes->last_sound_cycle = 0;
   assert(nes->cpu.Cycles == 0);
   assert(nes->last_sound_cycle == 0);
@@ -101,7 +102,8 @@ void reset_nes (struct nes_machine *nes)
   nes->joypad.state[1] = 0;
 
   rendering_scanline = 0;
-  printf ("NES reset.\n");
+
+  printf("NES reset.\n");
 }
 
 

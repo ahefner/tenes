@@ -1,11 +1,6 @@
 #ifndef NES_UI_H
 #define NES_UI_H
 
-#ifndef NES_UI_C
-extern int menu;
-extern float dim_y_target;
-#endif
-
 
 struct inputctx {
     int mx, my;                 /* Mouse X/Y */
@@ -46,4 +41,17 @@ SDL_Rect drawimage (image_t image, int x, int y, alignmode align_x, alignmode al
 
 int ensure_freetype (void);
 image_t sans_label (Uint32 color, unsigned text_height, char *string);
+
+float approach (float target, float minrate, float rate, float current);
+
+void run_main_menu (struct inputctx *input);
+void run_game_browser (struct inputctx *input);
+
+/** Exports **/
+
+#ifndef NES_UI_C
+extern void (*menu) (struct inputctx *);
+extern float dim_y_target;
+#endif
+
 #endif

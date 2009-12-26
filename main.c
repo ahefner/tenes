@@ -347,7 +347,41 @@ void describe_keymap (void)
         printf("  %6s <= %s\n", buttons[idx], SDL_GetKeyName(keymap[idx]));
     }
 }
-  
+
+void close_current_game (void)
+{
+    save_sram(nes.save, &nes.rom, 1);
+    save_state_to_disk(state_filename(&nes.rom, 0));
+    mapper->mapper_shutdown();
+    free_rom(&nes.rom);
+}
+
+int open_game (char *filename)
+{
+    static int first_time = 1;
+    nes.rom = load_nes_rom (filename);
+    if (nes.rom.prg == NULL) {
+        printf("Unable to load rom \"%s\".\n", filename);
+        return 1;
+    }
+    
+    save_pref_string("lastfile", filename);
+
+    init_nes(&nes);
+    reset_nes(&nes);
+
+    if (startup_restore_state >= 0)
+        restore_state_from_disk(state_filename(&nes.rom, startup_restore_state));
+    
+    /* First time through here, the video hasn't been initalized yet
+     * (in case we can't open the rom file). */
+    if (first_time) first_time = 0;
+    else SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
+
+    return 0;
+}
+
+
 int main (int argc, char **argv)
 {
     load_config();
@@ -357,14 +391,8 @@ int main (int argc, char **argv)
         /* TODO: Do some magic to disable the UI here. */
     }
 
-    nes.rom = load_nes_rom (romfilename);
-    if (nes.rom.prg == NULL) {
-        printf("Unable to load rom.\n");
-        return 1;
-    }
+    if (open_game(romfilename)) return 1;
     
-    save_pref_string("lastfile", romfilename);
-
     if (movie_input_filename) {
         movie_input = fopen(movie_input_filename, "rb");
         if (!movie_input) printf("Unable to open '%s' for movie input.\n", movie_input_filename);
@@ -395,20 +423,14 @@ int main (int argc, char **argv)
 
     //if (!cfg_disable_keyboard) describe_keymap();
 
-    init_nes(&nes);
-    reset_nes(&nes);
-    nes.cpu.Trace = cputrace;
-
 #ifdef USE_FUSE
     if (cfg_mount_fs) fs_mount(cfg_mountpoint);
 #endif
 
-    if (startup_restore_state >= 0)
-        restore_state_from_disk(state_filename(&nes.rom, startup_restore_state));
-
     time_frame_target = usectime();
 
-    while (running) { 
+    while (running) {
+        memset(window_surface->pixels, 0, window_surface->pitch * window_surface->h);
 
         struct inputctx ctx;
         process_events(&ctx);
@@ -435,11 +457,7 @@ int main (int argc, char **argv)
                    buffer_high - frame_start_samples);
     }
 
-    save_sram(nes.save, &nes.rom, 1);
-    save_state_to_disk(state_filename(&nes.rom, 0));
-    mapper->mapper_shutdown();
-    free_rom (&nes.rom);
-    printf("Rom freed.\n");
+    close_current_game();
 
     if (movie_output) fclose(movie_output);
     if (movie_input) fclose(movie_input);

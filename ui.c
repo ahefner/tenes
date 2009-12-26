@@ -26,14 +26,7 @@
 #include "ui.h"
 
 
-
-
-void image_free (image_t image)
-{
-    SDL_FreeSurface(image->_sdl);
-    if (image->freeptr) free(image->freeptr);
-    free(image);
-}
+void (*menu) (struct inputctx *) = NULL;
 
 
 /*** Freetype glue ***/
@@ -326,7 +319,12 @@ image_t loaddecal (char *name)
     return img;
 }
 
-int menu;
+void image_free (image_t image)
+{
+    SDL_FreeSurface(image->_sdl);
+    if (image->freeptr) free(image->freeptr);
+    free(image);
+}
 
 image_t pad600 = NULL;
 image_t mascot = NULL;
@@ -388,7 +386,7 @@ void load_menu_media (void)
 void open_menu (void)
 {
     load_menu_media();
-    menu = 1;
+    menu = run_main_menu;
     SDL_ShowCursor(SDL_ENABLE);
 }
 
@@ -463,14 +461,16 @@ struct floatybutt {
 
 const float floaty_rate = 0.25;
 const float floaty_height = 10;
+const float floaty_linear = 0.1; // Hmm. Don't like this.
 
 int run_floatybutt (struct inputctx *input, struct floatybutt *this, 
                     image_t faces[2], image_t shadow, int x, int y)
-{
+{    
     this->hover = mouseover(input, drawimage(shadow, x, y, left, bottom));
-    if (this->hover && (input->buttons & 1))
-        this->offset = lerpf(0, floaty_rate, this->offset);
-    else this->offset = lerpf(floaty_height, floaty_rate, this->offset);
+//    if (this->hover && (input->buttons & 1)) this->offset = lerpf(0, floaty_rate, this->offset);
+//    else this->offset = lerpf(floaty_height, floaty_rate, this->offset);
+    if (this->hover && (input->buttons & 1)) this->offset = approach(0, floaty_linear, floaty_rate, this->offset);
+    else this->offset = approach(floaty_height, floaty_linear, floaty_rate, this->offset);
 
     drawimage(faces[this->hover], x+this->offset, y-this->offset, left, bottom);
     
@@ -565,7 +565,7 @@ void render_restorestate (struct inputctx *input)
     int cy = 10 + photo->h + 10;
     
     const float button_height = 7;
-    static float offset = button_height;
+    static float offset = 7;    /* const is dumb */
     const int actual_width = SCREEN_WIDTH - 2*overscan;
     const int actual_height = SCREEN_HEIGHT-2*overscan;
     int px = cx + 3;
@@ -681,7 +681,7 @@ void run_main_menu (struct inputctx *input)
     icon_x += icon_pad;
 
     static struct floatybutt eject_button = {0, 0};
-    if (run_floatybutt(input, &eject_button, eject, square_shadow, vert_x, vert_y)) printf("Load new file???\n");
+    if (run_floatybutt(input, &eject_button, eject, square_shadow, vert_x, vert_y)) menu = run_game_browser;
     vert_y += icon_pad + eject[0]->h;
 
     static struct floatybutt camera_button = {0, 0};
@@ -728,8 +728,10 @@ struct gbent
     char *path;
     image_t background;    /* Not freed! */
     image_t label;
+    image_t highlight;
     float xoffset, xtarget;
     unsigned y;
+    int hover;
 };
 
 struct gbent **browser_ents;
@@ -745,6 +747,7 @@ void free_gbent (struct gbent *ent) {
     free(ent->path);
     free(ent->title);
     if (ent->label) image_free(ent->label);
+    if (ent->highlight) image_free(ent->highlight);
     free(ent);
 }
 
@@ -764,13 +767,6 @@ char *filename_to_title (char *filename)
     char *tmp = strrchr(out, '.');
     if (tmp) *tmp = 0;
     return out;
-}
-
-float clampf (float min, float max, float value)
-{
-    if (value < min) return min;
-    else if (value > max) return max;
-    else return value;
 }
 
 int browser_ent_title_relation (struct gbent **a, struct gbent **b)
@@ -811,7 +807,8 @@ struct breadcrumb *build_breadcrumbs (char *path)
 {
     struct breadcrumb *root = calloc(1, sizeof(*root));
     assert(root != NULL);
-    strcpy(root->name, "/");
+    strcpy(root->name, "Viewing /");
+    strcpy(root->path, "/");
 
     char *ptr = path + strspn(path, "/");
     struct breadcrumb *tail = root;
@@ -896,7 +893,7 @@ void browser_rescan (void)
         {   /* Add directory to browser */
             snprintf(filename, sizeof(filename), "%s%s%s/", 
                      browser_cwd, dirsep(browser_cwd), dent->d_name);
-            if (!strcmp(dent->d_name, ".")) continue;
+            if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) continue;
             struct gbent *ent = calloc(1, sizeof(struct gbent));
 
             assert(ent != NULL);
@@ -908,7 +905,7 @@ void browser_rescan (void)
             
 
             browser_dirs[browser_num_dirs++] = ent;
-        } else printf("-- %s ex=%i --\n", filename, exists);
+        }
     }
 
     closedir(dir);
@@ -930,7 +927,7 @@ void browser_rescan (void)
 
 float approach (float target, float minrate, float rate, float current)
 {
-    float d = minrate + fabs((current-target) * rate);
+    float d = max(minrate, fabs((current-target) * rate));
     if (target < current) d = -d;
     return clampf(min(target,current), max(target,current), current+d);
 }
@@ -958,9 +955,15 @@ image_t render_gamepak_label (struct gbent *ent)
     return label;    
 }
 
-void fill_rect (Uint32 color, unsigned x0, unsigned y0, unsigned x1, unsigned y1)
+noinline void fill_rect (Uint32 color, int x0, int y0, int x1, int y1)
 {
     int width = x1 - x0;
+    x0 = clampi(0, x0, window_surface->w);
+    x1 = clampi(0, x1, window_surface->w);
+    y0 = clampi(0, y0, window_surface->h);
+    y1 = clampi(0, y1, window_surface->h);
+    assert(x0 <= x1);
+    assert(y0 <= y1);
     for (unsigned y=y0; y<y1; y++) {
         Uint32 *ptr = display_ptr(x0, y);
         for (int x=0; x<width; x++) ptr[x] = color;
@@ -969,6 +972,7 @@ void fill_rect (Uint32 color, unsigned x0, unsigned y0, unsigned x1, unsigned y1
 
 void browser_set_path (char *path)
 {
+    printf("Set path to \"%s\"\n", path);
     save_pref_string("browser_cwd", path);
     browser_cwd[0] = 0;
 }
@@ -978,10 +982,87 @@ void select_breadcrumb (struct breadcrumb *b)
     browser_set_path(b->path);
 }
 
+struct scrollbar 
+{
+    int grabbed;
+    int grab_y_px;
+    int grab_y_units;
+};
+
+#define Scrollbar(name) struct scrollbar name = { .grabbed = 0 };
+
+int run_scrollbar (struct inputctx *input, 
+                   struct scrollbar *scroll, 
+                   int x, int s_top, int s_bottom, 
+                   int y, int viewport_height, int max_y)
+{
+    int height = s_bottom - s_top;
+    int max_scroll = max(0, max_y - viewport_height);
+    float scroll_to_px = max_y? (float)height / (float)max_y : 0.0;
+    float px_to_scroll = height? (float)max_y / (float)height : 0.0;
+
+    float thumb_top = s_top + y * scroll_to_px;
+    float thumb_bottom = s_top + (y + viewport_height) * scroll_to_px;
+
+    fill_rect(0xFFFFFF, x, s_top, x + 16, s_bottom);
+    drawimage(scroll_outer_top,    x, s_top, left, bottom);
+    drawimage(scroll_outer_bottom, x, s_bottom, left, top);
+
+    fill_rect(0x000000, x+1, thumb_top, x + 15, thumb_bottom);
+    drawimage(scroll_inner_top, x, thumb_top, left, bottom);
+    drawimage(scroll_inner_bottom, x, thumb_bottom, left, top);
+
+    SDL_Rect rect = {.w=16, .h=height+16, .x=x, .y=s_top-8};
+
+    if (scroll->grabbed) {
+        int y_offset = input->my - scroll->grab_y_px;
+        int new_y = clampi(0, max_scroll, scroll->grab_y_units + y_offset * px_to_scroll);
+        if (!(input->buttons & 1)) scroll->grabbed = 0;
+        input->released = input->released = 0;
+        return new_y;
+    } else if ((input->pressed & 1) && mouseover(input, rect)) {
+        // Clicked within the scrollbar. Three possibilities:
+        if (input->my <= (thumb_top-6)) {
+            // Clicked above thumb
+            return max(0, y - viewport_height);
+        } else if (input->my > (thumb_bottom+6)) {
+            // Clicked below thumb
+            return min(max_scroll, y+viewport_height);
+        } else {
+            // Clicked in thumb. Grab pointer.
+            scroll->grab_y_px = input->my;
+            scroll->grab_y_units = y;
+            scroll->grabbed = 1;
+            input->pressed = 0;
+        }
+    } else if ((input->pressed & 2) && mouseover(input, rect)) {
+        // Middle click, jump to position.
+        return clampi(0, max_scroll, (input->my - s_top) * px_to_scroll);
+    }
+
+    return y;
+}
+
 void run_game_browser (struct inputctx *input)
 {
     dim_y_target = vid_height;
 
+    int x_base = window_surface->w - 330; /* Window vertical split */
+    static int game_scroll = 0;              /* Scrolling of game list */
+
+    int y_top = 37;
+    int viewport_height = window_surface->h - y_top;
+    int scroll_top = y_top + 24;
+    int scroll_bottom = window_surface->h - 24;
+
+    int pointer_in_dir_pane = 0;
+    int pointer_in_file_pane = 0;
+    if (input->my > border_top_1->h) {
+        if ((input->mx < x_base - 24 - 4)) pointer_in_dir_pane = 1;
+        else pointer_in_file_pane = 1;
+    }
+
+    // Update current working directory
     if (!browser_cwd[0]) {
         char *pref = pref_string("browser_cwd", NULL);
         if (!pref) getcwd(browser_cwd, sizeof(browser_cwd));
@@ -989,100 +1070,34 @@ void run_game_browser (struct inputctx *input)
         browser_rescan();
     }
 
-    //print("Browsing %s\n\n", browser_cwd);
-    //setcolor(color10);
+    /** Draw directories **/
+    static int dir_scroll = 0;
+    static float dir_cur_scroll = 0.0;
+    struct gbent *lastdir = browser_num_dirs? browser_dirs[browser_num_dirs-1] : NULL;
+    int dir_height = lastdir? lastdir->y + 24 : 0;
+    static Scrollbar(dir_scroller);
 
-    int label_center = 161;
-    struct gbent *last = browser_num_ents? browser_ents[browser_num_ents-1] : NULL;
-    int max_y = last? last->y + last->background->h : 0;
-    int y_top = 37;
-    int viewport_height = window_surface->h - y_top;
-    int y_scroll = (input->my - y_top - 30) * 2;    
-    y_scroll = max(y_scroll, 0);
-    y_scroll = min(y_scroll, max_y - viewport_height);
-    int x_base = window_surface->w - 330; 
-    int already_found = 0;    
-    int i;
+    if (dir_height >= viewport_height) {
+        dir_scroll = run_scrollbar(input, &dir_scroller, 8, scroll_top, scroll_bottom, 
+                                   dir_scroll, viewport_height, dir_height);
+    } else dir_scroll = 0;
+
+    int dir_wheel_step = 38;
+    if (pointer_in_dir_pane && (input->pressed & 16)) dir_scroll += dir_wheel_step;
+    if (pointer_in_dir_pane && (input->pressed & 8))  dir_scroll -= dir_wheel_step;
+    dir_scroll = clampi(0, max(0, dir_height-viewport_height), dir_scroll);
     
-    if (max_y < viewport_height) { 
-        y_scroll = 0;
-        goto no_scrollbar;
-    }
+    dir_cur_scroll = approach(dir_scroll, 2.0, 0.18, dir_cur_scroll);
     
-
-    
-    int scroll_vpad = 8;
-    int scroll_height = viewport_height - 2*scroll_vpad - 16;    
-    int scroll_x0 = x_base - 24;
-    int scroll_top = y_top + scroll_vpad + 8;
-
-    fill_rect(0xFFFFFF, scroll_x0, scroll_top, scroll_x0 + 16, scroll_top + scroll_height);
-    drawimage(scroll_outer_top,    scroll_x0, scroll_top, left, bottom);
-    drawimage(scroll_outer_bottom, scroll_x0, scroll_top + scroll_height, left, top);
-
-    //float thumb_height = max(1.0, ((float)viewport_height / (float)max_y) * (float)scroll_height);
-    //float thumb_position = ((float)y_scroll / (float)max_y) * (float)scroll_height;
-    //if (thumb_height > scroll_height) thumb_height = scroll_height;
-
-    //int thumb_top = max(scroll_top, thumb_position - 0.5 * thumb_height);
-    //int thumb_bottom = min(scroll_top + scroll_height, thumb_position + 0.5 * thumb_height);
-    
-    float thumb_top = scroll_top + (float)scroll_height * (float)y_scroll / (float)max_y;
-    float thumb_bottom = scroll_top + (float)scroll_height * (float)(y_scroll + viewport_height) / (float)max_y;
-    printf("y_scroll: %i  max_y: %i  scroll_height: %i  viewport_height: %i  thumb:%f,%f\n",
-           y_scroll, max_y, scroll_height, viewport_height, thumb_top, thumb_bottom);
-
-    fill_rect(0x000000, scroll_x0+1, thumb_top, scroll_x0 + 15, thumb_bottom);
-    drawimage(scroll_inner_top, scroll_x0, thumb_top, left, bottom);
-    drawimage(scroll_inner_bottom, scroll_x0, thumb_bottom, left, top);
-
-no_scrollbar:
-
-    for (i=0; i<browser_num_ents; i++) {
-        struct gbent *ent = browser_ents[i];
-        int y = ent->y + y_top - y_scroll;
-
-        if ((y > -gamepak_top->h) && (y < window_surface->h)) {
-            int x = x_base + roundf(ent->xoffset);
-            SDL_Rect rect = drawimage(gamepak_top, x, y, left, top);
-            rect.w -= floor(ent->xoffset);      // Otherwise, oscillates at right edge
-            int over = mouseover(input, rect);
-
-            if (!ent->label) ent->label = render_gamepak_label(ent); 
-
-            drawimage(ent->label, x + label_center, y + 21, center, baseline);
-
-            float pull_target = (window_surface->w - gamepak_top->w)/2 - x_base + label_center/2;
-            if (!already_found && over && (input->buttons & 1)) ent->xtarget = pull_target;
-            else ent->xtarget = 0.0;
-
-            // The rectangles overlap slightly, so only choose one.
-            if (over) already_found = 1;
-            
-        }
-
-        float minrate = 2.0;
-        float rate = 0.10 * ((ent->xtarget < ent->xoffset)? 1.0 : 1.5);
-        ent->xoffset = approach(ent->xtarget, minrate, rate, ent->xoffset);
-    }
-    i++;
-
-    setcolor(color00);
-    //print("Directories get no love:\n");
-    //static image_t dir_label = NULL;
-    //if (!dir_label) dir_label = sans_label(color00, 16.0, "Directories:");
-    //drawimage(dir_label, 10, 50, left, baseline);
-    setcolor(color10);
-    
-
     for (int i=0; i<browser_num_dirs; i++) {
         struct gbent *dir = browser_dirs[i];
         int label_height = 18;
         if (!dir->label) dir->label = sans_label(color10, label_height, dir->title);
-        SDL_Rect rect = drawimage(dir->label, 10, y_top + label_height + dir->y, left, baseline);
-
-        if (mouseover(input, rect) && (input->released & 1)) {
-
+        if (!dir->highlight) dir->highlight = sans_label(color00, label_height, dir->title);
+        image_t label = dir->hover? dir->highlight : dir->label;
+        SDL_Rect rect = drawimage(label, 33, y_top + label_height + dir->y - dir_cur_scroll, left, baseline);
+        dir->hover = mouseover(input, rect);
+        if (dir->hover && (input->released & 1)) {
             if (!strcmp(dir->name, "..")) {
                 char *str = strdup(browser_cwd);
                 if (trailing_slash_p(str)) str[strlen(str)-1] = 0;
@@ -1095,11 +1110,90 @@ no_scrollbar:
                 }
                 free(str);
             } else browser_set_path(dir->path);
+
+                dir_scroll = 0;
+                game_scroll = 0;
         }
+        if (rect.y > window_surface->h) break;
     }
 
+    /** Draw games **/
+    static int game_cur_scroll = 0;
+    static int game_pan = 0;
+    static Scrollbar(file_scroller);
+    int label_center = 163;
+    struct gbent *last = browser_num_ents? browser_ents[browser_num_ents-1] : NULL;
+    int max_y = last? last->y + last->background->h : 0;
+    int pan_region_pad = 20;
+    int pan_region_height = viewport_height - 2*pan_region_pad;
+    float pan_rate = max(0.0, min(2.0, (max_y - viewport_height) / (float)pan_region_height));
+
+    // Mouse panning
+    if (input->mx >= x_base + 14) {
+        //game_pan = (input->my - y_top - pan_region_pad) * pan_rate;
+    }
+
+    int already_found = 0;    
+
+    int game_wheel_step = 64;
+    if (pointer_in_file_pane && (input->pressed & 16)) game_scroll += game_wheel_step;
+    if (pointer_in_file_pane && (input->pressed & 8))  game_scroll -= game_wheel_step;
+    game_scroll = clampi(0, max_y - viewport_height, game_scroll);
+    
+    if (max_y < viewport_height) {
+        game_scroll = 0;
+    } else game_scroll = run_scrollbar(input, &file_scroller, x_base - 24, 
+                                    scroll_top, scroll_bottom, 
+                                    game_scroll, viewport_height, max_y);
+
+    int combined_scroll = game_scroll + game_pan;
+    combined_scroll = clampi(0, max(0,max_y-viewport_height), combined_scroll);
+
+    game_cur_scroll = approach(combined_scroll, 4.0, 0.18, game_cur_scroll);
+
+    for (int i=0; i<browser_num_ents; i++) {
+        struct gbent *ent = browser_ents[i];
+        int y = ent->y + y_top - game_cur_scroll;
+
+        if ((y > -gamepak_top->h) && (y < window_surface->h)) {
+            int x = x_base + roundf(ent->xoffset);
+            SDL_Rect rect = drawimage(gamepak_top, x, y, left, top);
+            rect.w -= floor(ent->xoffset);      // Otherwise, oscillates at right edge
+            int over = mouseover(input, rect);
+
+            if (!ent->label) ent->label = render_gamepak_label(ent); 
+
+            drawimage(ent->label, x + label_center, y + 21, center, baseline);
+
+            float pull_target = (window_surface->w - gamepak_top->w)/2 - x_base + label_center/2;
+            if (!already_found && over && (input->my >= border_top_1->h) && !(file_scroller.grabbed))
+            {
+                if (input->buttons & 1) ent->xtarget = pull_target;
+                if (input->released & 1) {
+                    ent->xtarget = 0.0;
+                    close_current_game();
+                    if (open_game(ent->path)) printf("!!!FUCK!!!\n");
+
+                }
+            }
+            else ent->xtarget = 0.0;
+
+            // The rectangles overlap slightly, so only choose one.
+            if (over) already_found = 1;
+            
+        }
+
+        float minrate = 2.0;
+        float rate = 0.10 * ((ent->xtarget < ent->xoffset)? 1.0 : 1.5);
+        ent->xoffset = approach(ent->xtarget, minrate, rate, ent->xoffset);
+    }
+
+
+    /** Draw navigation header **/
+
     draw_hborder(0, border_top_1, top);
-    static float bc_pos = 0;
+    static float bc_pos = 0.0;
+    static float bc_offset = 0.0;
     
     int width = 0;
 
@@ -1110,12 +1204,18 @@ no_scrollbar:
         if (!b->highlight) b->highlight = sans_label(color10, 24, b->name);
         drawimage(b->shadow, bx-2, 22+2, left, baseline);
         SDL_Rect rect = drawimage(b->use_highlight? b->highlight : b->label, bx, 22, left, baseline);
-        b->use_highlight = b->next && mouseover(input, rect);
+        b->use_highlight = mouseover(input, rect);
         width += b->label->w + 1;
-        if (b->use_highlight && (input->pressed & 1)) select_breadcrumb(b);
+        if (b->use_highlight && b->next && (input->pressed & 1)) select_breadcrumb(b);
+    }
+    
+    float excess = max(0.0, width - window_surface->w);
+    if (excess > 0.0) excess += 64.0;
+    bc_pos = approach((window_surface->w - width)/2 + excess * -bc_offset, 1.0, 0.1, bc_pos);
+    if (input->my < border_top_1->h) {
+        bc_offset = (input->mx / (float)window_surface->w) - 0.5;
     }
 
-    bc_pos = approach((window_surface->w - width)/2, 1.0, 0.1, bc_pos);
 
 //    drawimage(browser_dir_shadow, window_surface->w / 2 - 2, 22 + 2, center, baseline);
 //    drawimage(browser_dir_label,  window_surface->w / 2, 22, center, baseline);
@@ -1125,6 +1225,8 @@ no_scrollbar:
 
 /*** Menu dispatch ***/
 
+
+
 void run_menu (struct inputctx *input)
 {
     cursor_base[0] = 10;
@@ -1132,6 +1234,5 @@ void run_menu (struct inputctx *input)
     setcursor(0,0);
     setcolor(color00);
 
-    //run_main_menu(input);
-    run_game_browser(input);
+    menu(input);
 }

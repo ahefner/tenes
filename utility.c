@@ -83,3 +83,15 @@ time_t file_write_date (char *path)
     if (!stat(path, &st)) return st.st_mtime;
     else return (time_t)0;
 }
+
+char *make_absolute_filename (char *filename)
+{
+    if (filename[0] == '/') return strdup(filename);
+    else {
+        char buf[1024];
+        char *cwd = get_current_dir_name();
+        snprintf(buf, sizeof(buf), "%s/%s", cwd, filename);
+        free(cwd);
+        return strdup(buf);
+    }
+}

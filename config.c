@@ -103,7 +103,11 @@ void cfg_parseargs (int argc, char **argv)
         
       scan_video_option(txt+1);
 
-      if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) print_usage();
+      if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) { 
+          print_usage();
+          return;
+      }
+
       if (!strcmp(txt, "-nosound")) sound_globalenabled = 0;
       if (!strcmp(txt, "-sound")) sound_globalenabled = 1;
       if (!strcmp(txt, "-nothrottle")) {
@@ -227,7 +231,8 @@ void cfg_parseargs (int argc, char **argv)
 #endif
 
     } else {
-      romfilename = txt;
+        if (romfilename) free(romfilename);
+        romfilename = make_absolute_filename(txt);
     }
   }
 

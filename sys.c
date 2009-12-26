@@ -84,8 +84,6 @@ void sys_init (void)
           exit(1);
       }
 
-      SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
-
       for (i = 0; i < 128; i++) {
           palette[i].r = nes_palette[(i&63) * 3 + 0];
           palette[i].g = nes_palette[(i&63) * 3 + 1];
@@ -97,6 +95,7 @@ void sys_init (void)
       palette[128].b = 0;
       palette[128].unused = 0;
 
+      SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
       //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
