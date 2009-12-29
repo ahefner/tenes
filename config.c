@@ -328,14 +328,29 @@ void save_pref_string (char *name, char *string)
     save_pref_file(name, (byte *)string, strlen(string));
 }
 
+void save_pref_int (char *name, int n)
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%i", n);
+    save_pref_string(name, buf);
+}
+
+int pref_int (char *name, int defaultval)
+{
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%i", defaultval); /* Oh no I didn't! */
+    return atoi(pref_string(name, buf));
+}
 
 void load_config (void)
 {
     scan_video_option(pref_string("video-mode", NULL));
-    if (!strcmp(pref_string("sound_muted", ""), "true")) sound_muted = 1;
+    if (!strcmp(pref_string("sound-muted", ""), "true")) sound_muted = 1;
+    cfg_keyboard_controller = pref_int("keyboard-controller", 0);
 }
 
 void save_config (void)
 {
-    save_pref_string("sound_muted", sound_muted? "true" : "false");
+    save_pref_string("sound-muted", sound_muted? "true" : "false");
+    save_pref_int("keyboard-controller", cfg_keyboard_controller);
 }

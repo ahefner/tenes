@@ -22,6 +22,7 @@ int cfg_diagnostic = 0;
 
 int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};
+int cfg_keyboard_controller = 0;
 int aux_axis[2] = {0,0};
 SDLKey keymap[8] = { SDLK_s, SDLK_a, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
 int cfg_joythreshold = 4096;

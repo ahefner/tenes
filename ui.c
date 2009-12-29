@@ -25,6 +25,8 @@
 #include "filesystem.h"
 #include "ui.h"
 
+#include <SDL/SDL_image.h>
+
 
 void (*menu) (struct inputctx *) = NULL;
 
@@ -59,7 +61,7 @@ int ensure_freetype (void)
 }
 
 
-image_t sans_label (Uint32 color, unsigned text_height, char *string)
+image_t sans_label (Uint32 color, unsigned text_height, const char *string)
 {
     static byte *rtmp = NULL;
     int rwidth = window_surface->w;
@@ -292,7 +294,7 @@ char *asset (char *name)
 char *nth_name (char *name, int n)
 {
     static char buf[512];
-    snprintf(buf, sizeof(buf), "%s_%i.bmp", name, n);
+    snprintf(buf, sizeof(buf), "%s_%i.png", name, n);
     buf[511] = 0;
     return buf;
 }
@@ -300,7 +302,8 @@ char *nth_name (char *name, int n)
 image_t loaddecal (char *name)
 {
     image_t img = NULL;
-    SDL_Surface *ptr = SDL_LoadBMP(asset(name));
+    SDL_Surface *ptr = IMG_Load(asset(name));
+
     if (ptr) {
         SDL_SetAlpha(ptr, SDL_SRCALPHA, 128);
         /* Naughty! Twiddle image into ARGB format. */
@@ -319,13 +322,6 @@ image_t loaddecal (char *name)
     return img;
 }
 
-void image_free (image_t image)
-{
-    SDL_FreeSurface(image->_sdl);
-    if (image->freeptr) free(image->freeptr);
-    free(image);
-}
-
 image_t pad600 = NULL;
 image_t mascot = NULL;
 image_t drop_roundbutton = NULL;
@@ -334,7 +330,8 @@ image_t reset_lo[2] = { NULL, NULL };
 image_t keyboard_140 = NULL;
 image_t keyboard_280 = NULL;
 image_t cableseg = NULL;
-image_t nesport = NULL;
+image_t nesport[2] = { NULL, NULL };
+image_t nesport_shadow = NULL;
 image_t photo = NULL;
 image_t photo_shadow_left = NULL;
 image_t photo_shadow_bottom = NULL;
@@ -349,9 +346,14 @@ image_t scroll_outer_top = NULL;
 image_t scroll_outer_bottom = NULL;
 image_t scroll_inner_top = NULL;
 image_t scroll_inner_bottom = NULL;
+image_t device_bar_bg = NULL;
+image_t rcol_top = NULL;
+image_t rcol_middle = NULL;
+image_t rcol_bottom = NULL;
+image_t checkmark = NULL;
 
 
-#define decal(name) if (!name) name = loaddecal(#name".bmp");
+#define decal(name) if (!name) name = loaddecal(#name".png");
 #define decals(name) \
   { for (int i=0; i<(sizeof(name)/sizeof(name[0])); i++) \
      name[i] = loaddecal(nth_name(#name, i)); }
@@ -366,7 +368,8 @@ void load_menu_media (void)
     decal(keyboard_140);
     decal(keyboard_280);
     decal(cableseg);
-    decal(nesport);
+    decals(nesport);
+    decal(nesport_shadow);
     decal(photo);
     decal(photo_shadow_left);
     decal(photo_shadow_bottom);
@@ -381,34 +384,12 @@ void load_menu_media (void)
     decal(scroll_outer_bottom);
     decal(scroll_inner_top);
     decal(scroll_inner_bottom);
+    decal(device_bar_bg);
+    decal(rcol_top);
+    decal(rcol_middle);
+    decal(rcol_bottom);
+    decal(checkmark);
 }
-
-void open_menu (void)
-{
-    load_menu_media();
-    menu = run_main_menu;
-    SDL_ShowCursor(SDL_ENABLE);
-}
-
-void close_menu (void)
-{
-    menu = 0;
-    SDL_ShowCursor(SDL_DISABLE);
-    dim_y_target = 0;
-}
-
-int menu_process_key_event (SDL_KeyboardEvent *key)
-{
-    if (key->type == SDL_KEYDOWN) return 0;
-    
-    if (key->keysym.sym == SDLK_ESCAPE) {
-        close_menu();
-        return 1;
-    }
-    
-    return 0;
-}
-
 
 const int ALIGN_MAX = 0;
 const int ALIGN_MAX_SHIFT = 1;
@@ -465,7 +446,7 @@ const float floaty_linear = 0.1; // Hmm. Don't like this.
 
 int run_floatybutt (struct inputctx *input, struct floatybutt *this, 
                     image_t faces[2], image_t shadow, int x, int y)
-{    
+{
     this->hover = mouseover(input, drawimage(shadow, x, y, left, bottom));
 //    if (this->hover && (input->buttons & 1)) this->offset = lerpf(0, floaty_rate, this->offset);
 //    else this->offset = lerpf(floaty_height, floaty_rate, this->offset);
@@ -518,6 +499,44 @@ void age_pixels (Uint32 *ptr, size_t n)
     }
 }
 
+/*** Menu dispatch ***/
+
+void run_menu (struct inputctx *input)
+{
+    cursor_base[0] = 10;
+    cursor_base[1] = 40;
+    setcursor(0,0);
+    setcolor(color00);
+
+    menu(input);
+}
+
+void open_menu (void)
+{
+    load_menu_media();
+    menu = run_main_menu;
+    //menu = run_input_menu;
+    SDL_ShowCursor(SDL_ENABLE);
+}
+
+void close_menu (void)
+{
+    menu = 0;
+    SDL_ShowCursor(SDL_DISABLE);
+    dim_y_target = 0;
+}
+
+int menu_process_key_event (SDL_KeyboardEvent *key)
+{
+    if (key->type == SDL_KEYDOWN) return 0;
+    
+    if (key->keysym.sym == SDLK_ESCAPE) {
+        close_menu();
+        return 1;
+    }
+    
+    return 0;
+}
 
 /*** Main menu screen ***/
 
@@ -632,6 +651,8 @@ void run_main_menu (struct inputctx *input)
 {   
     //drawimage(pad600, 0, 0, left, top);
     //drawimage(mascot, window_surface->w, window_surface->h - 80, right, bottom);
+    
+    if (input->released & SDL_BUTTON(3)) close_menu();
 
     cursor_base[0] = 10;
     cursor_base[1] = 415;
@@ -699,9 +720,13 @@ void run_main_menu (struct inputctx *input)
 
     //drawimage(keyboard_140, input->mx, input->my, right, bottom);
 
-    int port_y = window_surface->h - icon_pad;
-    drawimage(nesport, window_surface->w - 8, port_y, right, bottom);
-    drawimage(nesport, window_surface->w - 10 - nesport->w, port_y, right, bottom);
+    int port_y = window_surface->h - icon_pad - 6;
+    static struct floatybutt port_button = {0,0};
+    if (run_floatybutt(input, &port_button, nesport, nesport_shadow, 
+                       window_surface->w - 29 - nesport[0]->w, port_y)) 
+        menu = run_input_menu;
+    //drawimage(nesport, window_surface->w - 8, port_y, right, bottom);
+    //drawimage(nesport, window_surface->w - 10 - nesport->w, port_y, right, bottom);
 
     // Clever stunt:
 /*
@@ -1045,9 +1070,10 @@ int run_scrollbar (struct inputctx *input,
 
 void run_game_browser (struct inputctx *input)
 {
+    if (input->released & SDL_BUTTON(3)) menu = run_main_menu;
     dim_y_target = vid_height;
 
-    int x_base = window_surface->w - 330; /* Window vertical split */
+    int x_base = window_surface->w - 330;    /* Window vertical split  */
     static int game_scroll = 0;              /* Scrolling of game list */
 
     int y_top = 37;
@@ -1126,12 +1152,13 @@ void run_game_browser (struct inputctx *input)
     int max_y = last? last->y + last->background->h : 0;
     int pan_region_pad = 20;
     int pan_region_height = viewport_height - 2*pan_region_pad;
-    float pan_rate = max(0.0, min(2.0, (max_y - viewport_height) / (float)pan_region_height));
 
-    // Mouse panning
+    // Mouse panning (is no more)
+    /*
     if (input->mx >= x_base + 14) {
-        //game_pan = (input->my - y_top - pan_region_pad) * pan_rate;
-    }
+        float pan_rate = max(0.0, min(2.0, (max_y - viewport_height) / (float)pan_region_height));
+        game_pan = (input->my - y_top - pan_region_pad) * pan_rate;
+    }*/
 
     int already_found = 0;    
 
@@ -1203,7 +1230,7 @@ void run_game_browser (struct inputctx *input)
         if (!b->shadow) b->shadow = sans_label(0x000000, 24, b->name);
         if (!b->highlight) b->highlight = sans_label(color10, 24, b->name);
         drawimage(b->shadow, bx-2, 22+2, left, baseline);
-        SDL_Rect rect = drawimage(b->use_highlight? b->highlight : b->label, bx, 22, left, baseline);
+       SDL_Rect rect = drawimage(b->use_highlight? b->highlight : b->label, bx, 22, left, baseline);
         b->use_highlight = mouseover(input, rect);
         width += b->label->w + 1;
         if (b->use_highlight && b->next && (input->pressed & 1)) select_breadcrumb(b);
@@ -1222,17 +1249,94 @@ void run_game_browser (struct inputctx *input)
 
 }
 
+/*** Input device menu ***/
 
-/*** Menu dispatch ***/
-
-
-
-void run_menu (struct inputctx *input)
+void run_input_menu (struct inputctx *input)
 {
-    cursor_base[0] = 10;
-    cursor_base[1] = 40;
-    setcursor(0,0);
-    setcolor(color00);
+    if (input->released & SDL_BUTTON(3)) menu = run_main_menu;
 
-    menu(input);
+    static image_t keyboard_label = NULL;
+    if (!keyboard_label) keyboard_label = sans_label(0xFFFFFF, 20, "Keyboard");
+
+    static image_t controller_label = NULL;
+    if (!controller_label) controller_label = sans_label(0xFFFFFF, 18, "Controller");
+
+    static image_t num_labels[4] = { NULL, NULL, NULL, NULL };
+    if (!num_labels[0]) {
+        unsigned size = 20, color = 0xFFFFFF;
+        num_labels[0] = sans_label(color, size, "1");
+        num_labels[1] = sans_label(color, size, "2");
+        num_labels[2] = sans_label(color, size, "3");
+        num_labels[3] = sans_label(color, size, "4");
+    }
+
+    dim_y_target = vid_height;
+
+    int controller_x = 410;
+    drawimage(controller_label, controller_x + 2*47, 3, center, top);
+    
+    for (int device = 0; device < (1 + numsticks); device++)
+    {
+        int y = 50 + device * 51;
+        int yt = y + 22;
+        image_t title = keyboard_label;
+        image_t maker = NULL; //description = NULL;
+
+        if (device>0)
+        {
+            if (!joystick[device-1].title) {
+                char buf[256];
+                sprintf(buf, "Joystick %i", device);
+                joystick[device-1].title = sans_label(0xFFFFFF, 20, buf);
+                joystick[device-1].maker = sans_label(0xAAAAAA, 12, SDL_JoystickName(device-1));
+            }
+
+            title = joystick[device-1].title;
+            maker = joystick[device-1].maker;
+        } else yt += 8;
+
+        drawimage(device_bar_bg, 2, y, left, top);
+        drawimage(title, 15, yt, left, baseline);
+        drawimage(maker, 15, yt+17, left, baseline);
+
+        /* Draw checkmark */
+        int next_mapping = -1;
+        for (int joypad = 0; joypad < 4; joypad++)
+        {
+            int x = controller_x + joypad*47;
+            int mapped = 0;
+            if ((device == 0) && (joypad == cfg_keyboard_controller)) mapped = 1;
+            else if ((device>0) && (cfg_jsmap[joypad] == (device-1))) mapped = 1;            
+            if (mapped) drawimage(checkmark, x + 43/2, y + 51/2, center, center);
+            if (mouseover(input, (SDL_Rect){x, y+2, 43, 47}) && (input->released & SDL_BUTTON(1))) next_mapping = joypad;
+        }
+        
+        if (next_mapping != -1) {
+            if (!device) cfg_keyboard_controller = next_mapping;
+            else if (cfg_jsmap[next_mapping] == (device-1)) cfg_jsmap[next_mapping] = -1;
+            else {
+                int cur = cfg_jsmap[next_mapping];
+                for (int i=0; i<4; i++) if (cfg_jsmap[i] == device-1) cfg_jsmap[i] = cur;
+                cfg_jsmap[next_mapping] = device-1;
+            }
+        }
+    }
+    
+    /* Draw port columns */
+    for (int i=0; i<4; i++)
+    {
+        int y = 20;
+        int x = controller_x + i*47;
+        drawimage(rcol_top, x, y, left, top);
+        drawimage(num_labels[i], x+21, y+24, center, baseline);
+        y += rcol_top->h;
+        for (int device = 0; device < (1 + numsticks); device++) {
+            drawimage(rcol_middle, x, y, left, top);
+            y += rcol_middle->h;
+        }
+        drawimage(rcol_bottom, x, y, left, top);
+    }
+
 }
+
+

@@ -46,6 +46,7 @@ extern int startup_restore_state;
 extern int cfg_joythreshold;
 extern int cfg_buttonmap[4][4];
 extern int cfg_jsmap[4];
+extern int cfg_keyboard_controller;
 extern SDLKey keymap[8];
 extern int cfg_disable_joysticks;
 extern int cfg_disable_keyboard;

@@ -16,7 +16,7 @@
 #include "filesystem.h"
 #include "ui.h"
 
-int keyboard_controller = 0;
+
 int hold_button_a = 0;
 
 extern unsigned buffer_high;
@@ -68,10 +68,10 @@ void palette_dump (void)
  * Control-j. */
 void calibrate_aux_stick (void)
 {
-    SDL_Joystick *joy = joystick[cfg_jsmap[0]];
-    if (joy) {
-        aux_axis[0] = SDL_JoystickGetAxis (joy, 2);
-        aux_axis[1] = SDL_JoystickGetAxis (joy, 3);
+    struct joystick *joy = &joystick[cfg_jsmap[0]];
+    if (joy->connected) {
+        aux_axis[0] = SDL_JoystickGetAxis(joy->sdl, 2);
+        aux_axis[1] = SDL_JoystickGetAxis(joy->sdl, 3);
     }
 }
 
@@ -236,17 +236,17 @@ void process_key_event (SDL_KeyboardEvent * key)
 void process_joystick (int controller)
 {
     int x,y;
-    SDL_Joystick *joy = joystick[cfg_jsmap[controller]];
+    struct joystick *joy = &joystick[cfg_jsmap[controller]];
     SDL_JoystickUpdate();
-    x = SDL_JoystickGetAxis (joy, 0);
-    y = SDL_JoystickGetAxis (joy, 1);
-    aux_position[0] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy, 2) - aux_axis[0])/25000.0));
-    aux_position[1] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy, 3) - aux_axis[1])/25000.0));
+    x = SDL_JoystickGetAxis(joy->sdl, 0);
+    y = SDL_JoystickGetAxis(joy->sdl, 1);
+    aux_position[0] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 2) - aux_axis[0])/25000.0));
+    aux_position[1] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 3) - aux_axis[1])/25000.0));
     
     nes.joypad.pad[controller] = 0;
     
     for (int i=0; i < 4; i++) {
-        if (SDL_JoystickGetButton(joy, cfg_buttonmap[controller][i]))
+        if (SDL_JoystickGetButton(joy->sdl, cfg_buttonmap[controller][i]))
             nes.joypad.pad[controller] |= BIT(i);
     }
 
@@ -384,6 +384,7 @@ int open_game (char *filename)
 
 int main (int argc, char **argv)
 {
+    memset(joystick, 0, sizeof(joystick));
     load_config();
     cfg_parseargs(argc, argv);
 
@@ -418,7 +419,7 @@ int main (int argc, char **argv)
     sprintf(hashbuf, "%llX\n", (unsigned long long)nes.rom.hash);
     fs_add_chunk("rom-hash", hashbuf, strlen(hashbuf), 0);
 
-    if (joystick[0]) calibrate_aux_stick();
+    if (joystick[0].connected) calibrate_aux_stick();
     if (snd_init() == -1) sound_globalenabled = 0;
 
     //if (!cfg_disable_keyboard) describe_keymap();
@@ -436,10 +437,10 @@ int main (int argc, char **argv)
         process_events(&ctx);
 
         for (int i=0; i<4; i++) nes.joypad.pad[i] = 0;
-        for (int i=0; i<numsticks; i++) if (joystick[i]) process_joystick(i);
-        if (hold_button_a) nes.joypad.pad[0] |= nes.time & 1;       
+        for (int i=0; i<numsticks; i++) if ((cfg_jsmap[i]>=0) && joystick[cfg_jsmap[i]].connected) process_joystick(i);
+        if (hold_button_a) nes.joypad.pad[0] |= nes.time & 1;
 
-        nes.joypad.pad[keyboard_controller] |= keyboard_input;
+        nes.joypad.pad[cfg_keyboard_controller] |= keyboard_input;
 
         runframe();
         dim_background();

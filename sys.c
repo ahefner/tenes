@@ -44,7 +44,7 @@ void sys_framesync (void)
 }
 
 SDL_Color palette[129];
-SDL_Joystick *joystick[4];
+struct joystick joystick[4];
 int numsticks = 0;
 
 void print_video_info (void)
@@ -108,10 +108,11 @@ void sys_init (void)
           if (tmp) {
               numsticks = (tmp>4)?4:tmp;
               for (i=0; i<numsticks; i++) {
-                  joystick[i] = SDL_JoystickOpen (i);
-                  if (!joystick[i]) printf ("Could not open joystick %i \n", i);
+                  joystick[i].sdl = SDL_JoystickOpen(i);
+                  if (!joystick[i].sdl) printf ("Could not open joystick %i \n", i);
                   else {
                       int j, js_mapping=-1;
+                      joystick[i].connected = 1;
                       for (j=0; j<4; j++) 
                       {
                           if (cfg_jsmap[j]==i)
@@ -120,7 +121,7 @@ void sys_init (void)
                               break;
                           }
                       }
-                      printf ("  %i: %s (%i buttons)   ", i, SDL_JoystickName(i), SDL_JoystickNumButtons(joystick[i]));
+                      printf ("  %i: %s (%i buttons)   ", i, SDL_JoystickName(i), SDL_JoystickNumButtons(joystick[i].sdl));
                       if (js_mapping==-1) printf("[unmapped]\n");
                       else printf("[joypad %i]\n", js_mapping);
                   }      
@@ -137,9 +138,17 @@ void sys_shutdown (void)
     int i;
   
     for (i=0; i<numsticks; i++) {
-        if (joystick[i]) SDL_JoystickClose (joystick[i]);
+        if (joystick[i].sdl) SDL_JoystickClose(joystick[i].sdl);
     }
 
     SDL_FreeSurface (window_surface);
     SDL_Quit (); 
 }
+
+void image_free (image_t image)
+{
+    SDL_FreeSurface(image->_sdl);
+    if (image->freeptr) free(image->freeptr);
+    free(image);
+}
+

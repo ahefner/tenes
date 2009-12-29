@@ -1,6 +1,7 @@
 #ifndef NES_UI_H
 #define NES_UI_H
 
+#include "sys.h"
 
 struct inputctx {
     int mx, my;                 /* Mouse X/Y */
@@ -15,18 +16,6 @@ struct inputctx {
 #endif
 
 
-// Stupid image wrapper, because you really need alignment offsets
-// attached to the image to have a nice interface. Also helps with
-// memory management.
-
-struct myimage {
-    int w, h, x_origin, y_origin;
-    SDL_Surface *_sdl;
-    void *freeptr;
-};
-typedef struct myimage *image_t;
-
-void image_free (image_t image);
 
 char *asset (char *name);
 
@@ -40,12 +29,13 @@ typedef int alignmode[3];
 SDL_Rect drawimage (image_t image, int x, int y, alignmode align_x, alignmode align_y);
 
 int ensure_freetype (void);
-image_t sans_label (Uint32 color, unsigned text_height, char *string);
+image_t sans_label (Uint32 color, unsigned text_height, const char *string);
 
 float approach (float target, float minrate, float rate, float current);
 
 void run_main_menu (struct inputctx *input);
 void run_game_browser (struct inputctx *input);
+void run_input_menu (struct inputctx *input);
 
 /** Exports **/
 
