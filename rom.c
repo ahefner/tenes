@@ -49,6 +49,7 @@ struct nes_rom load_nes_rom (char *filename)
   printf("%s\n", filename);
   printf("Rom image size is %i bytes.\n", (int)statbuf.st_size);
   fread((void *) rom.header, 16, 1, in);
+
   if ((rom.header[0] != 'N') || (rom.header[1] != 'E') || (rom.header[2] != 'S')
       || (rom.header[3] != 0x1A)) {
     printf("Invalid header.\n");
@@ -72,11 +73,12 @@ struct nes_rom load_nes_rom (char *filename)
   strcpy(rom.filename, filename);
 
   rom.prg = (byte *)malloc(rom.prg_size);
-  rom.chr = (byte *)malloc(rom.chr_size);
+  if (rom.chr_size) rom.chr = (byte *)malloc(rom.chr_size);
+  else rom.chr = NULL;
 
-  if ((rom.prg == NULL) || (rom.chr == NULL)) {
+  if ((rom.prg == NULL) || (rom.chr_size && (rom.chr == NULL))) {
     printf("Cannot allocate memory for rom data.\n");
-    exit (1);
+    exit(1);
   }
 
   fread((void *)rom.prg, rom.prg_size, 1, in);
