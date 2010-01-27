@@ -662,6 +662,7 @@ void run_nsf_ui (struct inputctx *input, int bx, int by)
     print("       Song: ");
     setcolor(color10);
     print("%i of %i\n", nes.nsf_current_song + 1, h->total_songs);
+    print("\n(Use arrow keys to change songs)\n");
 }
 
 

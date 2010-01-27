@@ -88,10 +88,10 @@ void nsf_load_bank (unsigned frame, unsigned bank)
     unsigned top = min(nes.rom.prg_size, base + 0x1000);
 
     if (bank == 0) {
+        //printf("frame %i <- bank %i (offset=%i)\n", frame, bank, offset);
         memcpy(fr + offset, nes.rom.prg, min(nes.rom.prg_size, 0x1000 - offset));
     } else {
-        printf("frame %i <- bank %i : base=%x  top=%x  size=%x\n", 
-               frame, bank, base, top, top - base);
+        // printf("frame %i <- bank %i : base=%x  top=%x  size=%x\n", frame, bank, base, top, top - base);
         if (top > base) memcpy(fr, nes.rom.prg + base, top - base);
         else printf("Bogus bankswitch? frame %i, bank %i, base=%x  top=%x  size=%x\n",
                     frame, bank, base, top, top-base);
@@ -124,11 +124,11 @@ void nsf_init (struct nes_machine *nes)
 
     if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;
     int song = nes->nsf_current_song; /* Already zero-based! */
-//    nes->cpu.Trace = 1;
+    //nes->cpu.Trace = 1;
     nes->cpu.A = song;
     nes->cpu.X = 0;              /* Prefer NTSC. */
     Sub6502(&nes->cpu, h->init_addr, 100000 * MASTER_CLOCK_DIVIDER);
-    nes->cpu.Trace = 0;
+//    nes->cpu.Trace = 0;
     printf("NSF init returned.\n");
 }
 
@@ -645,7 +645,7 @@ void Wr6502 (register word Addr, register byte Value)
       } else if (Addr < 0x5000) {
 	/*printf ("sound: Wrote 0x%02X to unknown area at 0x%04X\n", (int) Value, (int) Addr);*/
       } else {
-          //printf ("Wrote 0x%02X to expansion area at 0x%04X\n", (int)Value, (int)Addr);
+          //printf("Wrote 0x%02X to expansion area at 0x%04X\n", (int)Value, (int)Addr);
           mapper->ex_write(Addr, Value);
       }
       break;
