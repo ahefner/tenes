@@ -76,6 +76,13 @@ int cfg_framelines = 240;
 /* Kludge pixel offset applied to $2001 writes, to calibrate the Final Fantasy light beam effect. */
 int video_alignment_cycles_kludge = 12;
 
+/* Intra-frame state. Moved here from nes_machine. */
+
+unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
+unsigned sprite0_detected;  /* Was sprite0 hit detected during rendering? */
+
+/* Etc. */
+
 #ifdef INSTRUCTION_TRACING
 unsigned tracing_counts[0x10000][3];
 #endif

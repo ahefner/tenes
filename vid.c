@@ -160,11 +160,11 @@ void scanline_render_sprites (byte *dest)
          * palette so we can encode foreground versus background pixel
          * in bit 6, allowing rendering of sprites in a separate pass. */
         /* Supposedly we should ignore column 255? */
-        if ((background & 0x40) && (!nes.sprite0_detected) && ((x >= 8) || ((nes.ppu.control2 & 4))) &&
+        if ((background & 0x40) && (!sprite0_detected) && ((x >= 8) || ((nes.ppu.control2 & 4))) &&
             (sprite_output & 3) && (x < 255) && !sprites[0].number) {
             //nes.ppu.hit_flag = 1;
-            nes.sprite0_hit_cycle = nes.scanline_start_cycle + (x * PPU_CLOCK_DIVIDER);
-            nes.sprite0_detected = 1;
+            sprite0_hit_cycle = nes.scanline_start_cycle + (x * PPU_CLOCK_DIVIDER);
+            sprite0_detected = 1;
             if (trace_ppu_writes) {
                 nes_printtime();
                 printf("Sprite 0 hit at x=%i!\n", x);

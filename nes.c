@@ -100,10 +100,13 @@ void reset_nes (struct nes_machine *nes)
   memset((void *)nes->joypad.pad, 0, sizeof(nes->joypad.pad));
   nes->joypad.state[0] = 0;
   nes->joypad.state[1] = 0;
-  nes->mirror_mode = nes->rom.hw_mirror_mode;
-  nes->onescreen_page = nes->rom.hw_onescreen_page;
 
   rendering_scanline = 0;
+
+  /* Shadow from ROM struct */
+  nes->mirror_mode = nes->rom.hw_mirror_mode;
+  nes->onescreen_page = nes->rom.hw_onescreen_page;
+  nes->machine_type = nes->rom.machine_type;
 
   printf("NES reset.\n");
 }
@@ -289,7 +292,7 @@ void nes_initframe (void)
   nes.ppu.vblank_flag=0; /* set to 0 at frame start, I think */
   nes.ppu.spritecount_flag = 0;
   nes.ppu.sprite_address = 0;
-  nes.sprite0_detected = 0;
+  sprite0_detected = 0;
 
   if (nes.ppu.control2 & 0x18) nes.ppu.v = nes.ppu.t;
 
@@ -640,9 +643,9 @@ byte Rd6502 (register word Addr)
              error here, because I haven't thought about the precise
              timing too hard (and the my timing isn't exact anyway).
            */
-          if (nes.sprite0_detected && ((nes.cpu.Cycles - MASTER_CLOCK_DIVIDER - nes.sprite0_hit_cycle) > 0)) {
+          if (sprite0_detected && ((nes.cpu.Cycles - MASTER_CLOCK_DIVIDER - sprite0_hit_cycle) > 0)) {
               nes.ppu.hit_flag = 1;
-              nes.sprite0_detected = 0;
+              sprite0_detected = 0;
           }
 
 	  byte tmp = 
@@ -763,7 +766,7 @@ static inline int ppu_is_rendering (void)
 
 static inline void begin_scanline (void)
 {
-    nes.sprite0_detected = 0;
+    sprite0_detected = 0;
     emphasis_position = -1;
     memset(color_buffer, 0, sizeof(color_buffer));
     if (ppu_is_rendering()) rendering_scanline = 1;

@@ -189,16 +189,19 @@ struct nes_rom load_nes_rom (char *filename)
     byte ines_magic[4] = { 'N', 'E', 'S', 0x1A };
     if (!memcmp(rom.header, ines_magic, 4)) {
         printf("iNES format detected.\n");
+        rom.machine_type = NES_NTSC;
         if (load_ines(&rom, in, filesize)) goto success;
     }
 
     byte nsf_magic[5] = { 'N', 'E', 'S', 'M', 0x1A };
     if (!memcmp(rom.header, nsf_magic, 5)) {
+        rom.machine_type = NSF_PLAYER;
         if (load_nsf(&rom, in, filesize)) goto success;
     }
 
     byte nsfe_magic[5] = { 'N', 'S', 'F', 'E', 0x1A };
     if (!memcmp(rom.header, nsfe_magic, 5)) {
+        rom.machine_type = NSF_PLAYER;
         if (load_nsfe(&rom, in, filesize)) goto success;
     }
 

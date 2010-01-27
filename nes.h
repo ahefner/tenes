@@ -74,7 +74,7 @@
 
 typedef int dualmode;
 
-enum machine_type { NES, NSF };
+enum machine_type { NES_NTSC = 1, NSF };
 
 /* NES Rom image. Note that this is the only portion of the
  * nes_machine structure not touched by save/restore state. */
@@ -92,7 +92,8 @@ struct nes_rom
     int hw_onescreen_page;         /* Hardwired / initial value */
     struct mapperinfo *mapper_info;
     byte header[16];
-    unsigned long long hash;    
+    unsigned long long hash;
+    enum machine_type machine_type;
 };
 
 struct ppu_struct
@@ -144,11 +145,9 @@ struct nes_machine
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
 
-    /* This intra-frame state should be moved outside the struct, since it has no business in the state file. */
-    unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
-    unsigned sprite0_detected; /* Was sprite0 hit detected during rendering? */
-
     struct joypad_info joypad;
+    
+    enum machine_type machine_type;
 };
 
 #ifndef global_c
