@@ -38,8 +38,72 @@ unsigned long long rom_hash (unsigned long long file_size, struct nes_rom *rom)
  * now that we have a fancy GUI and support changing ROMs at
  * runtime. */
 
-int load_nsfm (struct nes_rom *rom, FILE *in, int filesize)
+struct nsf_header {
+    byte magic[5];
+    byte version;
+    byte total_songs;
+    byte starting_song;
+    word low_addr, init_addr, play_addr;
+    char name[32];
+    char artist[32];
+    char copyright[32];
+    word speed_ntsc;
+    byte bankswitch[8];
+    word speed_pal;
+    byte pal_mode;
+    byte chipflags;
+    byte unused[4];
+};
+
+void print_nsf_header_info (struct nsf_header *h)
 {
+    printf("NSF Header:\n");
+    printf("  Name: \"%s\"\n", h->name);
+    printf("  Artist: \"%s\"\n", h->artist);
+    printf("  Copyright: \"%s\"\n", h->copyright);
+    printf("  Version: %02Xh\n", h->version);
+    printf("  Total songs: %i\n", h->total_songs);
+    printf("  Starting song: %i\n", h->starting_song);
+    printf("  Load $%04X / Init $%04X / Play $%04X\n", h->low_addr, h->init_addr, h->play_addr);
+
+    printf("  Mode: ");
+    switch (h->pal_mode & 3) {
+    case 0:
+        printf("NTSC\n");
+        printf("  Speed: %i\n", h->speed_ntsc);
+        break;
+    case 1:
+        printf("PAL\n");
+        printf("  Speed: %i\n", h->speed_pal);
+        break;
+    case 2:
+    case 3:
+        printf("Dual NTSC/PAL\n");
+        printf("  NTSC Speed: %i\n", h->speed_ntsc);
+        printf("  PAL Speed: %i\n", h->speed_pal);
+        break;
+    }
+
+    printf("  Chipflags: %02X\n", h->chipflags);
+    printf("  Bank setup: ");
+    for (int i=0; i<8; i++) printf("$%02X ", h->bankswitch[i]);
+    printf("\n");
+}
+
+int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
+{
+    struct nsf_header header;
+    assert(sizeof(header) == 0x80);
+    
+    fseek(in, 0, SEEK_SET);
+    if (1 != fread(&header, 0x80, 1, in)) {
+        printf("Incomplete header.\n");
+        return 0;
+    }
+    
+    print_nsf_header_info(&header);
+
+
     printf("Not implemented.\n");
     return 0;
 }
@@ -94,9 +158,9 @@ int load_ines (struct nes_rom *rom, FILE *in, int filesize)
 
     printf ("\n");
 
-    rom->mirror_mode = rom->flags & 1 ? MIRROR_VERT : MIRROR_HORIZ;
-    if (rom->flags & 0x80) rom->mirror_mode = MIRROR_NONE;
-    rom->onescreen_page = 0;
+    rom->hw_mirror_mode = rom->flags & 1 ? MIRROR_VERT : MIRROR_HORIZ;
+    if (rom->flags & 0x80) rom->hw_mirror_mode = MIRROR_NONE;
+    rom->hw_onescreen_page = 0;
 
     return 1;
 }
@@ -128,17 +192,17 @@ struct nes_rom load_nes_rom (char *filename)
         if (load_ines(&rom, in, filesize)) goto success;
     }
 
-    byte nsfm_magic[5] = { 'N', 'S', 'F', 'M', 0x1A };
-    if (!memcmp(rom.header, nsfm_magic, 5)) {
-        if (load_nsfm(&rom, in, filesize)) goto success;
+    byte nsf_magic[5] = { 'N', 'E', 'S', 'M', 0x1A };
+    if (!memcmp(rom.header, nsf_magic, 5)) {
+        if (load_nsf(&rom, in, filesize)) goto success;
     }
 
     byte nsfe_magic[5] = { 'N', 'S', 'F', 'E', 0x1A };
     if (!memcmp(rom.header, nsfe_magic, 5)) {
         if (load_nsfe(&rom, in, filesize)) goto success;
     }
-  
-failure:
+
+/* failure: */
     printf("Error loading or unrecognized file format.\n");
     fclose(in);
     exit(1);

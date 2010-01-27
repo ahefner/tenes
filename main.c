@@ -82,8 +82,8 @@ void process_control_key (SDLKey sym)
 {
     switch (sym) {
     case SDLK_m:
-        nes.rom.mirror_mode ^= 1;
-        printf("Toggled mirror mode. New mode=%i\n", nes.rom.mirror_mode);
+        nes.mirror_mode ^= 1;
+        printf("Toggled mirror mode. New mode=%i\n", nes.mirror_mode);
         break;
         
     case SDLK_c:

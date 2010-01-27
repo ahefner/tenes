@@ -5,7 +5,7 @@ struct {
 
 int mapper_camerica_init (void)
 {
-    nes.rom.mirror_mode = MIRROR_ONESCREEN;
+    nes.mirror_mode = MIRROR_ONESCREEN;
     camerica.last_bank = nes.rom.prg_size - 0x4000;
     camerica.selected_bank = 0;
     return 1;

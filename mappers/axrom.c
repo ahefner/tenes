@@ -4,7 +4,7 @@ int mapper7_bank;
 
 int mapper7_init (void)
 {
-    nes.rom.mirror_mode = MIRROR_ONESCREEN;
+    nes.mirror_mode = MIRROR_ONESCREEN;
     //mapper7_bank = (nes.rom.prg_size / 0x8000) - 1;
     mapper7_bank = 0;
     return 1;

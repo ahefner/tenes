@@ -28,18 +28,18 @@ void vrc6_write (register word addr, register byte value)
     case 0xB000:                /* Mirroring control */
         switch ((value >> 2) & 3) {
         case 0: 
-            nes.rom.mirror_mode = MIRROR_VERT;
+            nes.mirror_mode = MIRROR_VERT;
             break;
         case 1:
-            nes.rom.mirror_mode = MIRROR_HORIZ;
+            nes.mirror_mode = MIRROR_HORIZ;
             break;
         case 2:
-            nes.rom.mirror_mode = MIRROR_ONESCREEN;
-            nes.rom.onescreen_page = 0;
+            nes.mirror_mode = MIRROR_ONESCREEN;
+            nes.onescreen_page = 0;
             break;
         case 3:
-            nes.rom.mirror_mode = MIRROR_ONESCREEN;
-            nes.rom.onescreen_page = 0x400; /* Not verified.. */
+            nes.mirror_mode = MIRROR_ONESCREEN;
+            nes.onescreen_page = 0x400; /* Not verified.. */
             break;
         }
         break;

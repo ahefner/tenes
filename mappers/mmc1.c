@@ -77,7 +77,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
     case 0:
         mmc1.reg[0]=val;
         if (nes.cpu.Trace) mmc1_print_status();
-        nes.rom.mirror_mode=(!(val & REG0_ONE_SCREEN_ENABLE)) ?
+        nes.mirror_mode=(!(val & REG0_ONE_SCREEN_ENABLE)) ?
             MIRROR_ONESCREEN : ((val & REG0_MIRROR_MODE) ? MIRROR_HORIZ : MIRROR_VERT);
         break;
     case 1:

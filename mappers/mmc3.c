@@ -111,7 +111,7 @@ void mmc3_write (register word addr, register byte value)
         break;
 
     case 0xA000:
-        nes.rom.mirror_mode = value&1? MIRROR_HORIZ : MIRROR_VERT;
+        nes.mirror_mode = value&1? MIRROR_HORIZ : MIRROR_VERT;
         break;
 
     case 0xA001:

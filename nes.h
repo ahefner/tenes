@@ -74,6 +74,8 @@
 
 typedef int dualmode;
 
+enum machine_type { NES, NSF };
+
 /* NES Rom image. Note that this is the only portion of the
  * nes_machine structure not touched by save/restore state. */
 struct nes_rom
@@ -86,8 +88,8 @@ struct nes_rom
     char title[256];
     char filename[256];
     byte flags; /* mirroring, etc. */
-    int mirror_mode;
-    int onescreen_page;
+    int hw_mirror_mode;            /* Hardwired / initial value */
+    int hw_onescreen_page;         /* Hardwired / initial value */
     struct mapperinfo *mapper_info;
     byte header[16];
     unsigned long long hash;    
@@ -137,6 +139,8 @@ struct nes_machine
     int scanline;
     int time;
 
+    int mirror_mode, onescreen_page; /* Copy from ROM at reset. Some mappers change these. */
+
     unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
     unsigned scanline_start_cycle;
 
@@ -178,15 +182,15 @@ struct saved_state {
 void free_saved_chunks (struct saved_state *state);
 void copy_saved_chunks (struct saved_state *dst, struct saved_state *src);
 
-int mem_write_state_chunk (struct saved_state *state, char *name, void *data, unsigned length);
-int mem_read_state_chunk  (struct saved_state *state, char *name, void *data_out, unsigned length);
+int mem_write_state_chunk (struct saved_state *state, const char *name, void *data, unsigned length);
+int mem_read_state_chunk  (struct saved_state *state, const char *name, void *data_out, unsigned length);
 
 void save_state_to_mem (struct saved_state *state);
 void restore_state_from_mem (struct saved_state *state);
 
 
-int file_write_state_chunk (FILE *stream, char *name, void *data, unsigned length);
-int file_read_state_chunk  (FILE *stream, char *name, void *data_out, unsigned length);
+int file_write_state_chunk (FILE *stream, const char *name, void *data, unsigned length);
+int file_read_state_chunk  (FILE *stream, const char *name, void *data_out, unsigned length);
 
 char *sram_filename (struct nes_rom *rom);
 char *state_filename (struct nes_rom *rom, unsigned index);
@@ -196,7 +200,7 @@ static inline word ppu_mirrored_nt_addr (word paddr)
     //word paddr_hbit = (paddr & 0x400) >> 10;
     word paddr_vbit = (paddr & 0x800) >> 11;    
     
-    switch (nes.rom.mirror_mode) {
+    switch (nes.mirror_mode) {
 
     case MIRROR_HORIZ: 
         return (paddr & 0xF3FF) | (paddr_vbit << 10);
@@ -208,7 +212,7 @@ static inline word ppu_mirrored_nt_addr (word paddr)
         return paddr;
 
     case MIRROR_ONESCREEN:
-        return (paddr & ~0xC00) | nes.rom.onescreen_page;
+        return (paddr & ~0xC00) | nes.onescreen_page;
 
     default:
         assert(0);

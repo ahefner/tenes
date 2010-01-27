@@ -100,6 +100,8 @@ void reset_nes (struct nes_machine *nes)
   memset((void *)nes->joypad.pad, 0, sizeof(nes->joypad.pad));
   nes->joypad.state[0] = 0;
   nes->joypad.state[1] = 0;
+  nes->mirror_mode = nes->rom.hw_mirror_mode;
+  nes->onescreen_page = nes->rom.hw_onescreen_page;
 
   rendering_scanline = 0;
 
@@ -109,7 +111,7 @@ void reset_nes (struct nes_machine *nes)
 
 
 
-int file_write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
+int file_write_state_chunk (FILE *stream, const char *name, void *data, Uint32 length)
 {
     char chunkname[64];
     memset(chunkname, 0, sizeof(chunkname));
@@ -120,7 +122,7 @@ int file_write_state_chunk (FILE *stream, char *name, void *data, Uint32 length)
     return 1;
 }
 
-int file_read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 length)
+int file_read_state_chunk (FILE *stream, const char *name, void *data_out, Uint32 length)
 {
     char chunkname[64];
     Uint32 read_length;
@@ -139,13 +141,15 @@ int file_read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 leng
     return 1;
 }
 
+static const char *nes_machine_vstring = "NES Machine v2";
+
 void save_state_to_disk (char *filename)
 {
     if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *out = fopen(filename, "wb");
     if (!out) printf("Unable to create state file %s\n", filename);
     else {
-        if (!(file_write_state_chunk(out, "NES Machine", &nes, sizeof(nes)) &&
+        if (!(file_write_state_chunk(out, nes_machine_vstring, &nes, sizeof(nes)) &&
               mapper->save_state((chunk_writer_t)file_write_state_chunk, out))) {
             printf("Error writing state file to %s\n", filename);
         }        
@@ -172,7 +176,7 @@ int restore_state_from_disk (char *filename)
         printf("Unable to open state file %s\n", filename);
         return 0;
     } else {
-        if (!(file_read_state_chunk(in, "NES Machine", &nes, sizeof(nes)) &&
+        if (!(file_read_state_chunk(in, nes_machine_vstring, &nes, sizeof(nes)) &&
               mapper->restore_state((chunk_reader_t)file_read_state_chunk, in))) {
             printf("Error restoring state file from %s\n", filename);
             fclose(in);
@@ -182,22 +186,15 @@ int restore_state_from_disk (char *filename)
         } else {
             /* Restored state successfully */
             fclose(in);
-            /* Keep only mirror and onescreen modes from the state, 
-               because nes.rom also stores ephemeral points to the 
-               mapper function table and ROM data. */
-            int mirror_mode = nes.rom.mirror_mode;
-            int onescreen_page = nes.rom.onescreen_page;        
             memcpy(&nes.rom, &rom, sizeof(rom));
-            nes.rom.mirror_mode = mirror_mode;
-            nes.rom.onescreen_page = onescreen_page;    
             return 1;
         }
     }
 }
 
-/* Memory state save/restore should not possibly fail, except due to memory exhaustion. */
+/* Memory state save/restore should not ever fail except due to memory exhaustion. */
 
-int mem_write_state_chunk (struct saved_state *state, char *name, void *data, unsigned length)
+int mem_write_state_chunk (struct saved_state *state, const char *name, void *data, unsigned length)
 {    
     state->num++;
     if (state->num >= MEMSTATE_MAX_CHUNKS) return 0;
@@ -210,7 +207,7 @@ int mem_write_state_chunk (struct saved_state *state, char *name, void *data, un
     return 1;
 }
 
-int mem_read_state_chunk  (struct saved_state *state, char *name, void *data_out, unsigned length)
+int mem_read_state_chunk  (struct saved_state *state, const char *name, void *data_out, unsigned length)
 {
     assert(state->cur < state->num);
     byte *ptr = state->chunks[state->cur];
@@ -271,11 +268,7 @@ void restore_state_from_mem (struct saved_state *state)
     memcpy(&rom, &nes.rom, sizeof(rom));
     assert(mem_read_state_chunk(state, "NES Machine", &nes, sizeof(nes)));
     assert(mapper->restore_state((chunk_reader_t)mem_read_state_chunk, state));
-    int mirror_mode = nes.rom.mirror_mode;
-    int onescreen_page = nes.rom.onescreen_page;        
     memcpy(&nes.rom, &rom, sizeof(rom));
-    nes.rom.mirror_mode = mirror_mode;
-    nes.rom.onescreen_page = onescreen_page;
     state->cur = 0;
 }
 
