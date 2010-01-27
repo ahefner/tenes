@@ -67,6 +67,10 @@ extern int video_alignment_cycles_kludge;
 extern unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
 extern unsigned sprite0_detected;  /* Was sprite0 hit detected during rendering? */
 
+extern byte ram32k[0x8000];
+
+extern int nsf_seek_to_song;
+
 extern int aux_axis[2];
 extern float aux_position[2];
 

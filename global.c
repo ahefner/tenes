@@ -81,6 +81,16 @@ int video_alignment_cycles_kludge = 12;
 unsigned sprite0_hit_cycle; /* Cycle at which first sprite0 in current line occured */
 unsigned sprite0_detected;  /* Was sprite0 hit detected during rendering? */
 
+/* This is 32 KB of RAM, free for any mapper that cares to use it. */
+byte ram32k[0x8000];
+
+/* NSF playback state */
+
+int nsf_seek_to_song = 0;  /* One-based index, conforming to NSF
+                                 * convention, and allowing us to
+                                 * assign out of band meaning to
+                                 * zero (0 = no seek) */
+
 /* Etc. */
 
 #ifdef INSTRUCTION_TRACING

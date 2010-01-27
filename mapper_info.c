@@ -18,6 +18,8 @@
 #include "mappers/axrom.c"
 #include "mappers/camerica.c"
 #include "mappers/vrc6.c"
+#include "mappers/nsf.c"
+
 
 /* Mapper table - contains iNES mapper number, name, and pointer to
  * mapper_methods struct (if implemented). 
@@ -77,6 +79,11 @@ mapper_find (int ines_number)
     return NULL;
 }
 
+static struct mapperinfo minf_NSF = {0, "NSF Player", &mapper_NSF};
 
+struct mapperinfo *get_NSF_minf (void)
+{
+    return &minf_NSF;
+}
 
 /* EOF */

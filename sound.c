@@ -13,7 +13,7 @@
 /* TODO: Move audio state out of random global variables and into the NES struct.   
    
    FIXME: Buffer underruns. I've made them inaudible with the emergency catchup
-   sample generation, but this really isn't ideal.
+   sample generation, but this isn't ideal and breaks determinisms with certain games.
 
    FIXME: Audio frequencies are off by a bit due to rounding of CLOCK/48000.
 
@@ -104,6 +104,7 @@ static void buffer_init (void)
     memset((void *) audio_buffer, 0, AUDIO_BUFFER_SIZE*2);    
 
     buffer_low = 0;
+    /* Odd: */
     buffer_high = AUDIO_BUFFER_SIZE / 2;
 }
 
@@ -136,9 +137,11 @@ void service_interrupts (void)
 }
 
 static void audio_callback (void *udata, Sint16 *stream, int len)
-{
-    int req = len >> 1, num = buffer_samples(), consumed = req;
+{    
+    int req = len >> 1, consumed = req;
     int ideal_buffer_length = req + desired_buffer_ahead;
+
+    int num = buffer_samples();
     static int last = 0;
     static long long last_time = 0;
     long long current_time = usectime(), delta_time = current_time - last_time;
@@ -150,14 +153,18 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
      * snap to the end of the buffer, minus however much we'd prefer
      * to keep as a safety margin. */
     if (first_buffer) {
-        while (buffer_samples() < ideal_buffer_length) { /* Wait? */ }
-        buffer_low = buffer_high - ideal_buffer_length;
+        // Wait for the main thread to produce enough audio.
+        // It most likely already has.
+        while (buffer_samples() < ideal_buffer_length) { /* Wait. */ }
+
+        buffer_low = buffer_high - min(buffer_samples(), ideal_buffer_length);
         num = buffer_samples();
         first_buffer = 0;
+        /* Init stats logs: */
         memset(delta_log, 0, sizeof(delta_log));
         memset(fill_log, 0, sizeof(fill_log));
         memset(time_log, 0, sizeof(time_log));
-    } else {
+    } else {                    /* Strictly stats bullshit: */
         int i, avg_x = 0, avg_dx = 0;
         long long avg_time = 0;
         time_log[delta_log_idx] = delta_time;
@@ -706,7 +713,13 @@ void snd_catchup (void)
 
     int delta = nes.cpu.Cycles - nes.last_sound_cycle;
     int samples = delta / clocks_per_sample;
-    if (samples > 1000) printf("%sWtf. samples = %i ??? (%i - %i)\n", nes_time_string(), samples, (int) nes.cpu.Cycles, (int) nes.last_sound_cycle);
+    if (samples > 1000) {
+        printf("%sWtf. samples = %i ??? (%i - %i)\n", 
+               nes_time_string(), 
+               samples, 
+               (int) nes.cpu.Cycles, 
+               (int) nes.last_sound_cycle);
+    }
 
     if (samples && (delta > 0)) snd_render_samples(0, samples);
 

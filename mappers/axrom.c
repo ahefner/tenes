@@ -46,6 +46,8 @@ struct mapper_methods mapper_axrom =
     mapper_ignores_scanline_start,
     mapper_ignores_scanline_end,
     mapper7_save_state,
-    mapper7_restore_state
+    mapper7_restore_state,
+    ignore_write,
+    ignore_read
 };
 

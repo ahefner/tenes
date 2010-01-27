@@ -42,6 +42,7 @@ void init_nes (struct nes_machine *nes)
   nes->joypad.connected = 1;
   mapper->mapper_init ();
   nes->last_sound_cycle = 0;
+  nes->nsf_current_song = 0;
 
   /* Load SRAM */
   memset((void *)nes->save, 0, 0x2000);
@@ -64,14 +65,81 @@ void shutdown_nes (struct nes_machine *nes)
     mapper->mapper_shutdown();  
 }
 
+int nsf_uses_bankswitching (struct nsf_header *h)
+{
+    int uses = 0;
+    for (int i=0; i<8; i++) if (h->bankswitch[i]) uses = 1;
+    return uses;
+}
+
+void nsf_loader_write (word addr, byte value)
+{
+    if (addr >= 0x8000) ram32k[addr & 0x7FFF] = value;
+    else Wr6502(addr, value);
+}
+
+void nsf_load_bank (unsigned frame, unsigned bank)
+{
+    frame &= 7;
+    byte *fr = ram32k + 0x1000 * frame;
+    int offset = nes.rom.nsf_header->load_addr & 0xFFF;
+    if (bank == 0) memset(fr, 0, 0x1000);
+    unsigned base = (bank-1) * 0x1000 + (0x1000 - offset);
+    unsigned top = min(nes.rom.prg_size, base + 0x1000);
+
+    if (bank == 0) {
+        memcpy(fr + offset, nes.rom.prg, min(nes.rom.prg_size, 0x1000 - offset));
+    } else {
+        printf("frame %i <- bank %i : base=%x  top=%x  size=%x\n", 
+               frame, bank, base, top, top - base);
+        if (top > base) memcpy(fr, nes.rom.prg + base, top - base);
+        else printf("Bogus bankswitch? frame %i, bank %i, base=%x  top=%x  size=%x\n",
+                    frame, bank, base, top, top-base);
+    }
+}
+
+void nsf_init (struct nes_machine *nes)
+{   
+    struct nsf_header *h = nes->rom.nsf_header;
+    assert(h != NULL);
+    memset(ram32k, 0, 0x8000);
+
+    if (nsf_uses_bankswitching(h)) {
+        printf("Bankswitching.\n");
+        for (int frame=0; frame<8; frame++) {
+            nsf_load_bank(frame, nes->rom.nsf_header->bankswitch[frame]);
+        }
+    } else {
+        int top = h->load_addr;        
+        top += nes->rom.prg_size;
+        if (top > 0x10000) { 
+            printf("Music program doesn't fit in address space. Odd.\n");
+            top = 0x10000;
+        }
+        //memcpy(ram32k + h->load_addr - 0x8000, nes->rom.prg, top - h->load_addr);
+        for (int addr = h->load_addr; addr < top; addr++) {
+            nsf_loader_write(addr, nes->rom.prg[addr - h->load_addr]);
+        }
+    }
+
+    if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;
+    int song = nes->nsf_current_song; /* Already zero-based! */
+//    nes->cpu.Trace = 1;
+    nes->cpu.A = song;
+    nes->cpu.X = 0;              /* Prefer NTSC. */
+    Sub6502(&nes->cpu, h->init_addr, 100000 * MASTER_CLOCK_DIVIDER);
+    nes->cpu.Trace = 0;
+    printf("NSF init returned.\n");
+}
+
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
 void reset_nes (struct nes_machine *nes)
 {
-  memset ((void *) nes->ram, 0, 0x800);
+  memset((void *) nes->ram, 0, 0x800);
 
   SDL_mutexP(producer_mutex);
 
-  memset ((void *) &nes->snd, 0, sizeof (nes->snd));
+  memset((void *) &nes->snd, 0, sizeof (nes->snd));
   Reset6502(&nes->cpu);
   nes->cpu.Trace = cputrace;
   nes->last_sound_cycle = 0;
@@ -108,11 +176,11 @@ void reset_nes (struct nes_machine *nes)
   nes->onescreen_page = nes->rom.hw_onescreen_page;
   nes->machine_type = nes->rom.machine_type;
 
+  /* NSF init */
+  if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
+
   printf("NES reset.\n");
 }
-
-
-
 
 int file_write_state_chunk (FILE *stream, const char *name, void *data, Uint32 length)
 {
@@ -144,6 +212,10 @@ int file_read_state_chunk (FILE *stream, const char *name, void *data_out, Uint3
     return 1;
 }
 
+/* FIXME/TODO: Now that we can restore state to memory, we could
+ * gracefully handle a state restore failure without trashing the
+ * current machine state. */
+
 static const char *nes_machine_vstring = "NES Machine v2";
 
 void save_state_to_disk (char *filename)
@@ -171,8 +243,8 @@ int restore_state_from_disk (char *filename)
     struct nes_rom rom;
     if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *in = fopen(filename, "rb");
-
-    /* Awesome kludge: preserve nes.rom structure, except for mirroring state. */
+    
+    /* Preserve nes.rom structure */
     memcpy(&rom, &nes.rom, sizeof(rom));
 
     if (!in) {
@@ -261,7 +333,7 @@ void save_state_to_mem (struct saved_state *state)
 {
     assert(state->num == state->cur);
     assert(state->num == 0);
-    assert(mem_write_state_chunk(state, "NES Machine", &nes, sizeof(nes)));
+    assert(mem_write_state_chunk(state, nes_machine_vstring, &nes, sizeof(nes)));
     assert(mapper->save_state((chunk_writer_t)mem_write_state_chunk, state));
 }
 
@@ -269,7 +341,7 @@ void restore_state_from_mem (struct saved_state *state)
 {
     struct nes_rom rom;   
     memcpy(&rom, &nes.rom, sizeof(rom));
-    assert(mem_read_state_chunk(state, "NES Machine", &nes, sizeof(nes)));
+    assert(mem_read_state_chunk(state, nes_machine_vstring, &nes, sizeof(nes)));
     assert(mapper->restore_state((chunk_reader_t)mem_read_state_chunk, state));
     memcpy(&nes.rom, &rom, sizeof(rom));
     state->cur = 0;
@@ -573,14 +645,15 @@ void Wr6502 (register word Addr, register byte Value)
       } else if (Addr < 0x5000) {
 	/*printf ("sound: Wrote 0x%02X to unknown area at 0x%04X\n", (int) Value, (int) Addr);*/
       } else {
-	/*printf ("Wrote 0x%02X to expansion module area at 0x%04X\n", (int) Value, (int) Addr);*/
+          //printf ("Wrote 0x%02X to expansion area at 0x%04X\n", (int)Value, (int)Addr);
+          mapper->ex_write(Addr, Value);
       }
       break;
 
   case 0x6000:    
-      /* Some games (e.g. SMB3) need SRAM even though they don't back
-       * it with a battery, and the rom flags don't reflect this, so
-       * give them their ram by default. */
+      /* Many games map RAM here, even without battery backing. It
+       * isn't specified when in the header, so enable it by
+       * default. */
       nes.save[Addr & 0x1FFF] = Value;
       break;
     
@@ -718,7 +791,7 @@ byte Rd6502 (register word Addr)
 	    break;
 	}
       } else {
-          //printf ("Read from unknown/expansion area at 0x%04X\n", (int) Addr);
+          return mapper->ex_read(Addr);
       }
       break;
 
@@ -736,6 +809,7 @@ byte Rd6502 (register word Addr)
 
 byte Debug6502 (register M6502 * R)
 {
+    if ((nes.machine_type == NSF_PLAYER) && (R->PC.W == 0x01FD)) return 1;
     char buffer[64];
     byte tmp[4];
     tmp[0] = Rd6502 (R->PC.W);
@@ -877,11 +951,34 @@ void nes_emulate_frame (void)
         vblank_kludge_cycles = 0;
     }
 
-    long long ellapsed_time = usectime() - start_time;
-    if (ellapsed_time > 50000ll) printf("Frame time: %lli usec (ouch!)\n", (long long)ellapsed_time);
+    long long elapsed_time = usectime() - start_time;
+    if (elapsed_time > 50000ll) printf("Frame time: %lli usec (ouch!)\n", (long long)elapsed_time);
 
     snd_catchup();
     nes.time++;
+}
+
+void nsf_emulate_frame (void)
+{
+    assert(nes.rom.nsf_header != NULL);
+    int speed = nes.rom.nsf_header->speed_ntsc; /* FIXME, PAL tunes. */
+    if (speed < 1) speed = 1;
+    double foo = 1789772.0 * (double)MASTER_CLOCK_DIVIDER * speed / 1000000.0;
+    int tick_cycles = foo;
+    
+    /* FIXME: This will cause the UI to repaint at the NSF tick
+     * rate. Fine if it's 60 Hz, but bad if it's considerably faster
+     * or slower. */
+
+    if (nsf_seek_to_song) {
+        nes.nsf_current_song = nsf_seek_to_song - 1;
+        nsf_seek_to_song = 0;
+        reset_nes(&nes);
+    }
+
+    Sub6502(&nes.cpu, nes.rom.nsf_header->play_addr, tick_cycles);
+    Run6502(&nes.cpu);
+    snd_catchup();
 }
 
 /* Debugging utilities: The idea is that rather than writing a 6502

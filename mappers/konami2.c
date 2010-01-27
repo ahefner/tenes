@@ -45,6 +45,8 @@ struct mapper_methods mapper_konami = {
    mapper_ignores_scanline_start,
    mapper_ignores_scanline_end,
    mapper2_save_state, 
-   mapper2_restore_state
+   mapper2_restore_state,
+   ignore_write,
+   ignore_read
 };
    

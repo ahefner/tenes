@@ -74,7 +74,24 @@
 
 typedef int dualmode;
 
-enum machine_type { NES_NTSC = 1, NSF };
+enum machine_type { NES_NTSC = 1, NSF_PLAYER };
+
+struct nsf_header {
+    byte magic[5];
+    byte version;
+    byte total_songs;
+    byte starting_song;
+    word load_addr, init_addr, play_addr;
+    char name[32];
+    char artist[32];
+    char copyright[32];
+    word speed_ntsc;
+    byte bankswitch[8];
+    word speed_pal;
+    byte pal_mode;
+    byte chipflags;
+    byte unused[4];
+};
 
 /* NES Rom image. Note that this is the only portion of the
  * nes_machine structure not touched by save/restore state. */
@@ -91,9 +108,10 @@ struct nes_rom
     int hw_mirror_mode;            /* Hardwired / initial value */
     int hw_onescreen_page;         /* Hardwired / initial value */
     struct mapperinfo *mapper_info;
-    byte header[16];
+    byte header[16];            /*  iNES header */
     unsigned long long hash;
     enum machine_type machine_type;
+    struct nsf_header *nsf_header; /* This points to static data. */
 };
 
 struct ppu_struct
@@ -148,6 +166,7 @@ struct nes_machine
     struct joypad_info joypad;
     
     enum machine_type machine_type;
+    int nsf_current_song;  /* Zero-based, as it should be. */
 };
 
 #ifndef global_c
@@ -164,6 +183,8 @@ void init_nes (struct nes_machine *nes);
 void shutdown_nes (struct nes_machine *nes);
 void reset_nes (struct nes_machine *nes);
 void nes_emulate_frame(void);
+void nsf_emulate_frame(void);
+void nsf_load_bank (unsigned frame, unsigned bank);
 
 char *nes_time_string (void);
 void nes_printtime (void);

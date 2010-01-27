@@ -34,26 +34,8 @@ unsigned long long rom_hash (unsigned long long file_size, struct nes_rom *rom)
 }
 
 /* FIXME: This would be more useful if you could distinguish
- * failure. Further, aborting when load fails is no longer acceptable
- * now that we have a fancy GUI and support changing ROMs at
- * runtime. */
-
-struct nsf_header {
-    byte magic[5];
-    byte version;
-    byte total_songs;
-    byte starting_song;
-    word low_addr, init_addr, play_addr;
-    char name[32];
-    char artist[32];
-    char copyright[32];
-    word speed_ntsc;
-    byte bankswitch[8];
-    word speed_pal;
-    byte pal_mode;
-    byte chipflags;
-    byte unused[4];
-};
+ * failure. Aborting when load fails is no longer acceptable now that
+ * we have a fancy GUI and support changing ROMs at runtime. */
 
 void print_nsf_header_info (struct nsf_header *h)
 {
@@ -64,7 +46,8 @@ void print_nsf_header_info (struct nsf_header *h)
     printf("  Version: %02Xh\n", h->version);
     printf("  Total songs: %i\n", h->total_songs);
     printf("  Starting song: %i\n", h->starting_song);
-    printf("  Load $%04X / Init $%04X / Play $%04X\n", h->low_addr, h->init_addr, h->play_addr);
+    printf("  Load $%04X / Init $%04X / Play $%04X\n", 
+           h->load_addr, h->init_addr, h->play_addr);
 
     printf("  Mode: ");
     switch (h->pal_mode & 3) {
@@ -92,7 +75,7 @@ void print_nsf_header_info (struct nsf_header *h)
 
 int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
 {
-    struct nsf_header header;
+    static struct nsf_header header;
     assert(sizeof(header) == 0x80);
     
     fseek(in, 0, SEEK_SET);
@@ -103,9 +86,25 @@ int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
     
     print_nsf_header_info(&header);
 
+    if (header.total_songs < 1) {
+        printf("NSF has no songs!\n");
+        return 0;
+    }
 
-    printf("Not implemented.\n");
-    return 0;
+    rom->prg_size = filesize - 0x80;
+    printf("Music program is %i ($%X) bytes\n", rom->prg_size, rom->prg_size);
+    rom->prg = malloc(rom->prg_size);    
+    rom->chr_size = 0;
+    rom->chr = NULL;
+    rom->mapper_info = get_NSF_minf();
+    rom->hw_mirror_mode = MIRROR_HORIZ;
+    rom->hw_onescreen_page = 0;
+    rom->nsf_header = &header;
+
+    if (!rom->prg) return 0;
+    if (1 != fread(rom->prg, rom->prg_size, 1, in)) return 0;
+    
+    return 1;
 }
 
 int load_nsfe (struct nes_rom *rom, FILE *in, int filesize)
@@ -140,8 +139,6 @@ int load_ines (struct nes_rom *rom, FILE *in, int filesize)
 
     fread((void *)rom->prg, rom->prg_size, 1, in);
     fread((void *)rom->chr, rom->chr_size, 1, in);
-    rom->hash = rom_hash(filesize, rom);
-    printf("ROM hash is %llX\n", rom->hash);
 
     printf("PRG ROM is %i bytes\n", rom->prg_size);
     printf("CHR ROM is %i bytes\n", rom->chr_size);  
@@ -170,6 +167,8 @@ struct nes_rom load_nes_rom (char *filename)
     FILE *in;
     struct stat statbuf;
     struct nes_rom rom;
+    
+    memset(&rom, 0, sizeof(rom));
 
     in = fopen (filename, "rb");
     if (in == NULL) {
@@ -211,6 +210,8 @@ struct nes_rom load_nes_rom (char *filename)
     exit(1);
   
 success:
+    rom.hash = rom_hash(filesize, &rom);
+    printf("ROM hash is %llX\n", rom.hash);
     fclose(in);
     return rom;
 }

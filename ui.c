@@ -322,13 +322,10 @@ image_t loaddecal (char *name)
     return img;
 }
 
-image_t pad600 = NULL;
-image_t mascot = NULL;
+//image_t pad600 = NULL;
 image_t drop_roundbutton = NULL;
 image_t power_lo[2] = { NULL, NULL };
 image_t reset_lo[2] = { NULL, NULL };
-image_t keyboard_140 = NULL;
-image_t keyboard_280 = NULL;
 image_t cableseg = NULL;
 image_t nesport[2] = { NULL, NULL };
 image_t nesport_shadow = NULL;
@@ -360,13 +357,10 @@ image_t checkmark = NULL;
 
 void load_menu_media (void)
 {
-    decal(pad600);
-    decal(mascot);
+    //    decal(pad600);
     decals(power_lo);
     decals(reset_lo);
     decal(drop_roundbutton);
-    decal(keyboard_140);
-    decal(keyboard_280);
     decal(cableseg);
     decals(nesport);
     decal(nesport_shadow);
@@ -646,6 +640,30 @@ void render_restorestate (struct inputctx *input)
     }
 }
 
+void run_nsf_ui (struct inputctx *input, int bx, int by)
+{
+    struct nsf_header *h = nes.rom.nsf_header;
+    cursor_base[0] = bx;
+    cursor_base[1] = by + 20;
+    setcursor(0,0);
+    setcolor(color00);
+    print("       Name: ");
+    setcolor(color10);
+    print("\"%s\"\n", h->name);
+    setcolor(color00);
+    print("     Artist: ");
+    setcolor(color10);
+    print("\"%s\"\n", h->artist);
+    setcolor(color00);
+    print("  Copyright: ");
+    setcolor(color10);
+    print("\"%s\"\n", h->copyright);
+    setcolor(color00);
+    print("       Song: ");
+    setcolor(color10);
+    print("%i of %i\n", nes.nsf_current_song + 1, h->total_songs);
+}
+
 
 void run_main_menu (struct inputctx *input)
 {   
@@ -658,7 +676,7 @@ void run_main_menu (struct inputctx *input)
     cursor_base[1] = 415;
     setcursor(0,0);
     setcolor(color00);
-    print("This space for rent.\n");
+    print("\n");
 
     setcolor(color10);
     print("Playing: %s\n", nes.rom.title);
@@ -740,6 +758,9 @@ void run_main_menu (struct inputctx *input)
 */
 
     //dim_y_target = max(dim_y_target, cursor[1] + text_height);
+
+    if (nes.machine_type == NSF_PLAYER) run_nsf_ui(input, 100, 92);
+
     dim_y_target = vid_height;
 }
 
@@ -783,7 +804,8 @@ int game_filename_p (char *filename)
 {
     int len = strlen(filename);
     if (len < 5) return 0;
-    return !strcasecmp(filename+len-4, ".nes");
+    return !strcasecmp(filename+len-4, ".nes") || 
+        !strcasecmp(filename+len-4, ".nsf");
 }
 
 char *filename_to_title (char *filename)

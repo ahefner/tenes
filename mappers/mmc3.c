@@ -214,5 +214,7 @@ struct mapper_methods mapper_MMC3 = {
     mmc3_scanline_start,
     mmc3_scanline_end,
     mmc3_save_state,
-    mmc3_restore_state
+    mmc3_restore_state,
+    ignore_write,
+    ignore_read
 };

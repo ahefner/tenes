@@ -270,3 +270,41 @@ word Run6502(M6502 *R)
   /* Execution stopped */
   return(R->PC.W);
 }
+
+/* Run a 6502 subroutine until it returns. This is a hack for the NSF
+ * player. Trashes S and the top two bytes of the stack. */
+word Sub6502(M6502 *R, word addr, unsigned max_cycles)
+{
+  register pair J,K;
+  register byte I;
+  
+  Wr6502(0x1FE, 0xFD);
+  Wr6502(0x1FF, 0x01);
+  R->S = 0xFD;
+  R->PC.W = addr;
+  
+  R->BreakCycle = R->Cycles + max_cycles;
+
+  while ((R->PC.W != (0x01FD + 1)) && ((R->BreakCycle - R->Cycles) > 0))
+  {
+#ifdef DEBUG
+    if(R->Trace) if(!Debug6502(R)) return(R->PC.W);
+#endif
+
+    I=Op6502(R->PC.W++);
+    R->Cycles += R->Stolen + Cycles[I] * MASTER_CLOCK_DIVIDER;
+    R->Stolen = 0;
+
+    switch(I)
+    {
+#include "Codes.h"
+    }
+
+  }
+
+  Wr6502(0x1FD, 0x4C);          /* JMP absolute */
+  R->PC.W = 0x1FD;
+
+  /* Execution stopped */
+  return(R->PC.W);
+}

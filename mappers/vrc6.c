@@ -9,7 +9,7 @@ struct {
 
 int vrc6_init (void)
 {
-    printf("Konami VRC6\n");
+    printf("Konami VRC6 --- WARNING: Not fully implemented..\n");
     vrc6.bank8 = 0;
     vrc6.bankC = 0;
     vrc6.irq_latch = 0;
@@ -98,6 +98,7 @@ int vrc6_scanline_end (void)
 
     return 0;
 }
+/* I didn't. */
 
 struct mapper_methods mapper_vrc6 = {
    vrc6_init,
@@ -107,5 +108,7 @@ struct mapper_methods mapper_vrc6 = {
    mapper_ignores_scanline_start,
    vrc6_scanline_end,
    nop_save_state,
-   nop_restore_state  
+   nop_restore_state,
+   ignore_write,
+   ignore_read
 };

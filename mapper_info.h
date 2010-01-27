@@ -19,6 +19,8 @@ struct mapper_methods
     int (*scanline_end)(void);
     int (*save_state) (chunk_writer_t writer, void *arg);
     int (*restore_state) (chunk_reader_t reader, void *arg);
+    void (*ex_write)(register word Addr, register byte Value);
+    byte (*ex_read)(register word Addr);
 /* void (*vram_write)(register word Addr,register byte Value);
    byte (*vram_read)(register word Addr); */
 };
@@ -33,6 +35,7 @@ struct mapperinfo
 #ifndef MAPPER_INFO_C
 extern struct mapperinfo *mapper_find (int ines_number);
 extern struct mapper_methods mapper_None;
+struct mapperinfo *get_NSF_minf (void);
 #endif
 
 #endif

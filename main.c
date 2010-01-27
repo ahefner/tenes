@@ -141,6 +141,39 @@ void process_key_event (SDL_KeyboardEvent * key)
 {
     int idx;
 
+    // NES player keyboard controls.
+
+    // FIXME: Current track not saved in state, so wrong at startup or after restore.
+
+    if ((nes.machine_type == NSF_PLAYER) 
+        && (key->type == SDL_KEYUP) 
+        // Ignore if modifiers held - otherwise screws up my desktop switching. :)
+        && (!(key->keysym.mod & (KMOD_CTRL | KMOD_ALT))))
+    {
+        int delta = 0;
+
+        switch (key->keysym.sym) {
+        case SDLK_LEFT:
+            delta = -1;
+            break;
+        case SDLK_RIGHT:
+            delta = 1;
+            break;
+        case SDLK_UP:
+            delta = 10;
+            break;
+        case SDLK_DOWN:
+            delta = -10;
+            break;
+        default: break;
+        }        
+        if (delta) {
+            nsf_seek_to_song = nes.nsf_current_song + delta;
+            while (nsf_seek_to_song < 0) nsf_seek_to_song += nes.rom.nsf_header->total_songs;
+            nsf_seek_to_song = 1 + (nsf_seek_to_song % nes.rom.nsf_header->total_songs);
+        }
+    }
+
     // Control and alt keys are available globally.
     // Ignore modified keys down, so as not to confuse the input code.
     if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT)) 
@@ -324,17 +357,24 @@ void runframe (void)
     frame_start_cycles = nes.cpu.Cycles;
 
     render_clear();
-    nes_emulate_frame();
+    switch (nes.machine_type) {
+    case NES_NTSC:
+        nes_emulate_frame();
+        break;
+    case NSF_PLAYER:
+        nsf_emulate_frame();
+        break;
+    }
 
     if (screencapping) {
         char dest[256];
         snprintf(dest, sizeof(dest), "%s/%06i.bmp", screencap_dest, screencapping++);
         SDL_SaveBMP(window_surface, dest);
-    }    
+    }
     
     /* Automatically save SRAM to disk once per minute. */
     if ((unique_frame_number > 0) && 
-        !(unique_frame_number % 3600)) 
+        !(unique_frame_number % 3600))
     {
         save_sram(nes.save, &nes.rom, 0);
     }

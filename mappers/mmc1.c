@@ -202,7 +202,9 @@ struct mapper_methods mapper_MMC1 = {
     mapper_ignores_scanline_start,
     mapper_ignores_scanline_end,
     mmc1_save_state,
-    mmc1_restore_state
+    mmc1_restore_state,
+    ignore_write,
+    ignore_read
 };
 
 #undef BANK
