@@ -131,7 +131,8 @@ int file_read_state_chunk (FILE *stream, char *name, void *data_out, Uint32 leng
     }
     if (fread(&read_length, sizeof(read_length), 1, stream) != 1) return 0;
     if (read_length != length) {
-        printf("Size of chunk \"%s\" is wrong. Expected %i, actually %i.", name, length, read_length); 
+        printf("Size of chunk \"%s\" is wrong. Expected %i, actually %i.\n", 
+               name, length, read_length); 
         return 0;
     }
     if (fread(data_out, read_length, 1, stream) != 1) return 0;
