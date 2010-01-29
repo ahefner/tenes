@@ -42,7 +42,7 @@ clean:
 
 install:
 	install -d $(PREFIX)/share/tenes
-	install media/*.png $(PREFIX)/share/tenes
+	install media/*.png media/*.ttf $(PREFIX)/share/tenes
 	install tenes $(PREFIX)/bin
 
 romloadtest: rom.o romloadtest.c
