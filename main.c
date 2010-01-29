@@ -424,6 +424,7 @@ int open_game (char *filename)
 
 int main (int argc, char **argv)
 {
+    printf("PREFIX = %s\n", PREFIX);
     memset(joystick, 0, sizeof(joystick));
     load_config();
     cfg_parseargs(argc, argv);

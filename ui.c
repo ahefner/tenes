@@ -47,8 +47,11 @@ int ensure_freetype (void)
             return -1;
         }
 
-        char *filename = asset("DejaVuSans.ttf");
-        error = FT_New_Face(ftlibrary, filename, 0, &face_sans);
+        char *filename = "DejaVuSans.ttf";
+        error = FT_New_Face(ftlibrary, asset(filename), 0, &face_sans);
+        if (error) {
+            error = FT_New_Face(ftlibrary, localasset(filename), 0, &face_sans);
+        }
         if (error) {
             fprintf(stderr, "Error opening %s\n", filename);
             return -1;
@@ -286,6 +289,14 @@ void dim_background (void)
 char *asset (char *name)
 {
     static char buf[512];
+    snprintf(buf, sizeof(buf), "%s/share/tenes/%s", PREFIX, name);
+    buf[511] = 0;
+    return buf;
+}
+
+char *localasset (char *name)
+{
+    static char buf[512];
     snprintf(buf, sizeof(buf), "media/%s", name);
     buf[511] = 0;
     return buf;
@@ -303,6 +314,7 @@ image_t loaddecal (char *name)
 {
     image_t img = NULL;
     SDL_Surface *ptr = IMG_Load(asset(name));
+    if (ptr == NULL) ptr = IMG_Load(localasset(name));
 
     if (ptr) {
         SDL_SetAlpha(ptr, SDL_SRCALPHA, 128);

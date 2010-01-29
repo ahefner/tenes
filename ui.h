@@ -18,6 +18,7 @@ struct inputctx {
 
 
 char *asset (char *name);
+char *localasset (char *name);
 
 void dim_to_y (int y);
 void dim_background (void);

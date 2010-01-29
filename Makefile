@@ -9,7 +9,6 @@ PREFIX=/usr/local/
 
 USE_FUSE=0			# Disabled by default.
 
-
 # Configure variables according to optional features:
 
 ifeq (1,${USE_FUSE})
@@ -23,7 +22,7 @@ endif
 # Build:
 
 CC=gcc
-CFLAGS= -Wall -O3 -g `sdl-config --cflags` `freetype-config --cflags` -msse2 -flax-vector-conversions
+CFLAGS= -Wall -O3 -g `sdl-config --cflags` `freetype-config --cflags` -msse2 -flax-vector-conversions -DPREFIX=\"$(PREFIX)\"
 OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o global.o filters.o utility.o font.o filesystem.o ui.o main.o
 INCLUDEDIRS= -IM6502
 DEFINES=$(FUSE_FLAGS)
@@ -35,14 +34,16 @@ COBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
 C90OBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
 CAPP=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) $(OBJECTS) $(LIBS)
 
-all: nesemu
+all: tenes
 clean:
 	rm -f *.o
 	rm -f *~ M6502/*~ util/*~ util/a.out mappers/*~ \#*\# mappers/\#*\#
-	rm -f nesemu
+	rm -f tenes
 
 install:
-	install -m 0755 nesemu $(PREFIX)/bin
+	install -d $(PREFIX)/share/tenes
+	install media/*.png $(PREFIX)/share/tenes
+	install tenes $(PREFIX)/bin
 
 romloadtest: rom.o romloadtest.c
 	$(CAPP) romloadtest.c -o romloadtest
@@ -50,8 +51,8 @@ romloadtest: rom.o romloadtest.c
 listmappers:
 	$(CAPP) listmappers.c -o listmappers
 
-nesemu: Makefile $(OBJECTS)
-	$(CAPP) -o nesemu
+tenes: Makefile $(OBJECTS)
+	$(CAPP) -o tenes
 
 main.o: Makefile main.c global.h ui.h nes.h rom.h sys.h
 	$(COBJ) main.c

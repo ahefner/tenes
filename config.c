@@ -260,11 +260,11 @@ char *ensure_config_dir (void)
     struct passwd *pwd = getpwuid(getuid());
 
     if (getenv("HOME")) {
-        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", getenv("HOME"));
+        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", getenv("HOME"));
     } else if (!pwd) {
-        snprintf(config_dir, sizeof(config_dir), "/tmp/nes-emulator-%i", (int)getuid());
+        snprintf(config_dir, sizeof(config_dir), "/tmp/tenes-%i", (int)getuid());
     } else {
-        snprintf(config_dir, sizeof(config_dir), "%s/.nes-emulator", pwd->pw_dir);
+        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", pwd->pw_dir);
     }
 
     mkdir(config_dir, 0755);
