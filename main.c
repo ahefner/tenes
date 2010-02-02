@@ -318,7 +318,10 @@ void process_events (struct inputctx *input)
             break;
             
         case SDL_MOUSEBUTTONUP:
-            input->released |= SDL_BUTTON(event.button.button);
+            // Don't pass the button up to the menu, or it will close immediately.
+            if (!menu && (input->buttons & SDL_BUTTON(3))) open_menu();
+            else input->released |= SDL_BUTTON(event.button.button);
+            
             break;
             
         default:
