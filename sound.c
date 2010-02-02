@@ -23,7 +23,7 @@
           simultaneously, or (more likely) maskable interrupts are disabled.
 */
 
-#define AUDIO_BUFFER_SIZE 4096
+#define AUDIO_BUFFER_SIZE 16384
 #define BUFFER_PTR_MASK   (AUDIO_BUFFER_SIZE-1)
 
 /* Audio is output to a mirrored circular buffer with low/high water mark */
@@ -52,7 +52,7 @@ int snd_init (void)
         desired.freq = 48000;
         desired.format = AUDIO_S16 /* | AUDIO_MONO */ ;
         desired.samples = 512; /* Desired buffer size */
-        desired.callback = audio_callback;
+        desired.callback = (void *)audio_callback;
         desired.channels = 1;
         desired.userdata = NULL;
 
@@ -89,6 +89,16 @@ void snd_shutdown (void)
 static int buffer_samples (void)
 {
     return buffer_high - buffer_low;
+}
+
+/* Thread-safe version for public use. Desirable for the NSF player,
+ * to let it buffer ahead from the main thread. */
+int snd_buffered_samples (void)
+{
+    SDL_mutexP(producer_mutex);
+    int n = buffer_samples();
+    SDL_mutexV(producer_mutex);
+    return n;
 }
 
 /* buffer_space: Returns available space in the audio buffer */
@@ -228,12 +238,18 @@ int translate_length (byte value)
 #define CLOCK2 3579545
 #define CLOCK  1789772
 
+/** Sound State **/
 
-int ptimer[5]={0,0,0,0,0};   /* 11 bit down counter */
-int wavelength[5]={0,0,0,0,0}; /* controls ptimer */
+#define SND (nes.snd)
 
+void snd_reset (void)
+{
+    memset(&SND, 0, sizeof(SND));
+    SND.frameseq_divider = 200;
+    SND.frameseq_irq_disable = 1;
+    SND.dmc_address = 0x8000;
+}
 
-int out_counter[3]={0,0,0}; /* for square and triangle channels.. */
 const int out_counter_mask[3]={0x0F,0x0F,0x1F}; 
 
 void frameseq_clock_divider (void);
@@ -249,10 +265,6 @@ void linear_counter_clock (void);
 **/
 
 const int frameseq_divider_reset = 200; /* 48000 Hz / 240 Hz */
-int frameseq_divider = 200; //frameseq_divider_reset;
-int frameseq_sequencer = 0;
-int frameseq_mode_5 = 0;
-int frameseq_irq_disable = 1;
 
 #define FRAMESEQ_CLOCK_ENV_LIN 1
 #define FRAMESEQ_CLOCK_LEN_SWEEP 2
@@ -262,19 +274,19 @@ int frameseq_patterns[2][5] = { { 1, 3, 1, 7, 0}, { 3, 1, 3, 1, 0} };
 
 /* Clock the frameseq divider. Should be called at 48000 Hz. */
 void frameseq_clock_divider (void) {
-    if (!frameseq_divider) {
+    if (!SND.frameseq_divider) {
         frameseq_clock_sequencer();
-    } else frameseq_divider--;
+    } else SND.frameseq_divider--;
 }
 
 /* Clock the sequencer. Called when divider counts down. */
 void frameseq_clock_sequencer (void)
 {
         int output;
-        frameseq_divider = frameseq_divider_reset;
+        SND.frameseq_divider = frameseq_divider_reset;
 
-        output = frameseq_patterns[frameseq_mode_5][frameseq_sequencer];
-        if ((output & FRAMESEQ_CLOCK_IRQ) && !frameseq_irq_disable) {
+        output = frameseq_patterns[SND.frameseq_mode_5][SND.frameseq_sequencer];
+        if ((output & FRAMESEQ_CLOCK_IRQ) && !SND.frameseq_irq_disable) {
             nes.snd.regs[0x15] |= 0x40;
             signal_frameseq_interrupt();
         }
@@ -289,14 +301,12 @@ void frameseq_clock_sequencer (void)
             linear_counter_clock();
         }
 
-        frameseq_sequencer++;
-        if ((frameseq_sequencer == 5) ||
-            ((frameseq_sequencer == 4) && !frameseq_mode_5)) frameseq_sequencer = 0;
+        SND.frameseq_sequencer++;
+        if ((SND.frameseq_sequencer == 5) ||
+            ((SND.frameseq_sequencer == 4) && !SND.frameseq_mode_5)) SND.frameseq_sequencer = 0;
 }
 
 /** Length counters count down unless the hold bit is set. **/
-
-int lcounter[4]={0,0,0,0}; /* 7 bit down counter */
 
 static inline int tick (int value) { return value? value-1 : 0; }
 
@@ -304,16 +314,13 @@ void length_counters_clock (void)
 {
     byte *r=nes.snd.regs;
 
-    if ( !(r[0] & 0x20)) lcounter[0] = tick(lcounter[0]);
-    if ( !(r[4] & 0x20)) lcounter[1] = tick(lcounter[1]);
-    if ( !(r[8] & 0x80)) lcounter[2] = tick(lcounter[2]);
-    if (!(r[12] & 0x20)) lcounter[3] = tick(lcounter[3]);
+    if ( !(r[0] & 0x20)) SND.lcounter[0] = tick(SND.lcounter[0]);
+    if ( !(r[4] & 0x20)) SND.lcounter[1] = tick(SND.lcounter[1]);
+    if ( !(r[8] & 0x80)) SND.lcounter[2] = tick(SND.lcounter[2]);
+    if (!(r[12] & 0x20)) SND.lcounter[3] = tick(SND.lcounter[3]);
 }
 
 /** Sweep unit **/
-
-int sweep_reset[2] = {0,0};
-int sweep_divider[2] = {0,0};
 
 void sweep_clock_channel (int channel)
 {
@@ -322,30 +329,30 @@ void sweep_clock_channel (int channel)
         period = ((reg>>4) & 7),
         negate = reg & 8,
         shift = reg & 7;
-    int wl = wavelength[channel];
+    int wl = SND.wavelength[channel];
 
-    assert(sweep_divider[channel] >= 0);
+    assert(SND.sweep_divider[channel] >= 0);
     
     if (0 && !channel) {
         nes_printtime();
-        printf("sweep clocked for channel %x. sweep reg=%02X. divider=%i\n", channel, reg, sweep_divider[channel]);
+        printf("sweep clocked for channel %x. sweep reg=%02X. divider=%i\n", channel, reg, SND.sweep_divider[channel]);
     }
 
     /* Clock the divider */
-    if (!sweep_divider[channel]) {
+    if (!SND.sweep_divider[channel]) {
         int shifted = wl >> shift;
         int sum = wl + (negate? (-shifted - (channel^1)) : shifted);
 
 
         if (0 && (channel == 0)) {
             printf("%u: ch0 sweep enabled: %i, period = %x, negate = %x, shift=%x   wl=%i shifted=%i  LC=%i\n",
-                   nes.time, enabled?1:0, period, negate, shift, wl, shifted, lcounter[0]);
+                   nes.time, enabled?1:0, period, negate, shift, wl, shifted, SND.lcounter[0]);
         }
 
 
-        if (enabled && (shift>0) && (wl >= 8) && (sum <= 0x7FF)) wavelength[channel] = sum;
-        if (wavelength[channel] < 0) {
-            wavelength[channel] = 0;
+        if (enabled && (shift>0) && (wl >= 8) && (sum <= 0x7FF)) SND.wavelength[channel] = sum;
+        if (SND.wavelength[channel] < 0) {
+            SND.wavelength[channel] = 0;
             printf("%u: Sweep underflow on channel %i. (?)\n", nes.time, channel);
         }
         
@@ -354,15 +361,15 @@ void sweep_clock_channel (int channel)
            need to do this on carry, for sweep up, because a sweep
            down will eventually drop the wavelength below 8, at which
            time the channel is muted at the output stage. */
-        if (sum >= 0x800) lcounter[channel] = 0;
+        if (sum >= 0x800) SND.lcounter[channel] = 0;
 
-        sweep_divider[channel] = period;
-    } else sweep_divider[channel]--;
+        SND.sweep_divider[channel] = period;
+    } else SND.sweep_divider[channel]--;
     
     /* Check for reset */
-    if (sweep_reset[channel]) {
-        sweep_reset[channel] = 0;
-        sweep_divider[channel] = period;
+    if (SND.sweep_reset[channel]) {
+        SND.sweep_reset[channel] = 0;
+        SND.sweep_divider[channel] = period;
 
         if (0) printf(" sweep reset channel %x divider to %X\n", channel, period);
     }
@@ -376,25 +383,17 @@ void sweep_clock (void)
 
 /** Envelope counter **/
 
-int envc_divider[4] = {0,0,0,0};
-int envc[4] = {0,0,0,0};
-int env_reset[4] = {0,0,0,0};
-/* We latch the output of the envelope/constant volume here rather
- * than having to branch on the envelope disable flag for every sample
- * of output. */
-int volume[4] = {0,0,0,0};
-
 static inline void envelope_compute_output_volume (int channel)
 {
     int const_vol = (nes.snd.regs[channel<<2] & BIT(4));
-    if (!const_vol) volume[channel] = envc[channel];
-    else volume[channel] = nes.snd.regs[channel<<2] & 0x0F;
+    if (!const_vol) SND.volume[channel] = SND.envc[channel];
+    else SND.volume[channel] = nes.snd.regs[channel<<2] & 0x0F;
 }
 
 static inline void envelope_counter_clock (int channel)
 {
-    if (envc[channel]) envc[channel]--;
-    else if (nes.snd.regs[channel<<2] & 0x20) envc[channel] = 15; /* Loop envelope */
+    if (SND.envc[channel]) SND.envc[channel]--;
+    else if (nes.snd.regs[channel<<2] & 0x20) SND.envc[channel] = 15; /* Loop envelope */
     envelope_compute_output_volume(channel);
 }
 
@@ -403,31 +402,30 @@ void envelope_clock (void)
     int i;
 
     for (i=0; i<4; i++) {
-        if (env_reset[i]) {     /* Reset divider? */
-            env_reset[i] = 0;
-            envc[i] = 15;
-            envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
+        if (SND.env_reset[i]) {     /* Reset divider? */
+            SND.env_reset[i] = 0;
+            SND.envc[i] = 15;
+            SND.envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
         } else {                /* Clock divider. */
-            if (!envc_divider[i]) {
-                envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
+            if (!SND.envc_divider[i]) {
+                SND.envc_divider[i] = (nes.snd.regs[i<<2] & 0x0F);
                 envelope_counter_clock(i);
-            } else envc_divider[i]--;
+            } else SND.envc_divider[i]--;
         }
     }
 }
 
 /** Linear Counter (triangle channel) **/
-int linear_counter = 0;
-int linear_counter_halt = 0;
+
 void linear_counter_clock (void)
 {
-    // printf("%u: linear_counter clocked. currently %i. halted? %s.regs = %02X %02X\n", nes.time, linear_counter, linear_counter_halt? "Yes":"No", nes.snd.regs[8], nes.snd.regs[11]);
-    if (linear_counter_halt) {
-        linear_counter = nes.snd.regs[8] & 0x7F;
-        // printf("  %u: Linear counter took new value %02X.\n", nes.time, linear_counter);
-    } else if (linear_counter) linear_counter--;
+    // printf("%u: linear_counter clocked. currently %i. halted? %s.regs = %02X %02X\n", nes.time, SND.linear_counter, SND.linear_counter_halt? "Yes":"No", nes.snd.regs[8], nes.snd.regs[11]);
+    if (SND.linear_counter_halt) {
+        SND.linear_counter = nes.snd.regs[8] & 0x7F;
+        // printf("  %u: Linear counter took new value %02X.\n", nes.time, SND.linear_counter);
+    } else if (SND.linear_counter) SND.linear_counter--;
     
-    if (!(nes.snd.regs[8]&0x80)) linear_counter_halt = 0;
+    if (!(nes.snd.regs[8]&0x80)) SND.linear_counter_halt = 0;
 }
 
 int translate_noise_period (int n)
@@ -440,31 +438,24 @@ int translate_noise_period (int n)
 
 /** Delta Modulation Channel **/
 
-unsigned dmc_address = 0x8000;
-unsigned dmc_counter = 0;
-byte dmc_buffer = 0;
-int dmc_dac = 0;
-int dmc_shift_counter = 0;
-int dmc_shift_register = 0;
-
 /* We don't have a separate 'silent flag'. I think checking
  * !dmc_counter suffices. */
-static inline int dmc_silent_p (void) { return !dmc_counter; }
+static inline int dmc_silent_p (void) { return !SND.dmc_counter; }
 
 void dmc_configure (void)
 {
-    dmc_address = (nes.snd.regs[0x12] * 0x40) + 0xC000;
-    dmc_counter = (nes.snd.regs[0x13] * 0x10) + 1;
+    SND.dmc_address = (nes.snd.regs[0x12] * 0x40) + 0xC000;
+    SND.dmc_counter = (nes.snd.regs[0x13] * 0x10) + 1;
 }
 
 void dmc_read_next (void)
 {
-    if (dmc_counter) {
+    if (SND.dmc_counter) {
         nes.cpu.Stolen += 4 * MASTER_CLOCK_DIVIDER;
-        dmc_buffer = Rd6502(dmc_address);        
-        dmc_address = ((dmc_address + 1) & 0x7FFF) | 0x8000;
-        dmc_counter--;
-        if (!dmc_counter) {
+        SND.dmc_buffer = Rd6502(SND.dmc_address);        
+        SND.dmc_address = ((SND.dmc_address + 1) & 0x7FFF) | 0x8000;
+        SND.dmc_counter--;
+        if (!SND.dmc_counter) {
             if (nes.snd.regs[0x10] & 0x40) dmc_configure();
             else if (nes.snd.regs[0x10] & 0x80) {
                 nes.snd.regs[0x15] |= 0x80;
@@ -476,30 +467,30 @@ void dmc_read_next (void)
 
 void dmc_start_output_cycle (void)
 {
-    dmc_shift_counter = 8;
-    dmc_shift_register = dmc_buffer;
+    SND.dmc_shift_counter = 8;
+    SND.dmc_shift_register = SND.dmc_buffer;
     dmc_read_next();
 }
 
 void dmc_clock (void)
 {
-    if (!dmc_shift_counter) dmc_start_output_cycle();
+    if (!SND.dmc_shift_counter) dmc_start_output_cycle();
 
     if (!dmc_silent_p()) {
-        if ((dmc_shift_register & 1) && (dmc_dac < 126)) dmc_dac += 2;
-        else if (!(dmc_shift_register & 1) && (dmc_dac > 1)) dmc_dac -= 2;        
+        if ((SND.dmc_shift_register & 1) && (SND.dmc_dac < 126)) SND.dmc_dac += 2;
+        else if (!(SND.dmc_shift_register & 1) && (SND.dmc_dac > 1)) SND.dmc_dac -= 2;        
     }
     
-    dmc_shift_register >>= 1;
-    dmc_shift_counter--;
+    SND.dmc_shift_register >>= 1;
+    SND.dmc_shift_counter--;
 }
 
 void clock_dmc_ptimer (void)
 {
-    ptimer[4] -= CLOCK / 48000;
-    while (ptimer[4] < 0) {
+    SND.ptimer[4] -= CLOCK / 48000;
+    while (SND.ptimer[4] < 0) {
         dmc_clock();
-        ptimer[4] += (wavelength[4]+1);
+        SND.ptimer[4] += (SND.wavelength[4]+1);
     }
 }
 
@@ -524,23 +515,23 @@ void snd_write (unsigned addr, unsigned char value)
     SDL_mutexP(producer_mutex);
 
     if (0)
-        printf("%ssnd %2X <- %02X  length(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, lcounter[0], lcounter[1], lcounter[2], lcounter[3], nes.snd.regs[0x15], volume[0], volume[1], volume[3]); 
+        printf("%ssnd %2X <- %02X  length(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, SND.lcounter[0], SND.lcounter[1], SND.lcounter[2], SND.lcounter[3], nes.snd.regs[0x15], SND.volume[0], SND.volume[1], SND.volume[3]); 
 
     switch (addr) {
     case 0x15: /* channel enable register */
         nes.snd.regs[0x15] = value & 0x5F; /* Clear DMC but not frame interrupt flag? */
 
         for (chan=0; chan<4; chan++)
-            if (!(value & BIT(chan))) lcounter[chan]=0;        
+            if (!(value & BIT(chan))) SND.lcounter[chan]=0;        
         break;
     case 0x17:
-        frameseq_divider = frameseq_divider_reset;
-        frameseq_sequencer = 0;
-        frameseq_mode_5 = value & 0x80 ? 1 : 0;
-        frameseq_irq_disable = value & 0x40;
+        SND.frameseq_divider = frameseq_divider_reset;
+        SND.frameseq_sequencer = 0;
+        SND.frameseq_mode_5 = value & 0x80 ? 1 : 0;
+        SND.frameseq_irq_disable = value & 0x40;
         if (value & 0x40) nes.snd.regs[0x15] &= 0xBF; /* clear frameseq irq flag */
         
-        if (frameseq_mode_5) {
+        if (SND.frameseq_mode_5) {
             /* Okay, I think what he meant was that the *sequencer* should be clocked (not the divider) */
             frameseq_clock_sequencer();
         }
@@ -548,7 +539,7 @@ void snd_write (unsigned addr, unsigned char value)
 
     /* Configure volume / envelope */
     case 0: case 4: case 12:
-        //if (value & BIT(4)) volume[chan] = value & 0x0F; /* Disable envelope decay */
+        //if (value & BIT(4)) SND.volume[chan] = value & 0x0F; /* Disable envelope decay */
         nes.snd.regs[addr] = value;
         envelope_compute_output_volume(chan);
         /*    printf("snd_write: reg %i val %02X\t\t volume %s%i, volume decay %s, volume looping %s\n", 
@@ -560,7 +551,7 @@ void snd_write (unsigned addr, unsigned char value)
     /* Configure sweep unit */
     case 1: case 5:
         nes.snd.regs[addr] = value;
-        sweep_reset[chan] = 1;
+        SND.sweep_reset[chan] = 1;
         break;
 
     /* Configure linear counter */
@@ -570,52 +561,52 @@ void snd_write (unsigned addr, unsigned char value)
         break;
 
     case 2: case 6: case 0x0A:
-        wavelength[chan]=(wavelength[chan]&0xF00) | value;
+        SND.wavelength[chan]=(SND.wavelength[chan]&0xF00) | value;
         break;
 
     case 0x0B:
-        linear_counter = nes.snd.regs[8] & 0x7F;
-        /*if (nes.snd.regs[8] & 0x80)*/ linear_counter_halt = 1;
+        SND.linear_counter = nes.snd.regs[8] & 0x7F;
+        /*if (nes.snd.regs[8] & 0x80)*/ SND.linear_counter_halt = 1;
         //printf("%u: wrote %02X to $400B. $4008 currently %02X.\n", nes.time, value, nes.snd.regs[8]);
         /* fall through to case 3/7: */
     case 3: case 7:
         nes.snd.regs[addr] = value;
-        wavelength[chan]=(wavelength[chan]&0x0FF) | ((value&0x07)<<8);
-        env_reset[chan] = 1;
+        SND.wavelength[chan]=(SND.wavelength[chan]&0x0FF) | ((value&0x07)<<8);
+        SND.env_reset[chan] = 1;
 
         /* We must reset the output counter, otherwise various
          * "counting down" effects (such as at the end of a level in
          * SMB3, and the fairy pools in Zelda 1) don't sound right. */
-        if (chan < 2) out_counter[chan] = 0;
+        if (chan < 2) SND.out_counter[chan] = 0;
         
 
         if (nes.snd.regs[0x15] & BIT(chan)) {
-            lcounter[chan] = translate_length(value);
+            SND.lcounter[chan] = translate_length(value);
             /*printf("%u: Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
-              nes.time, addr+0x4000, chan, lcounter[chan], value, translate_length(value));  */
+              nes.time, addr+0x4000, chan, SND.lcounter[chan], value, translate_length(value));  */
                         
         }
         break;
 
     case 0x0E:
         nes.snd.regs[addr] = value;
-        wavelength[3] = translate_noise_period(value & 15);
+        SND.wavelength[3] = translate_noise_period(value & 15);
         break;
 
     case 0x0F:
         nes.snd.regs[addr] = value;
-        env_reset[chan] = 1;
-        if (nes.snd.regs[0x15] & BIT(chan)) lcounter[chan] = translate_length(value);
+        SND.env_reset[chan] = 1;
+        if (nes.snd.regs[0x15] & BIT(chan)) SND.lcounter[chan] = translate_length(value);
         break;
 
     /* Delta modulation registers */
     case 0x10:
-        wavelength[4] = translate_dmc_period(value & 15);
+        SND.wavelength[4] = translate_dmc_period(value & 15);
         nes.snd.regs[addr] = value;
         break;
 
     case 0x11:
-        dmc_dac = value & 0x7F;
+        SND.dmc_dac = value & 0x7F;
         //printf("Direct write to DMC DAC: %i.\n", value);
         break;
 
@@ -639,8 +630,8 @@ unsigned char snd_read_status_reg (void)
     snd_catchup();
 
     SDL_mutexP(producer_mutex);
-    for (i=0; i<4; i++) if (lcounter[i] > 0) result |= (1 << i);
-    if (dmc_counter) result |= BIT(4);
+    for (i=0; i<4; i++) if (SND.lcounter[i] > 0) result |= (1 << i);
+    if (SND.dmc_counter) result |= BIT(4);
     result |= nes.snd.regs[0x15] & 0xE0;
     /* apu_reg.txt says to clear frameseq interrupt flag on read.
        It doesn't say anything about the DMC interrupt flag here.    */
@@ -651,13 +642,13 @@ unsigned char snd_read_status_reg (void)
 
 static inline void clock_ptimer (int channel, int mask)
 {
-    ptimer[channel] -= CLOCK/48000;
-    while (ptimer[channel] < 0) {
+    SND.ptimer[channel] -= CLOCK/48000;
+    while (SND.ptimer[channel] < 0) {
         /* +1 here is definitely the right thing. You can hear it when
            the pitch gets very high, like the 1-up melody in SMB1. */
-        ptimer[channel] += (wavelength[channel]+1);
-        out_counter[channel]++;
-        out_counter[channel] &= mask;
+        SND.ptimer[channel] += (SND.wavelength[channel]+1);
+        SND.out_counter[channel]++;
+        SND.out_counter[channel] &= mask;
     }
 }
 
@@ -674,9 +665,9 @@ static inline void clock_lfsr (void)
 
 static inline void clock_noise_ptimer (void)
 {
-    ptimer[3] -= CLOCK/48000;
-    while (ptimer[3] < 0) {
-        ptimer[3] += (wavelength[3]+1);
+    SND.ptimer[3] -= CLOCK/48000;
+    while (SND.ptimer[3] < 0) {
+        SND.ptimer[3] += (SND.wavelength[3]+1);
         clock_lfsr();
     }
 }
@@ -747,28 +738,28 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
         frameseq_clock_divider();
 
         clock_ptimer(0, 0x0F);
-        if (dc_table[nes.snd.regs[0]>>6][out_counter[0]>>1] && 
-            (wavelength[0] >= 8) && lcounter[0]) {
-            sq1 = volume[0];
+        if (dc_table[nes.snd.regs[0]>>6][SND.out_counter[0]>>1] && 
+            (SND.wavelength[0] >= 8) && SND.lcounter[0]) {
+            sq1 = SND.volume[0];
         }
 
         clock_ptimer(1, 0x0F);
-        if (dc_table[nes.snd.regs[4]>>6][out_counter[1]>>1] &&
-            (wavelength[1] >= 8) && lcounter[1]) {
-            sq2 = volume[1];
+        if (dc_table[nes.snd.regs[4]>>6][SND.out_counter[1]>>1] &&
+            (SND.wavelength[1] >= 8) && SND.lcounter[1]) {
+            sq2 = SND.volume[1];
         }
 
-        if (lcounter[2] && (wavelength[2] >=8 ) && linear_counter) clock_ptimer(2, 0x1F);
-        tri = (out_counter[2] >= 0x10) ? out_counter[2]^0x1F : out_counter[2];
+        if (SND.lcounter[2] && (SND.wavelength[2] >=8 ) && SND.linear_counter) clock_ptimer(2, 0x1F);
+        tri = (SND.out_counter[2] >= 0x10) ? SND.out_counter[2]^0x1F : SND.out_counter[2];
 
         clock_noise_ptimer();
-        if (lcounter[3]) {
-            if (!(lfsr & 1)) noise = volume[3];
+        if (SND.lcounter[3]) {
+            if (!(lfsr & 1)) noise = SND.volume[3];
         }
 
         clock_dmc_ptimer();
         /* Note that bit 4 only disable the DMA unit, not the DAC. */
-        dmc = dmc_dac;
+        dmc = SND.dmc_dac;
         
         //f_tri = f_tri*f_tri_param + ((float)tri)*(1.0-f_tri_param);
         

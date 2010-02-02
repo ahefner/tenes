@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <sched.h>
 
 #include "nespal.h"
 #include "nes.h"
@@ -61,7 +62,13 @@ void print_video_info (void)
 }
 
 void sys_init (void)
-{    
+{
+    struct sched_param sparam;
+    memset(&sparam, 0, sizeof(sparam));
+    sparam.sched_priority = 1;
+    // Probably a bad idea:
+    //if (sched_setscheduler(getpid(), SCHED_FIFO, &sparam)) perror("sched_setscheduler");
+
     int i, tmp;
     int surfaceflags = SDL_DOUBLEBUF | SDL_HWACCEL | SDL_HWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
 

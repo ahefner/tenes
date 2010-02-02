@@ -137,7 +137,33 @@ struct ppu_struct
 
 struct sound_struct
 {
-   byte regs[0x17];
+    byte regs[0x17];
+
+    int ptimer[5];;   /* 11 bit down counter */
+    int wavelength[5]; /* controls ptimer */
+    int frameseq_divider; //frameseq_divider_reset;
+    int frameseq_sequencer;
+    int frameseq_mode_5;
+    int frameseq_irq_disable;
+    int out_counter[3]; /* for square and triangle channels.. */
+    int lcounter[4]; /* 7 bit down counter */
+    int sweep_reset[2];
+    int sweep_divider[2];
+    int envc_divider[4];
+    int envc[4];
+    int env_reset[4];
+/* We latch the output of the envelope/constant volume here rather
+ * than having to branch on the envelope disable flag for every sample
+ * of output. */
+    int volume[4];
+    int linear_counter;
+    int linear_counter_halt;
+    unsigned dmc_address;
+    unsigned dmc_counter;
+    byte dmc_buffer;
+    int dmc_dac;
+    int dmc_shift_counter;
+    int dmc_shift_register;
 };
 
 struct joypad_info

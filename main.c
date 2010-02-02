@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <math.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -364,6 +365,8 @@ void runframe (void)
     case NSF_PLAYER:
         nsf_emulate_frame();
         break;
+    default:
+        assert(0);
     }
 
     if (screencapping) {
@@ -424,7 +427,6 @@ int open_game (char *filename)
 
 int main (int argc, char **argv)
 {
-    printf("PREFIX = %s\n", PREFIX);
     memset(joystick, 0, sizeof(joystick));
     load_config();
     cfg_parseargs(argc, argv);
@@ -489,8 +491,21 @@ int main (int argc, char **argv)
         if (menu) run_menu(&ctx);
         else dim_y_target = 0;
 
-        SDL_Flip(window_surface);
-        if (!no_throttle) sys_framesync();
+        SDL_Flip(window_surface);        
+        switch (nes.machine_type) {
+        case NES_NTSC:
+            if (!no_throttle) sys_framesync();
+            break;
+        case NSF_PLAYER:
+            /* Another huge kludge: Sleep to cut down CPU use. Don't
+             * sleep when menus are open, because menus are animated.
+             */
+            if (!menu) usleep(100000);
+            else if (menu == run_main_menu) usleep(30000);
+            break;
+        default:
+            assert(0);
+        }
     
         if (0)
             printf("Frame cycles: %i (expect %i samples, actually generated %i samples)\n",

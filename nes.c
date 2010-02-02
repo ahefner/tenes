@@ -105,7 +105,6 @@ void nsf_init (struct nes_machine *nes)
     memset(ram32k, 0, 0x8000);
 
     if (nsf_uses_bankswitching(h)) {
-        printf("Bankswitching.\n");
         for (int frame=0; frame<8; frame++) {
             nsf_load_bank(frame, nes->rom.nsf_header->bankswitch[frame]);
         }
@@ -129,7 +128,6 @@ void nsf_init (struct nes_machine *nes)
     nes->cpu.X = 0;              /* Prefer NTSC. */
     Sub6502(&nes->cpu, h->init_addr, 100000 * MASTER_CLOCK_DIVIDER);
 //    nes->cpu.Trace = 0;
-    printf("NSF init returned.\n");
 }
 
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
@@ -145,6 +143,7 @@ void reset_nes (struct nes_machine *nes)
   nes->last_sound_cycle = 0;
   assert(nes->cpu.Cycles == 0);
   assert(nes->last_sound_cycle == 0);
+  snd_reset();
   
   SDL_mutexV(producer_mutex);
 
@@ -179,7 +178,7 @@ void reset_nes (struct nes_machine *nes)
   /* NSF init */
   if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
 
-  printf("NES reset.\n");
+  printf("Machine reset.\n");
 }
 
 int file_write_state_chunk (FILE *stream, const char *name, void *data, Uint32 length)
@@ -976,9 +975,36 @@ void nsf_emulate_frame (void)
         reset_nes(&nes);
     }
 
-    Sub6502(&nes.cpu, nes.rom.nsf_header->play_addr, tick_cycles);
-    Run6502(&nes.cpu);
-    snd_catchup();
+    /* The NSF player buffers ahead several frames, because (unlike
+     * NES emulation) it's likely to be run in the background, and any
+     * CPU use by other applications will cause the audio to stall
+     * otherwise. The catchup hack prevents a real audio glitch, but
+     * the tempo of the music is noticably disrupted. */
+
+    /* Another way to deal with this would be to run everything from
+     * the audio thread. I original started coding it that way, but
+     * this is much simpler. */
+
+    /* Why loop ten times? Well, originally, it was just a while loop
+     * testing the buffer fill level. If you accidentally enabled
+     * tracing, this threatened to make the program impossible to
+     * quit, because in the extra time spent printing tracing
+     * information, the buffer has to be refilled. So limit to an
+     * arbitrary maximum number of spins through here. */
+    
+    //printf("snd_buffered_samples() = %i\n", snd_buffered_samples());
+    for (int i=0; i<10; i++) {
+        if (snd_buffered_samples() > 10000) break;
+        // Sub6502 will call the music player routine, returning to a wait 
+        // loop written on the top three bytes of the stack. Run6502 will
+        // execute the wait loop for the remaining cycles. Come to think of it,
+        // that's fairly pointless when we could not run the emulator and say
+        // we did, bumping up the cycle count, but CPU emulation is cheap enough
+        // to not care.
+        Sub6502(&nes.cpu, nes.rom.nsf_header->play_addr, tick_cycles);
+        Run6502(&nes.cpu);
+        snd_catchup();
+    }
 }
 
 /* Debugging utilities: The idea is that rather than writing a 6502
