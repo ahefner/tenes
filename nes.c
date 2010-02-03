@@ -121,12 +121,19 @@ void nsf_init (struct nes_machine *nes)
         }
     }
 
-    if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;
+    if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;    
     int song = nes->nsf_current_song; /* Already zero-based! */
-    //nes->cpu.Trace = 1;
+//    nes->cpu.Trace = 1;
     nes->cpu.A = song;
     nes->cpu.X = 0;              /* Prefer NTSC. */
+//    printf("NSF init:\n");
+
+    /* Certain NSF files I've tested (notably Castlevania and Metroid)
+     * never enable any sound channels. Enable them here. */
+    nes->snd.regs[0x15] = 0x0F;
+
     Sub6502(&nes->cpu, h->init_addr, 100000 * MASTER_CLOCK_DIVIDER);
+//    printf("  done.\n");    
 //    nes->cpu.Trace = 0;
 }
 
@@ -1001,9 +1008,15 @@ void nsf_emulate_frame (void)
         // that's fairly pointless when we could not run the emulator and say
         // we did, bumping up the cycle count, but CPU emulation is cheap enough
         // to not care.
+        nes.scanline = 0;
+        nes.scanline_start_cycle = nes.cpu.Cycles;
         Sub6502(&nes.cpu, nes.rom.nsf_header->play_addr, tick_cycles);
+        int old_trace = nes.cpu.Trace;
+        nes.cpu.Trace = 0;
         Run6502(&nes.cpu);
+        nes.cpu.Trace = old_trace;
         snd_catchup();
+        nes.time++;
     }
 }
 

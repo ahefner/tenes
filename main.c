@@ -416,8 +416,9 @@ int open_game (char *filename)
     init_nes(&nes);
     reset_nes(&nes);
 
-    if (startup_restore_state >= 0)
-        restore_state_from_disk(state_filename(&nes.rom, startup_restore_state));
+    if (startup_restore_state >= 0) {
+        if (!restore_state_from_disk(state_filename(&nes.rom, startup_restore_state))) reset_nes(&nes);
+    }
     
     /* First time through here, the video hasn't been initalized yet
      * (in case we can't open the rom file). */

@@ -86,4 +86,3 @@ struct mapperinfo *get_NSF_minf (void)
     return &minf_NSF;
 }
 
-/* EOF */

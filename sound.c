@@ -515,7 +515,7 @@ void snd_write (unsigned addr, unsigned char value)
     SDL_mutexP(producer_mutex);
 
     if (0)
-        printf("%ssnd %2X <- %02X  length(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, SND.lcounter[0], SND.lcounter[1], SND.lcounter[2], SND.lcounter[3], nes.snd.regs[0x15], SND.volume[0], SND.volume[1], SND.volume[3]); 
+        printf("%ssnd %2X <- %02X  len(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, SND.lcounter[0], SND.lcounter[1], SND.lcounter[2], SND.lcounter[3], nes.snd.regs[0x15], SND.volume[0], SND.volume[1], SND.volume[3]); 
 
     switch (addr) {
     case 0x15: /* channel enable register */
@@ -568,7 +568,9 @@ void snd_write (unsigned addr, unsigned char value)
         SND.linear_counter = nes.snd.regs[8] & 0x7F;
         /*if (nes.snd.regs[8] & 0x80)*/ SND.linear_counter_halt = 1;
         //printf("%u: wrote %02X to $400B. $4008 currently %02X.\n", nes.time, value, nes.snd.regs[8]);
-        /* fall through to case 3/7: */
+
+        /**** Fall through to case 3/7: ****/
+
     case 3: case 7:
         nes.snd.regs[addr] = value;
         SND.wavelength[chan]=(SND.wavelength[chan]&0x0FF) | ((value&0x07)<<8);
@@ -582,10 +584,12 @@ void snd_write (unsigned addr, unsigned char value)
 
         if (nes.snd.regs[0x15] & BIT(chan)) {
             SND.lcounter[chan] = translate_length(value);
-            /*printf("%u: Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
-              nes.time, addr+0x4000, chan, SND.lcounter[chan], value, translate_length(value));  */
-                        
-        }
+
+            /*
+            printf("Loaded length counter %4X (%i) with %i, wrote %X (translated to %i)\n",
+                   addr+0x4000, chan, SND.lcounter[chan], value, translate_length(value));                        
+            */
+        } //else printf("Not loading length counter because channel %i is disabled.\n", chan);
         break;
 
     case 0x0E:

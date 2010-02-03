@@ -7,53 +7,27 @@ int nsf_mapper_init (void)
    return 1;
 }
 
-/*
-void mapper0_shutdown(void)
-{
-   printf("Mapper 0 shutdown\n");
-}
-
-void mapper_noprgwrite(register word Addr,register byte Value)
-{ 
-}
-*/
-
 byte ram32k_read (register word Addr)
 {
     return ram32k[Addr & 0x7FFF];
 }
 
-
-/*
-void mapper_novramwrite(register word Addr,register byte Value)
-{ }
-
-byte mapper_vramread(register word Addr)
-{   
-   return nes.ppu.vram[Addr];
-}
-
-*/
-
-/*
-
-int nop_save_state (chunk_writer_t writer, void *x)
+int nsf_save_state (chunk_writer_t writer, void *arg)
 {
-    return 1;
+    return writer(arg, "NSF", ram32k, sizeof(ram32k));
 }
 
-int nop_restore_state (chunk_reader_t reader, void *x)
+int nsf_restore_state (chunk_reader_t reader, void *arg)
 {
-    return 1;
+    return reader(arg, "NSF", ram32k, sizeof(ram32k));
 }
-*/
 
 static byte fake_exram[0x400];
 
 void nsf_exram_write (register word Addr, register byte Value)
 {
     Addr -= 0x5C00;
-    //printf("wrote $%04X <- $%02X\n", Addr, Value);
+    //printf("NSF: wrote $%04X <- $%02X\n", Addr, Value);
     if (Addr < 0x3F8) fake_exram[Addr] = Value;
     if (Addr < 0x400) nsf_load_bank(Addr & 7, Value);
 }
@@ -77,8 +51,8 @@ struct mapper_methods mapper_NSF = {
    ram32k_read,
    mapper_ignores_scanline_start,
    mapper_ignores_scanline_end,
-   nop_save_state,
-   nop_restore_state,
+   nsf_save_state,
+   nsf_restore_state,
    nsf_exram_write,
    nsf_exram_read
 };
