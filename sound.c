@@ -731,10 +731,11 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
     int fin = index + length;
     Sint16 mask = -1;
     if (sound_muted) mask = 0;
-
+    //int num_neg = 0;
     while (index < fin) {
         int sq1 = 0, sq2 = 0, tri = 0, noise = 0, dmc = 0;
         Sint16 samp;
+
         frameseq_clock_divider();
 
         clock_ptimer(0, 0x0F);
@@ -758,25 +759,43 @@ static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)
         }
 
         clock_dmc_ptimer();
-        /* Note that bit 4 only disable the DMA unit, not the DAC. */
+        /* Note that bit 4 only disables the DMA unit, not the DAC. */
         dmc = SND.dmc_dac;
         
         //f_tri = f_tri*f_tri_param + ((float)tri)*(1.0-f_tri_param);
         
-        float tmp = 
+        sfloat_t tmp = 
          28000.0 * ((159.79 / (100.0 + 1.0 / ( ((float)tri) / 8227.0 +
                                                ((float)noise) / 12241.0 +
                                                ((float)dmc) / 22638.0)))
                           +
-                          ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));        
-        samp = tmp;
+                          ((sq1 | sq2)? 95.88 / (100.0 + 8128.0 / (sq1 + sq2)) : 0.0));
 
+        /*
+        if (!(index & 0x3FF) && (SND.linear_counter_halt && SND.linear_counter))
+            printf("%8i %8i  %16.8f %16.8f\n", buf[index], SND.linear_counter, tmp, SND.filter_accumulator);
+        */
+        
+        const sfloat_t decay = 0.999;
+        SND.filter_accumulator = (SND.filter_accumulator - tmp) * decay + tmp;
+        //if ((tmp - SND.filter_accumulator) < 0.0) num_neg++;
+
+        samp = tmp - SND.filter_accumulator;
         samp &= mask;
         
         buf[index & ~AUDIO_BUFFER_SIZE] = samp;
         buf[index | AUDIO_BUFFER_SIZE] = samp;
         index++;
 
-        //printf("%X %X %02X %X %02X => %5i\n", sq1, sq2, tri, noise, dmc, buf[i]);
+        //printf("%X %X %02X %X %02X => %5i\n", sq1, sq2, tri, noise, dmc, buf[index]);
+        //printf("%8i ", buf[index]);
+
     }
+    
+    /*
+    if (length > 20)
+        printf("%5i  %3i  %4i / %4i  %8f\n", 
+               length, SND.linear_counter, num_neg,
+               length - num_neg, SND.filter_accumulator);
+    */
 }

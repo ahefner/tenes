@@ -135,6 +135,8 @@ struct ppu_struct
     int spritecount_flag; /* more than 8 sprites on current scanline ? */
 };
 
+typedef float sfloat_t;
+
 struct sound_struct
 {
     byte regs[0x17];
@@ -164,6 +166,7 @@ struct sound_struct
     int dmc_dac;
     int dmc_shift_counter;
     int dmc_shift_register;
+    sfloat_t filter_accumulator;
 };
 
 struct joypad_info
