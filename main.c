@@ -125,7 +125,7 @@ void process_control_key (SDLKey sym)
         } else {
             screencapping = 1;
             snprintf(screencap_dest, sizeof(screencap_dest), "./screencaps-%i/", (int)time(NULL));
-            mkdir(screencap_dest, 0777);
+            make_dir(screencap_dest);
         }
 
     default: break;

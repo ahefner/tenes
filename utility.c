@@ -86,6 +86,10 @@ time_t file_write_date (char *path)
 
 char *make_absolute_filename (char *filename)
 {
+#ifdef _WIN32
+    printf("FIXME make absolute filename\n");
+    return strdup(filename);
+#else
     if (filename[0] == '/') return strdup(filename);
     else {
         char buf[1024];
@@ -94,4 +98,5 @@ char *make_absolute_filename (char *filename)
         free(cwd);
         return strdup(buf);
     }
+#endif
 }

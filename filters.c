@@ -9,6 +9,11 @@ typedef unsigned char v16qu __attribute__ ((__vector_size__ (16)));
 #include "filters.h"
 #include "global.h"
 
+#ifndef M_PI
+/* Fuck you too, ANSI C! */
+#define M_PI            3.14159265358979323846
+#endif
+
 unsigned rgb_palette[64];
 unsigned grayscale_palette[64];
 

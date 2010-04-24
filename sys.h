@@ -33,5 +33,6 @@ void sys_init(void);
 void sys_shutdown(void);
 void sys_framesync (void);
 long long usectime (void);
+void make_dir (const char *path);
 
 #endif

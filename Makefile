@@ -27,7 +27,8 @@ OBJECTS=nespal.o mapper_info.o rom.o sound.o sys.o nes.o vid.o config.o M6502.o 
 INCLUDEDIRS= -IM6502
 DEFINES=$(FUSE_FLAGS)
 
-LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs` `freetype-config --libs` -lSDL_image $(FUSE_LIBS)
+#LIBS= -lSDL -lm -lpthread -ldl `sdl-config --libs` `freetype-config --libs` -lSDL_image $(FUSE_LIBS)
+LIBS= -lSDL -lm -lpthread `sdl-config --libs` `freetype-config --libs` -lSDL_image $(FUSE_LIBS)
 MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c mappers/vrc6.c
 
 COBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c

@@ -499,7 +499,7 @@ void age_pixels (Uint32 *ptr, size_t n)
         Uint32 px = ptr[i];
         px &= 0xFCFCFC;
         int level = ((px + (px >> 8) + (px >> 16)) >> 2) & 0xFF;
-        level += random()&31;
+        level += rand()&31;
         level += 31;
         ptr[i] = rgbi_clamp(level+30, level+30, level);
     }
@@ -876,7 +876,10 @@ struct breadcrumb *build_breadcrumbs (char *path)
     while (*ptr) {        
         struct breadcrumb *next = calloc(1, sizeof(*next));
         assert(next != NULL);
-        char *sep = strchrnul(ptr, '/');
+
+        char *sep = strchr(ptr, '/');
+	if (!sep) sep = ptr + strlen(ptr);
+
         if (*sep == '/') sep++;
         memcpy(next->name, ptr, min(sizeof(next->name)-1, sep-ptr));
         memcpy(next->path, path, min(sizeof(next->path)-1, sep-path));

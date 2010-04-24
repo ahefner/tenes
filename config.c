@@ -4,11 +4,15 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <pwd.h>
 #include <limits.h>
 #include <errno.h>
 
+#ifndef _WIN32
+#include <pwd.h>
+#endif
+
 #include "global.h"
+#include "sys.h"
 
 void scan_video_option (char *arg)
 {
@@ -253,21 +257,26 @@ void cfg_parseargs (int argc, char **argv)
 
 /* User preferences and save data */
 
-
 char config_dir[PATH_MAX];
 char *ensure_config_dir (void)
 {
+#ifdef _WIN32
+    snprintf(config_dir, sizeof(config_dir), "C:\\fixme\\");
+#else
     struct passwd *pwd = getpwuid(getuid());
+    if (pwd) user_homedir = pwd->pw_dir;
 
     if (getenv("HOME")) {
         snprintf(config_dir, sizeof(config_dir), "%s/.tenes", getenv("HOME"));
     } else if (!pwd) {
         snprintf(config_dir, sizeof(config_dir), "/tmp/tenes-%i", (int)getuid());
     } else {
-        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", pwd->pw_dir);
+        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", pwd_pw_dir);
     }
 
-    mkdir(config_dir, 0755);
+#endif
+
+    make_dir(config_dir);
     return config_dir;
 }
 
@@ -275,7 +284,7 @@ char save_dir[PATH_MAX];
 char *ensure_save_dir (void)
 {
     snprintf(save_dir, sizeof(save_dir), "%s/sram", ensure_config_dir());
-    mkdir(save_dir, 0755);
+    make_dir(save_dir);
     return save_dir;
 }
 
@@ -283,16 +292,18 @@ char state_dir[PATH_MAX];
 char *ensure_state_dir (long long hash)
 {
     snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
-    mkdir(state_dir, 0755);
-    snprintf(state_dir, sizeof(state_dir), "%s/state/%llX", ensure_config_dir(), hash);
-    mkdir(state_dir, 0755);
+    make_dir(state_dir);
+    long lower = hash & 0xFFFFFFFF;
+    long upper = hash >> 32;
+    snprintf(state_dir, sizeof(state_dir), "%s/state/%X%X", ensure_config_dir(), upper, lower);
+    make_dir(state_dir);
     return state_dir;
 }
 
 char *sram_filename (struct nes_rom *rom)
 {
     static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%llX", ensure_save_dir(), rom->hash);
+    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(), rom->hash >> 32, rom->hash & 0xFFFFFFFF);
     return path;
 }
 

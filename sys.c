@@ -3,13 +3,17 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_timer.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <unistd.h>
 #include <math.h>
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
 #include <sched.h>
+
+#ifndef _WIN32
+#error WTF
+#include <sys/wait.h>
+#endif
 
 #include "nespal.h"
 #include "nes.h"
@@ -157,5 +161,14 @@ void image_free (image_t image)
     SDL_FreeSurface(image->_sdl);
     if (image->freeptr) free(image->freeptr);
     free(image);
+}
+
+void make_dir (const char *path)
+{
+#ifdef _WIN32
+    mkdir(path);
+#else
+    mkdir(path, 0755);
+#endif
 }
 
