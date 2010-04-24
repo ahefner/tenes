@@ -11,7 +11,7 @@
 #include <sched.h>
 
 #ifndef _WIN32
-#error WTF
+#include <sys/stat.h>
 #include <sys/wait.h>
 #endif
 

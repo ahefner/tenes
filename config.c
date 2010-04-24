@@ -205,9 +205,11 @@ void cfg_parseargs (int argc, char **argv)
       }
 
       if (!strcmp(txt, "-stripex")) {
+          int tmp;
           if (argc<=(++i)) break;
-          video_stripe_idx = atoi(argv[i]);
-          if (video_stripe_idx > 255) {
+          tmp = atoi(argv[i]);
+          video_stripe_idx = tmp;
+          if (tmp > 255) {
               video_stripe_idx = 128;
               printf("Stripe X value is out of range (0 to 255)\n");
           }
@@ -264,14 +266,13 @@ char *ensure_config_dir (void)
     snprintf(config_dir, sizeof(config_dir), "C:\\fixme\\");
 #else
     struct passwd *pwd = getpwuid(getuid());
-    if (pwd) user_homedir = pwd->pw_dir;
 
     if (getenv("HOME")) {
         snprintf(config_dir, sizeof(config_dir), "%s/.tenes", getenv("HOME"));
     } else if (!pwd) {
         snprintf(config_dir, sizeof(config_dir), "/tmp/tenes-%i", (int)getuid());
     } else {
-        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", pwd_pw_dir);
+        snprintf(config_dir, sizeof(config_dir), "%s/.tenes", pwd->pw_dir);
     }
 
 #endif
@@ -293,8 +294,8 @@ char *ensure_state_dir (long long hash)
 {
     snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
     make_dir(state_dir);
-    long lower = hash & 0xFFFFFFFF;
-    long upper = hash >> 32;
+    unsigned lower = hash & 0xFFFFFFFF;
+    unsigned upper = hash >> 32;
     snprintf(state_dir, sizeof(state_dir), "%s/state/%X%X", ensure_config_dir(), upper, lower);
     make_dir(state_dir);
     return state_dir;
@@ -303,7 +304,9 @@ char *ensure_state_dir (long long hash)
 char *sram_filename (struct nes_rom *rom)
 {
     static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(), rom->hash >> 32, rom->hash & 0xFFFFFFFF);
+    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(), 
+             (unsigned)rom->hash >> 32, 
+             (unsigned)rom->hash & 0xFFFFFFFF);
     return path;
 }
 

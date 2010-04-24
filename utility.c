@@ -93,7 +93,8 @@ char *make_absolute_filename (char *filename)
     if (filename[0] == '/') return strdup(filename);
     else {
         char buf[1024];
-        char *cwd = get_current_dir_name();
+        // Non standard, but documented to work on OS X and glibc.
+        char *cwd = getcwd(NULL,0);
         snprintf(buf, sizeof(buf), "%s/%s", cwd, filename);
         free(cwd);
         return strdup(buf);
