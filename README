@@ -1,0 +1,39 @@
+This is an NES emulator for Linux systems, with experimental support
+for Mac OS X. It will likely build on other flavors of Unix with
+minimal source tweaking. A large number of popular NES titles are
+playable with accurate graphics and sound.
+
+It features fullscreen support, high quality NTSC simulation and
+aspect ratio correction, reasonable compatibility with most North
+American (NES) titles and mappers, audio, gamepad support,
+save/restore state, and demo recording. It has a GUI (work in
+progress) or can be invoked from the command line.
+
+It may build on Windows, but there are known problems. In particular,
+the UI assumes a unix-style filesystem.
+
+The source license is currently in limbo, with a plan to moving toward
+an MIT-style license, pending the replacement of the M6502 CPU core,
+which was written by a third party with incompatible, undesirable
+license constraints.
+
+Known bugs / TODO items:
+ * Save/restore/configure controller button maps
+ * Controller config GUI
+ * MMC5 mapper support (Punch-Out!, Castlevania 3)
+ * VRC6 mapper (Akumajou Densetsu)
+ * MMC3 timing / quirks (SMB3, TMNT2, others)
+ * Replace M6502 core
+ * Fix license
+ * Scanlines in NTSC simulation (?)
+ * Correct interrupt acknowledgement
+ * Misc. accuracy fixes to satisfy the various test roms.
+
+
+All code copyright (C) Andy Hefner <ahefner@gmail.com> 2000-2011,
+except where otherwise noted.
+
+M6502 portable 6502 emulator
+ Copyright (C) Marat Fayzullin 1996
+               Alex Krasivsky  1996
+
