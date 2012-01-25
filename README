@@ -18,9 +18,10 @@ which was written by a third party with incompatible, undesirable
 license constraints.
 
 Known bugs / TODO items:
+ * UI broken on OS X (?)
  * Save/restore/configure controller button maps
  * Controller config GUI
- * MMC5 mapper support (Punch-Out!, Castlevania 3)
+ * MMC2, MMC4, MMC5 mapper support
  * VRC6 mapper (Akumajou Densetsu)
  * MMC3 timing / quirks (SMB3, TMNT2, others)
  * Replace M6502 core

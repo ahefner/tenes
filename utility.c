@@ -13,7 +13,7 @@ byte *load_binary_file (char *filename, size_t *len_out)
         fseek(in, 0, SEEK_END);
         long size = ftell(in);
 
-        if (size < 1) 
+        if (size < 1)
         {
             fclose(in);
             return NULL;
@@ -21,7 +21,7 @@ byte *load_binary_file (char *filename, size_t *len_out)
 
         byte *dest = calloc(1, size+1);
 
-        if (!dest) 
+        if (!dest)
         {
             fclose(in);
             return NULL;
@@ -30,7 +30,7 @@ byte *load_binary_file (char *filename, size_t *len_out)
         rewind(in);
         int tmp = fread(dest, size, 1, in);
         fclose(in);
-        
+
         if (tmp == 1) {
             if (len_out) *len_out = size;
             return dest;
@@ -38,7 +38,7 @@ byte *load_binary_file (char *filename, size_t *len_out)
             free(dest);
             return NULL;
         }
-    }    
+    }
 }
 
 int load_binary_data (char *filename, void *dest, size_t size)

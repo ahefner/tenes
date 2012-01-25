@@ -682,7 +682,7 @@ void run_main_menu (struct inputctx *input)
 {   
     //drawimage(pad600, 0, 0, left, top);
     //drawimage(mascot, window_surface->w, window_surface->h - 80, right, bottom);
-    
+
     if (input->released & SDL_BUTTON(3)) close_menu();
 
     cursor_base[0] = 10;

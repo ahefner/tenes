@@ -5,17 +5,20 @@ PREFIX=/usr/local/
 
 # Optional features are enabled here:
 
-# Build with support for FUSE virtual filesystem. This provides easy
-# access to the state of the NES while the emulator is running.
+# Define USE_FUSE:=1 to build with support for FUSE virtual
+# filesystem. This provides easy access to the state of the NES while
+# the emulator is running.
 
-USE_FUSE=0			# Disabled by default.
+USE_FUSE?=0
 
 # Configure variables according to optional features:
 
-ifeq (1,${USE_FUSE})
+ifeq (1,$(USE_FUSE))
+$(info FUSE filesystem enabled.)
 FUSE_FLAGS=-DUSE_FUSE
 FUSE_LIBS=-lfuse -lpthread
 else
+$(info FUSE filesystem disabled.)
 FUSE_FLAGS=
 FUSE_LIBS=
 endif

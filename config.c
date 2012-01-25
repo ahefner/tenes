@@ -44,7 +44,7 @@ void print_usage (void)
            " -fullscreen     Run fullscreen\n"
            " -width          Set window width\n"
            " -height         Set window height\n"
-           " -forcesram      Force battery-backed ram\n"          
+           " -forcesram      Force battery-backed ram\n"
            " -despair        Disable joystick input\n"
            " -lockedout      Disable keyboard input\n"
            " -joy0 [A],[B],[SELECT],[START]\n"
@@ -71,10 +71,12 @@ void print_usage (void)
            " -cputrace       Print CPU trace\n"
 #endif
 #ifdef USE_FUSE
+           "\n"
            " -mountpoint PATH  Path at which to mount FUSE filesystem.\n"
            "                   Default is /tmp/nesfs\n"
            " -mountfs          Mount FUSE filesystem at startup.\n"
            " -nomountfs        Don't mount FUSE filesystem at startup.\n"
+           "\n"
 #endif
            "\n"
            "If no joystick is attached, keyboard controls will be used. The arrow keys\n"
