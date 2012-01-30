@@ -457,6 +457,8 @@ void Wr6502 (register word Addr, register byte Value)
   tracing_counts[Addr][COUNT_WRITE]++;
 #endif
 
+  if (trace_mem_writes) printf("Write %04X = %02X\n", Addr, Value);
+
   switch (Addr & 0xE000) {
   case 0x0000:			/* ram - mirror in read function */
     nes.ram[Addr & 0x7FF] = Value;
@@ -474,9 +476,9 @@ void Wr6502 (register word Addr, register byte Value)
 	  nes.ppu.control1 = Value;
 	  nes.ppu.ppu_writemode = (Value & 0x04) ? PPUWRITE_VERT : PPUWRITE_HORIZ;
           nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
-          
+
           if (trace_ppu_writes)
-              printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n", 
+              printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n",
                      nes_time_string(), nes.ppu.t, Value&3);
 
 	  if (trace_ppu_writes)
@@ -484,7 +486,7 @@ void Wr6502 (register word Addr, register byte Value)
 	      nes_printtime ();
               printf("PPU $2000 = ");
 	      PrintBin (Value);
-	      printf(" next PC=$%04X, ",nes.cpu.PC.W);	      
+	      printf(" next PC=$%04X, ",nes.cpu.PC.W);
 	      if (Value & 0x80) printf ("NMI ON  ");
 	      if (Value & 0x10) printf ("bg1 "); else printf ("bg0 ");
 	      if (Value & 0x08) printf ("spr1 "); else printf ("spr0 ");
@@ -921,8 +923,8 @@ void nes_emulate_frame (void)
         vscroll = ppu_current_vscroll();
 
         render_scanline();
-        
-        stripe_buffer[tv_scanline] = rgb_palette[color_buffer[video_stripe_idx] & 63];        
+
+        stripe_buffer[tv_scanline] = rgb_palette[color_buffer[video_stripe_idx] & 63];
         if (video_stripe_output) color_buffer[video_stripe_idx] ^= 0x34;
 
         run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
@@ -1065,7 +1067,7 @@ void list (void)
     int i;
     for (i=0; i<8; i++) instr[i] = Rd6502((nes.cpu.PC.W + i) & 0xFFFF);
     DAsm(buf, instr, nes.cpu.PC.W);
-    printf("PC=%04X  A=%02X  X=%02X Y=%02X  fl=%02X S=%02X   %s\n", 
+    printf("PC=%04X  A=%02X  X=%02X Y=%02X  fl=%02X S=%02X   %s\n",
            nes.cpu.PC.W, nes.cpu.A, nes.cpu.X, nes.cpu.Y, nes.cpu.P, nes.cpu.S, buf);
 }
 
@@ -1073,9 +1075,10 @@ void note_brk (void)
 {
     if (debug_brk) {
         byte code = Rd6502(nes.cpu.PC.W);
-        printf("%sBRK %02X: ", nes_time_string(), code); 
+        printf("%sBRK %02X: ", nes_time_string(), code);
         regs();
         /* The MSB of the break code enables instruction tracing */
         nes.cpu.Trace = code >> 7;
+        if (cputrace) nes.cpu.Trace |= 1;
     }
 }

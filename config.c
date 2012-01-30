@@ -66,6 +66,7 @@ void print_usage (void)
            " -nothrottle     Run at full speed, don't throttle to 60 Hz\n"
            " -trapbadops     Trap bad opcodes\n"
            " -debugbrk       Display BRK instructions\n"
+           " -tracewr        Trace all memory writes\n"
            " -pputrace       Print PPU trace\n"
 #ifdef DEBUG
            " -cputrace       Print CPU trace\n"
@@ -96,7 +97,7 @@ void print_usage (void)
            "Control-m toggles the mirroring mode. F12 enables additional miscellaneous\n"
            "output.\n"
         );
-           
+
 }
 
 void cfg_parseargs (int argc, char **argv)
@@ -106,10 +107,10 @@ void cfg_parseargs (int argc, char **argv)
     char *txt = argv[i];
 
     if (txt[0] == '-') {
-        
+
       scan_video_option(txt+1);
 
-      if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) { 
+      if (!strcmp(txt, "-help") || !strcmp(txt, "--help")) {
           print_usage();
           return;
       }
@@ -147,9 +148,10 @@ void cfg_parseargs (int argc, char **argv)
       if (!strcmp(txt, "-fullscreen")) vid_fullscreen = 1;
       if (!strcmp(txt, "-windowed")) vid_fullscreen = 0;
       if (!strcmp(txt, "-cputrace")) cputrace = 1;
+      if (!strcmp(txt, "-tracewr")) trace_mem_writes = 1;
       if (!strcmp(txt, "-pputrace")) trace_ppu_writes = 1;
       if (!strcmp(txt, "-debugbrk")) debug_brk = 1;
-      if (!strcmp(txt, "-trapbadops")) cfg_trapbadops = 1;      
+      if (!strcmp(txt, "-trapbadops")) cfg_trapbadops = 1;
       if (!strcmp(txt, "-forcesram")) nes.rom.flags|=2;
       if (!strcmp(txt, "-diagnostic")) {
 	cfg_diagnostic = 1;
@@ -167,11 +169,11 @@ void cfg_parseargs (int argc, char **argv)
 	if (argc<=(++i)) break;
         // FIXME: Check these inputs.
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_jsmap[0], &cfg_jsmap[1], &cfg_jsmap[2], &cfg_jsmap[3]);
-      }   
+      }
       if (!strcmp(txt, "-joy0")) {
 	if (argc<=(++i)) break;
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_buttonmap[0][0], &cfg_buttonmap[0][1], &cfg_buttonmap[0][2], &cfg_buttonmap[0][3]);
-      } 
+      }
       if (!strcmp(txt, "-joy1")) {
 	if (argc<=(++i)) break;
 	sscanf (argv[i],"%i,%i,%i,%i", &cfg_buttonmap[1][0], &cfg_buttonmap[1][1], &cfg_buttonmap[1][2], &cfg_buttonmap[1][3]);
@@ -219,10 +221,10 @@ void cfg_parseargs (int argc, char **argv)
 
       if (!strcmp(txt, "-striperate")) {
           if (argc<=(++i)) break;
-          video_stripe_rate = atoi(argv[i]) - 1;          
-      }      
+          video_stripe_rate = atoi(argv[i]) - 1;
+      }
 
-      
+
 
       if (!strcmp(txt, "-restorestate")) startup_restore_state = 1;
       if (!strcmp(txt, "-reset")) startup_restore_state = -1;
@@ -244,7 +246,7 @@ void cfg_parseargs (int argc, char **argv)
     }
   }
 
-  /* If no name supplied, try the last file loaded.. but, if it 
+  /* If no name supplied, try the last file loaded.. but, if it
      doesn't exist, I'd rather pretend we didn't and show the
      usage message as normal, rather than confuse the user by
      erring on a file they didn't explicitly specify. */
@@ -305,16 +307,16 @@ char *ensure_state_dir (long long hash)
 
 char *sram_filename (struct nes_rom *rom)
 {
-    static char path[PATH_MAX];    
-    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(), 
-             (unsigned)rom->hash >> 32, 
+    static char path[PATH_MAX];
+    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(),
+             (unsigned)rom->hash >> 32,
              (unsigned)rom->hash & 0xFFFFFFFF);
     return path;
 }
 
 char *state_filename (struct nes_rom *rom, unsigned index)
 {
-    static char path[PATH_MAX];    
+    static char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
     return path;
 }

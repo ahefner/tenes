@@ -17,6 +17,7 @@ int startup_restore_state = 0;
 
 int cputrace = 0;               /* These tracing options are all togglable */
 int superverbose = 0;
+int trace_mem_writes = 0;
 int trace_ppu_writes = 0;
 int cfg_diagnostic = 0;
 

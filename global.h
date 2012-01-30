@@ -107,6 +107,7 @@ extern int vid_height;
 extern int vid_bpp;
 
 extern int superverbose;
+extern int trace_mem_writes;
 extern int trace_ppu_writes;
 extern long long time_frame_start; /* microseconds */
 extern long long time_frame_target;
@@ -144,7 +145,6 @@ static inline Uint32 *next_line (Uint32 *ptr, int n)
 /* for byte and word data types */
 #include "M6502/M6502.h"
 
-/* Wow, this is awful: */
 #define PrintBin(x) printf("%u%u%u%u%u%u%u%u",(unsigned)x>>7,(unsigned)(x>>6)&1,(unsigned)(x>>5)&1,(unsigned)(x>>4)&1,(unsigned)(x>>3)&1,(unsigned)(x>>2)&1,(unsigned)(x>>1)&1,(unsigned)x&1);
 
 #endif 

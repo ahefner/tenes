@@ -18,6 +18,7 @@ which was written by a third party with incompatible, undesirable
 license constraints.
 
 Known bugs / TODO items:
+ * !! UI graphics not installed, only works from source directory !!
  * UI broken on OS X (?)
  * Save/restore/configure controller button maps
  * Controller config GUI
