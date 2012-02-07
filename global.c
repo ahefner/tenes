@@ -55,7 +55,7 @@ SDL_Surface *window_surface=NULL;
 /* Frame buffer, for screenshots. First dimension separates color versus emphasis. */
 byte frame_buffer[2][SCREEN_HEIGHT][SCREEN_WIDTH];
 
-void (*vid_filter) (void) = rescale_2x;
+void (*vid_filter) (void) = ntsc_filter;
 void (*filter_output_line) (unsigned y, byte *colors, byte *emphasis) = NULL;
 void (*filter_output_finish) (void) = filter_finish_nop;
 
@@ -72,7 +72,7 @@ long long time_frame_target;
 unsigned frame_start_samples = 0;
 
 /* timing config - move inside nes_machine if PAL support is added */
-int cfg_framelines = 240; 
+int cfg_framelines = 240;
 
 /* Kludge pixel offset applied to $2001 writes, to calibrate the Final Fantasy light beam effect. */
 int video_alignment_cycles_kludge = 12;
