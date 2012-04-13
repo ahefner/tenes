@@ -31,8 +31,10 @@ Known bugs / TODO items:
  * Misc. accuracy fixes to satisfy the various test roms.
 
 One neat feature: A FUSE filesystem providing read/write access to a
-live view of the emulator memory. Enable by exporting "USE_FUSE=1" in the environment before compiling, then run the program with 
+live view of the emulator memory. Enable by exporting "USE_FUSE=1" in
+the environment before compiling, then run the program as:
 
+   tenes -mountfs -mountpoint MOUNTPOINT
 
 All code copyright (C) Andy Hefner <ahefner@gmail.com> 2000-2011,
 except where otherwise noted.
