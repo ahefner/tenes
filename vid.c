@@ -78,7 +78,7 @@ int sprite_evaluation (struct sprite_unit sprites[8], int scanline)
 {
     int i, n = 0;
     int height = (nes.ppu.control1 & 0x20) ? 16 : 8;
-    
+
     memset(sprites, 0, 8 * sizeof(struct sprite_unit));
 
     for (i=0; i<64; i++) {
@@ -122,7 +122,7 @@ int sprite_evaluation (struct sprite_unit sprites[8], int scanline)
     return n;
 }
 
-/* Sprite unit output: 
+/* Sprite unit output:
    Bits 0,1 come from pattern table
    Bits 2,3 are the sprite attribute
    Bit 5 is the sprite priority (1 = Background, 0 = Foreground)
@@ -144,9 +144,9 @@ void scanline_render_sprites (byte *dest)
 {
     unsigned x, i, num_sprites;
     struct sprite_unit sprites[8];
-    
+
     num_sprites = sprite_evaluation(sprites, tv_scanline);
-    
+
     if (!num_sprites) return;
 
     for (x=0; x<256; x++) {
@@ -201,7 +201,7 @@ static inline word incr_v_vertical (word v)
     else {
         v &= (1<<12)-1;
         if ((v & 0x3E0) == 0x3A0) return v ^ 0xBA0;
-        else { 
+        else {
             /* For most games you can just return v + 32 here, but you
                can't let the increment from bits 5-9 carry into bit 10
                in the case where the game wrote a value >239 as the
@@ -260,14 +260,14 @@ void render_scanline (void)
             v = incr_v_horizontal(v);
             dest += 8 - x_offset;
         }
-        
+
         for (int i=0; i<31; i++) {
             render_tile(dest, v, chrpage, y_offset, 0, 8);
             v = incr_v_horizontal(v);
             dest += 8;
         }
 
-        render_tile(dest, v, chrpage, y_offset, 0, x_offset? x_offset : 8); 
+        render_tile(dest, v, chrpage, y_offset, 0, x_offset? x_offset : 8);
         v = incr_v_horizontal(v);
 
     } else {

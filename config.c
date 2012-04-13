@@ -309,8 +309,8 @@ char *sram_filename (struct nes_rom *rom)
 {
     static char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(),
-             (unsigned)rom->hash >> 32,
-             (unsigned)rom->hash & 0xFFFFFFFF);
+             (unsigned)(rom->hash >> 32),
+             (unsigned)(rom->hash & 0xFFFFFFFFll));
     return path;
 }
 

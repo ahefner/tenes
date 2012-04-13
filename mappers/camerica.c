@@ -41,7 +41,7 @@ int camerica_restore_state (chunk_reader_t reader, void *arg)
     return reader(arg, "Camerica driver v1", &camerica, sizeof(camerica));
 }
 
-struct mapper_methods mapper_camerica = 
+struct mapper_methods mapper_camerica =
 {
     mapper_camerica_init,
     mapper_camerica_shutdown,

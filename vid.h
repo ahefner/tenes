@@ -1,4 +1,3 @@
-
 #ifndef VID_H
 #define VID_H
 

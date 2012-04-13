@@ -25,4 +25,6 @@ static inline int clampi (int min, int max, int value)
     else return value;
 }
 
+const char *format_binary (byte x);
+
 #endif

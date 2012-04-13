@@ -2,8 +2,8 @@
 
 #include "nes.h"
 
-/* An impressive collection of global state.
-   Most of this is read-only configuration options. */
+/* An impressive collection of global state. Most of these are
+   read-only configuration options. */
 
 char *romfilename = NULL;
 int running = 1;

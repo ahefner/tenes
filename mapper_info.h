@@ -25,13 +25,13 @@ struct mapper_methods
    byte (*vram_read)(register word Addr); */
 };
 
-struct mapperinfo 
-{    
-   int id;	       
-   char *name; 	       
+struct mapperinfo
+{
+   int id;
+   char *name;
    struct mapper_methods *methods;
 };
-   
+
 #ifndef MAPPER_INFO_C
 extern struct mapperinfo *mapper_find (int ines_number);
 extern struct mapper_methods mapper_None;

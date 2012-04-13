@@ -77,7 +77,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
     int min_y = baseline;
     int max_y = baseline + 1;
     int max_x = 1;
-    
+
     assert(text_height > 0);
     if (text_height > tmpheight) {
         if (rtmp) free(rtmp);
@@ -93,23 +93,23 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
     int pen_x = 0;
     FT_UInt last_glyph_index = 0;
 
-    char *str = string;
+    const char *str = string;
     for (char c = *str++; c; c=*str++) {
         // Beg Freetype to render the glyph
-        FT_UInt glyph_index = FT_Get_Char_Index(face_sans, c); 
+        FT_UInt glyph_index = FT_Get_Char_Index(face_sans, c);
 
         if (first_char) first_char = 0;
         else {
             FT_Vector delta;
-            FT_Get_Kerning(face_sans, last_glyph_index, glyph_index, 
+            FT_Get_Kerning(face_sans, last_glyph_index, glyph_index,
                            FT_KERNING_DEFAULT, &delta);
             pen_x += delta.x >> 6;
             last_glyph_index = glyph_index;
         }
 
-        error = FT_Load_Glyph(face_sans, glyph_index, 
-                              FT_LOAD_RENDER | 
-                              FT_LOAD_NO_HINTING | 
+        error = FT_Load_Glyph(face_sans, glyph_index,
+                              FT_LOAD_RENDER |
+                              FT_LOAD_NO_HINTING |
                               FT_LOAD_TARGET_LIGHT);
         if (error) continue;
 
@@ -120,7 +120,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
                face_sans->glyph->bitmap_left,
                face_sans->glyph->bitmap_top,
                ((float)face_sans->glyph->advance.x) / 64.0);
-        */        
+        */
 
         /* Transfer the glyph to the temporary buffer.. */
         int ox0 = pen_x + face_sans->glyph->bitmap_left;
@@ -215,7 +215,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
 unsigned cursor_base[2] = {7,20};
 unsigned cursor[2] = {0,0};
 
-void setcursor (int col, int row) 
+void setcursor (int col, int row)
 {
     cursor[0] = col * text_width + cursor_base[0];
     cursor[1] = (row+1) * text_height + cursor_base[1];
@@ -250,7 +250,7 @@ SDL_Rect print (char *fmt, ...)
         xmax = max(xmax, cursor[0]);
         ymin = min(ymin, cursor[1] - text_ascent);
         ymax = max(ymax, cursor[1] + text_descent);
-        
+
         if (next) {
             cursor[0] = cursor_base[0];
             cursor[1] += text_height;
@@ -408,12 +408,12 @@ alignmode top      = {  0, 0, 0};
 alignmode bottom   = { -1, 0, 0};
 alignmode baseline = {  0, 0,-1};
 
-SDL_Rect drawimage (image_t image, int x, int y, 
-                    alignmode align_x, 
+SDL_Rect drawimage (image_t image, int x, int y,
+                    alignmode align_x,
                     alignmode align_y)
 {
     if (image) {
-        SDL_Rect r = { x + align_x[ALIGN_MAX]*(image->w >> align_x[ALIGN_MAX_SHIFT]) 
+        SDL_Rect r = { x + align_x[ALIGN_MAX]*(image->w >> align_x[ALIGN_MAX_SHIFT])
                        + align_x[ALIGN_AXIS]*image->x_origin,
                        y + align_y[ALIGN_MAX]*(image->h >> align_y[ALIGN_MAX_SHIFT])
                        + align_y[ALIGN_AXIS]*image->y_origin,
@@ -425,7 +425,7 @@ SDL_Rect drawimage (image_t image, int x, int y,
 }
 
 int mouseover (struct inputctx *input, SDL_Rect rect) {
-    return ((input->mx >= rect.x) && 
+    return ((input->mx >= rect.x) &&
             (input->my >= rect.y) &&
             (input->mx < rect.x+rect.w) &&
             (input->my < rect.y+rect.h));
@@ -450,7 +450,7 @@ const float floaty_rate = 0.25;
 const float floaty_height = 10;
 const float floaty_linear = 0.1; // Hmm. Don't like this.
 
-int run_floatybutt (struct inputctx *input, struct floatybutt *this, 
+int run_floatybutt (struct inputctx *input, struct floatybutt *this,
                     image_t faces[2], image_t shadow, int x, int y)
 {
     this->hover = mouseover(input, drawimage(shadow, x, y, left, bottom));
@@ -460,8 +460,8 @@ int run_floatybutt (struct inputctx *input, struct floatybutt *this,
     else this->offset = approach(floaty_height, floaty_linear, floaty_rate, this->offset);
 
     drawimage(faces[this->hover], x+this->offset, y-this->offset, left, bottom);
-    
-    return (this->hover && (input->released & 1));    
+
+    return (this->hover && (input->released & 1));
 }
 
 float normsq (float x, float y)
@@ -535,12 +535,12 @@ void close_menu (void)
 int menu_process_key_event (SDL_KeyboardEvent *key)
 {
     if (key->type == SDL_KEYDOWN) return 0;
-    
+
     if (key->keysym.sym == SDLK_ESCAPE) {
         close_menu();
         return 1;
     }
-    
+
     return 0;
 }
 
@@ -559,9 +559,9 @@ void update_state_image (void)
     time_t mtime = file_write_date(filename);
     char buf[512];
 
-    if (!strcmp(filename, last_state_filename) && 
+    if (!strcmp(filename, last_state_filename) &&
         (mtime == last_state_mtime)) return;
-    
+
     last_state_mtime = mtime;
     strncpy(last_state_filename, filename, sizeof(last_state_filename));
 
@@ -569,10 +569,10 @@ void update_state_image (void)
     have_screencap = load_binary_data(buf, state_screencap, sizeof(state_screencap));
     if (have_screencap) {
         for (int i=0; i<SCREEN_HEIGHT; i++) {
-            emit_unscaled(&rgb_screencap[i][0], 
-                          &state_screencap[0][i][0], 
+            emit_unscaled(&rgb_screencap[i][0],
+                          &state_screencap[0][i][0],
                           &state_screencap[1][i][0],
-                          SCREEN_WIDTH) ;            
+                          SCREEN_WIDTH) ;
         }
         memcpy(aged_screencap, rgb_screencap, sizeof(rgb_screencap));
         age_pixels(&aged_screencap[0][0], SCREEN_WIDTH*SCREEN_HEIGHT);
@@ -581,14 +581,14 @@ void update_state_image (void)
 }
 
 void render_restorestate (struct inputctx *input)
-{   
+{
     const int photo_border = 10;
     const int overscan = 8;
     static int fade = 255;
-    
+
     int cx = vid_width - 255 - 27;
     int cy = 10 + photo->h + 10;
-    
+
     const float button_height = 7;
     static float offset = 7;    /* const is dumb */
     const int actual_width = SCREEN_WIDTH - 2*overscan;
@@ -599,7 +599,7 @@ void render_restorestate (struct inputctx *input)
     int vy = py - roundf(offset) - photo->h + photo_border + 1;
 
     if (probe_file(state_filename(&nes.rom, 1))) {
-        update_state_image();       
+        update_state_image();
 
         drawimage(photo_shadow_left, cx, cy, left, bottom);
         drawimage(photo_shadow_bottom, cx+photo_shadow_left->w, cy, left, bottom);
@@ -608,7 +608,7 @@ void render_restorestate (struct inputctx *input)
 
         float target = (hover && (input->buttons & 1))? 0.0 : button_height;
         float d_offset = 0.05 + 0.5 * fabs(target - offset);
-        
+
         if (hover && (input->buttons & 1)) d_offset *= -1.0;
         offset = min(button_height, max(0, offset + d_offset));
 
@@ -617,12 +617,12 @@ void render_restorestate (struct inputctx *input)
         int notfade = 255-fade;
 
         if (have_screencap) {
-            for (int i=0; i<actual_height; i++) 
+            for (int i=0; i<actual_height; i++)
             {
                 Uint32 *ptr = display_ptr(vx, vy+i);
                 Uint32 *aged = &aged_screencap[i+overscan][overscan];
                 Uint32 *rgb = &rgb_screencap[i+overscan][overscan];
-                if (fade==255) memcpy(ptr, aged, 4*actual_width);                
+                if (fade==255) memcpy(ptr, aged, 4*actual_width);
                 else for (int x = 0; x<actual_width; x++) {
                         ptr[x] = rgbi((fade*(RED(aged[x]))   + notfade*(RED(rgb[x]))) >> 8,
                                       (fade*(GREEN(aged[x])) + notfade*(GREEN(rgb[x]))) >> 8,
@@ -639,12 +639,12 @@ void render_restorestate (struct inputctx *input)
         ts = localtime(&last_state_mtime);
         strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S", ts);
         if (hover) strcpy(buf, "Restore State");
-        outlined_string(vx + actual_width/2 - strlen(buf)*text_width/2, 
+        outlined_string(vx + actual_width/2 - strlen(buf)*text_width/2,
                         vy + text_ascent, buf, 0x79786d /*0x65645b*/, 0xbab7a7);
         vy += text_height + 2;
         dim_y_target = max(dim_y_target, vy);
 
-        if (hover && (input->released & 1)) { 
+        if (hover && (input->released & 1)) {
             if (!restore_state_from_disk(NULL)) reset_nes(&nes);
         }
     } else {
@@ -679,7 +679,7 @@ void run_nsf_ui (struct inputctx *input, int bx, int by)
 
 
 void run_main_menu (struct inputctx *input)
-{   
+{
     //drawimage(pad600, 0, 0, left, top);
     //drawimage(mascot, window_surface->w, window_surface->h - 80, right, bottom);
 
@@ -708,10 +708,10 @@ void run_main_menu (struct inputctx *input)
     setcolor(color20);
     print("  Bitchin' Keyboard %c\n", 1);
     for (int i=0; i<numsticks; i++) {
-        print("  %s w/ %i bodacious buttons and %i awesome axes\n", 
-              SDL_JoystickName(i), 
+        print("  %s w/ %i bodacious buttons and %i awesome axes\n",
+              SDL_JoystickName(i),
               SDL_JoystickNumButtons(joystick[i]),
-              SDL_JoystickNumAxes(joystick[i]));        
+              SDL_JoystickNumAxes(joystick[i]));
     }
 */
     render_restorestate(input);
@@ -742,9 +742,9 @@ void run_main_menu (struct inputctx *input)
 
     static struct floatybutt mute_button = {0, 0};
     if (sound_globalenabled) {
-        if (run_floatybutt(input, &mute_button, sound_muted? mute : sound, 
-                           square_shadow, 
-                           vert_x, vert_y)) 
+        if (run_floatybutt(input, &mute_button, sound_muted? mute : sound,
+                           square_shadow,
+                           vert_x, vert_y))
             sound_muted = !sound_muted;
         vert_y += icon_pad + camera[0]->h;
     }
@@ -753,8 +753,8 @@ void run_main_menu (struct inputctx *input)
 
     int port_y = window_surface->h - icon_pad - 6;
     static struct floatybutt port_button = {0,0};
-    if (run_floatybutt(input, &port_button, nesport, nesport_shadow, 
-                       window_surface->w - 29 - nesport[0]->w, port_y)) 
+    if (run_floatybutt(input, &port_button, nesport, nesport_shadow,
+                       window_surface->w - 29 - nesport[0]->w, port_y))
         menu = run_input_menu;
     //drawimage(nesport, window_surface->w - 8, port_y, right, bottom);
     //drawimage(nesport, window_surface->w - 10 - nesport->w, port_y, right, bottom);
@@ -817,7 +817,7 @@ int game_filename_p (char *filename)
 {
     int len = strlen(filename);
     if (len < 5) return 0;
-    return !strcasecmp(filename+len-4, ".nes") || 
+    return !strcasecmp(filename+len-4, ".nes") ||
         !strcasecmp(filename+len-4, ".nsf");
 }
 
@@ -873,7 +873,7 @@ struct breadcrumb *build_breadcrumbs (char *path)
     char *ptr = path + strspn(path, "/");
     struct breadcrumb *tail = root;
 
-    while (*ptr) {        
+    while (*ptr) {
         struct breadcrumb *next = calloc(1, sizeof(*next));
         assert(next != NULL);
 
@@ -887,7 +887,7 @@ struct breadcrumb *build_breadcrumbs (char *path)
         tail->next = next;
         tail = next;
     }
-    
+
     return root;
 }
 
@@ -902,7 +902,7 @@ void browser_rescan (void)
     for (int i=0; i<browser_num_dirs; i++) free_gbent(browser_dirs[i]);
     browser_num_dirs = 0;
     int max_dirs = sizeof(browser_dirs)/sizeof(browser_dirs[0]);
-    
+
     DIR *dir = opendir(browser_cwd);
 
     if (dir == NULL) {
@@ -918,15 +918,15 @@ void browser_rescan (void)
     struct dirent *dent;
 
     while ((dent = readdir(dir))) {
-        char filename[1024];        
-        snprintf(filename, sizeof(filename), "%s%s%s", 
+        char filename[1024];
+        snprintf(filename, sizeof(filename), "%s%s%s",
                  browser_cwd, dirsep(browser_cwd), dent->d_name);
-        
+
         struct stat st;
         int exists = !stat(filename, &st);
 
         if (exists && S_ISREG(st.st_mode) &&
-            game_filename_p(filename)) 
+            game_filename_p(filename))
         {
             /* Add file to browser */
 
@@ -954,7 +954,7 @@ void browser_rescan (void)
         }
         else if (exists && S_ISDIR(st.st_mode) && (browser_num_dirs < max_dirs))
         {   /* Add directory to browser */
-            snprintf(filename, sizeof(filename), "%s%s%s/", 
+            snprintf(filename, sizeof(filename), "%s%s%s/",
                      browser_cwd, dirsep(browser_cwd), dent->d_name);
             if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) continue;
             struct gbent *ent = calloc(1, sizeof(struct gbent));
@@ -965,7 +965,7 @@ void browser_rescan (void)
             ent->title = strdup(dent->d_name);
             ent->label = NULL;
             ent->background = NULL;
-            
+
 
             browser_dirs[browser_num_dirs++] = ent;
         }
@@ -977,7 +977,7 @@ void browser_rescan (void)
     browser_dir_label = sans_label(color00, 24, browser_cwd);
     browser_dir_shadow = sans_label(0x000000, 24, browser_cwd);
 
-    qsort(browser_ents, browser_num_ents, sizeof(browser_ents[0]), 
+    qsort(browser_ents, browser_num_ents, sizeof(browser_ents[0]),
           (int(*)(const void *, const void *))browser_ent_title_relation);
 
     qsort(browser_dirs, browser_num_dirs, sizeof(browser_dirs[0]),
@@ -1015,7 +1015,7 @@ image_t render_gamepak_label (struct gbent *ent)
         label = sans_label(0x4c1017, 16.0 * ((float)max_width)/((float)oldw), ent->title);
     }
 
-    return label;    
+    return label;
 }
 
 noinline void fill_rect (Uint32 color, int x0, int y0, int x1, int y1)
@@ -1045,7 +1045,7 @@ void select_breadcrumb (struct breadcrumb *b)
     browser_set_path(b->path);
 }
 
-struct scrollbar 
+struct scrollbar
 {
     int grabbed;
     int grab_y_px;
@@ -1054,9 +1054,9 @@ struct scrollbar
 
 #define Scrollbar(name) struct scrollbar name = { .grabbed = 0 };
 
-int run_scrollbar (struct inputctx *input, 
-                   struct scrollbar *scroll, 
-                   int x, int s_top, int s_bottom, 
+int run_scrollbar (struct inputctx *input,
+                   struct scrollbar *scroll,
+                   int x, int s_top, int s_bottom,
                    int y, int viewport_height, int max_y)
 {
     int height = s_bottom - s_top;
@@ -1081,7 +1081,7 @@ int run_scrollbar (struct inputctx *input,
         int y_offset = input->my - scroll->grab_y_px;
         int new_y = clampi(0, max_scroll, scroll->grab_y_units + y_offset * px_to_scroll);
         if (!(input->buttons & 1)) scroll->grabbed = 0;
-        input->released = input->released = 0;
+        input->pressed = input->released = 0;
         return new_y;
     } else if ((input->pressed & 1) && mouseover(input, rect)) {
         // Clicked within the scrollbar. Three possibilities:
@@ -1142,7 +1142,7 @@ void run_game_browser (struct inputctx *input)
     static Scrollbar(dir_scroller);
 
     if (dir_height >= viewport_height) {
-        dir_scroll = run_scrollbar(input, &dir_scroller, 8, scroll_top, scroll_bottom, 
+        dir_scroll = run_scrollbar(input, &dir_scroller, 8, scroll_top, scroll_bottom,
                                    dir_scroll, viewport_height, dir_height);
     } else dir_scroll = 0;
 
@@ -1150,9 +1150,9 @@ void run_game_browser (struct inputctx *input)
     if (pointer_in_dir_pane && (input->pressed & 16)) dir_scroll += dir_wheel_step;
     if (pointer_in_dir_pane && (input->pressed & 8))  dir_scroll -= dir_wheel_step;
     dir_scroll = clampi(0, max(0, dir_height-viewport_height), dir_scroll);
-    
+
     dir_cur_scroll = approach(dir_scroll, 2.0, 0.18, dir_cur_scroll);
-    
+
     for (int i=0; i<browser_num_dirs; i++) {
         struct gbent *dir = browser_dirs[i];
         int label_height = 18;
@@ -1188,27 +1188,27 @@ void run_game_browser (struct inputctx *input)
     int label_center = 163;
     struct gbent *last = browser_num_ents? browser_ents[browser_num_ents-1] : NULL;
     int max_y = last? last->y + last->background->h : 0;
-    int pan_region_pad = 20;
-    int pan_region_height = viewport_height - 2*pan_region_pad;
 
     // Mouse panning (is no more)
     /*
     if (input->mx >= x_base + 14) {
+        int pan_region_pad = 20;
+        int pan_region_height = viewport_height - 2*pan_region_pad;
         float pan_rate = max(0.0, min(2.0, (max_y - viewport_height) / (float)pan_region_height));
         game_pan = (input->my - y_top - pan_region_pad) * pan_rate;
     }*/
 
-    int already_found = 0;    
+    int already_found = 0;
 
     int game_wheel_step = 64;
     if (pointer_in_file_pane && (input->pressed & 16)) game_scroll += game_wheel_step;
     if (pointer_in_file_pane && (input->pressed & 8))  game_scroll -= game_wheel_step;
     game_scroll = clampi(0, max_y - viewport_height, game_scroll);
-    
+
     if (max_y < viewport_height) {
         game_scroll = 0;
-    } else game_scroll = run_scrollbar(input, &file_scroller, x_base - 24, 
-                                    scroll_top, scroll_bottom, 
+    } else game_scroll = run_scrollbar(input, &file_scroller, x_base - 24,
+                                    scroll_top, scroll_bottom,
                                     game_scroll, viewport_height, max_y);
 
     int combined_scroll = game_scroll + game_pan;
@@ -1226,7 +1226,7 @@ void run_game_browser (struct inputctx *input)
             rect.w -= floor(ent->xoffset);      // Otherwise, oscillates at right edge
             int over = mouseover(input, rect);
 
-            if (!ent->label) ent->label = render_gamepak_label(ent); 
+            if (!ent->label) ent->label = render_gamepak_label(ent);
 
             drawimage(ent->label, x + label_center, y + 21, center, baseline);
 
@@ -1245,7 +1245,7 @@ void run_game_browser (struct inputctx *input)
 
             // The rectangles overlap slightly, so only choose one.
             if (over) already_found = 1;
-            
+
         }
 
         float minrate = 2.0;
@@ -1259,7 +1259,7 @@ void run_game_browser (struct inputctx *input)
     draw_hborder(0, border_top_1, top);
     static float bc_pos = 0.0;
     static float bc_offset = 0.0;
-    
+
     int width = 0;
 
     for (struct breadcrumb *b = browser_breadcrumbs; b != NULL; b = b->next) {
@@ -1273,7 +1273,7 @@ void run_game_browser (struct inputctx *input)
         width += b->label->w + 1;
         if (b->use_highlight && b->next && (input->pressed & 1)) select_breadcrumb(b);
     }
-    
+
     float excess = max(0.0, width - window_surface->w);
     if (excess > 0.0) excess += 64.0;
     bc_pos = approach((window_surface->w - width)/2 + excess * -bc_offset, 1.0, 0.1, bc_pos);
@@ -1312,7 +1312,7 @@ void run_input_menu (struct inputctx *input)
 
     int controller_x = 410;
     drawimage(controller_label, controller_x + 2*47, 3, center, top);
-    
+
     for (int device = 0; device < (1 + numsticks); device++)
     {
         int y = 50 + device * 51;
@@ -1344,11 +1344,11 @@ void run_input_menu (struct inputctx *input)
             int x = controller_x + joypad*47;
             int mapped = 0;
             if ((device == 0) && (joypad == cfg_keyboard_controller)) mapped = 1;
-            else if ((device>0) && (cfg_jsmap[joypad] == (device-1))) mapped = 1;            
+            else if ((device>0) && (cfg_jsmap[joypad] == (device-1))) mapped = 1;
             if (mapped) drawimage(checkmark, x + 43/2, y + 51/2, center, center);
             if (mouseover(input, (SDL_Rect){x, y+2, 43, 47}) && (input->released & SDL_BUTTON(1))) next_mapping = joypad;
         }
-        
+
         if (next_mapping != -1) {
             if (!device) cfg_keyboard_controller = next_mapping;
             else if (cfg_jsmap[next_mapping] == (device-1)) cfg_jsmap[next_mapping] = -1;
@@ -1359,7 +1359,7 @@ void run_input_menu (struct inputctx *input)
             }
         }
     }
-    
+
     /* Draw port columns */
     for (int i=0; i<4; i++)
     {

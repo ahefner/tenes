@@ -101,3 +101,15 @@ char *make_absolute_filename (char *filename)
     }
 #endif
 }
+
+const char *format_binary (byte x)
+{
+    int i;
+    static char buf[9];
+    for (i=0; i<8; i++) {
+        buf[i] = (x & 0x80)? '1' : '0';
+        x <<= 1;
+    }
+    buf[8] = 0;
+    return buf;
+}

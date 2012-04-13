@@ -40,7 +40,7 @@ void dump_instruction_trace (void)
   if (mem) {
     for (i=0; i<0x10000; i++) fputc(Rd6502(i),mem);
     fclose(mem);
-  }  
+  }
 
   for (i=0; i<0x10000; i++)
     for (j=0; j<3; j++) {
@@ -56,9 +56,9 @@ void palette_dump (void)
     printf("-------------- Palette Dump -------------\n");
     for (int n=0; n<0x20; n++) {
         int pal = nes.ppu.vram[0x3F00+n];
-        printf("Color %02X = %02X (%3i,%3i,%3i)\n", n, pal, 
+        printf("Color %02X = %02X (%3i,%3i,%3i)\n", n, pal,
                nes_palette[pal*3+0], nes_palette[pal*3+1], nes_palette[pal*3+2]);
-    }    
+    }
     for (int addr=0x3F00; addr<0x3F20; addr++) printf("%02X ", nes.ppu.vram[addr]);
     printf("\n-----------------------------------------\n");
 }
@@ -86,7 +86,7 @@ void process_control_key (SDLKey sym)
         nes.mirror_mode ^= 1;
         printf("Toggled mirror mode. New mode=%i\n", nes.mirror_mode);
         break;
-        
+
     case SDLK_c:
         running = 0;
         break;
@@ -98,7 +98,7 @@ void process_control_key (SDLKey sym)
             movie_output = NULL;
         } else printf("Not currently recording a movie.\n");
         break;
-        
+
     case SDLK_s:
         sound_muted ^= 1;
         printf("Sound %s.\n", sound_muted? "muted" : "unmuted");
@@ -107,7 +107,7 @@ void process_control_key (SDLKey sym)
     case SDLK_j:
         calibrate_aux_stick();
         break;
-        
+
     case SDLK_a:
         hold_button_a ^= 1;
         nes.joypad.pad[0] &= ~1;
@@ -132,10 +132,6 @@ void process_control_key (SDLKey sym)
     }
 }
 
-
-
-/* Not Menu */
-
 byte keyboard_input = 0;
 
 void process_key_event (SDL_KeyboardEvent * key)
@@ -146,8 +142,8 @@ void process_key_event (SDL_KeyboardEvent * key)
 
     // FIXME: Current track not saved in state, so wrong at startup or after restore.
 
-    if ((nes.machine_type == NSF_PLAYER) 
-        && (key->type == SDL_KEYUP) 
+    if ((nes.machine_type == NSF_PLAYER)
+        && (key->type == SDL_KEYUP)
         // Ignore if modifiers held - otherwise screws up my desktop switching. :)
         && (!(key->keysym.mod & (KMOD_CTRL | KMOD_ALT))))
     {
@@ -167,7 +163,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             delta = -10;
             break;
         default: break;
-        }        
+        }
         if (delta) {
             nsf_seek_to_song = nes.nsf_current_song + delta;
             while (nsf_seek_to_song < 0) nsf_seek_to_song += nes.rom.nsf_header->total_songs;
@@ -177,7 +173,7 @@ void process_key_event (SDL_KeyboardEvent * key)
 
     // Control and alt keys are available globally.
     // Ignore modified keys down, so as not to confuse the input code.
-    if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT)) 
+    if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT))
         && (key->type == SDL_KEYDOWN)) return;
 
     // Actions occur on key up.
@@ -185,15 +181,15 @@ void process_key_event (SDL_KeyboardEvent * key)
         process_control_key(key->keysym.sym);
         return;
     }
-    
-    if ((key->keysym.mod & KMOD_ALT) && 
-        (key->type == SDL_KEYUP) && 
-        (key->keysym.sym == SDLK_RETURN)) 
+
+    if ((key->keysym.mod & KMOD_ALT) &&
+        (key->type == SDL_KEYUP) &&
+        (key->keysym.sym == SDLK_RETURN))
     {
         SDL_WM_ToggleFullScreen(window_surface);
         return;
     }
-    
+
     // If the menu is open, pass keystrokes through to it.
     if (menu && menu_process_key_event(key)) return;
 
@@ -231,33 +227,33 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
 #endif
 
-        case SDLK_F12:            
+        case SDLK_F12:
             superverbose^=1;
             break;
-            
-        case SDLK_F11: 
+
+        case SDLK_F11:
             printf("Toggled PPU write trace.\n");
             trace_ppu_writes^=1;
             break;
-    
+
 
         case SDLK_F10:
             printf("Toggled CPU trace.\n");
             nes.cpu.Trace ^= 1;
             break;
 
-        case SDLK_BACKSPACE: 
-            reset_nes(&nes); 
+        case SDLK_BACKSPACE:
+            reset_nes(&nes);
             break;
 
         case SDLK_t:
             nes.cpu.Trace ^= 1;
             break;
-            
+
         case SDLK_F5:
             save_state_to_disk(NULL);
             break;
-            
+
         case SDLK_F7:
             if (!restore_state_from_disk(NULL)) reset_nes(&nes);
             break;
@@ -276,9 +272,9 @@ void process_joystick (int controller)
     y = SDL_JoystickGetAxis(joy->sdl, 1);
     aux_position[0] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 2) - aux_axis[0])/25000.0));
     aux_position[1] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 3) - aux_axis[1])/25000.0));
-    
+
     nes.joypad.pad[controller] = 0;
-    
+
     for (int i=0; i < 4; i++) {
         if (SDL_JoystickGetButton(joy->sdl, cfg_buttonmap[controller][i]))
             nes.joypad.pad[controller] |= BIT(i);
@@ -316,14 +312,14 @@ void process_events (struct inputctx *input)
         case SDL_MOUSEBUTTONDOWN:
             input->pressed |= SDL_BUTTON(event.button.button);
             break;
-            
+
         case SDL_MOUSEBUTTONUP:
             // Don't pass the button up to the menu, or it will close immediately.
             if (!menu && (input->buttons & SDL_BUTTON(3))) open_menu();
             else input->released |= SDL_BUTTON(event.button.button);
-            
+
             break;
-            
+
         default:
             break;
         }
@@ -347,14 +343,14 @@ void runframe (void)
             if (quit_after_playback) running=0;
         }
     }
-    
+
     if (movie_output) {
         if (!fwrite(&nes.joypad.pad, 4, 1, movie_output)) {
             fclose(movie_output);
             movie_output = NULL;
         }
     }
-    
+
     time_frame_start = usectime();
     while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
     frame_start_samples = buffer_high;
@@ -377,9 +373,9 @@ void runframe (void)
         snprintf(dest, sizeof(dest), "%s/%06i.bmp", screencap_dest, screencapping++);
         SDL_SaveBMP(window_surface, dest);
     }
-    
+
     /* Automatically save SRAM to disk once per minute. */
-    if ((unique_frame_number > 0) && 
+    if ((unique_frame_number > 0) &&
         !(unique_frame_number % 3600))
     {
         save_sram(nes.save, &nes.rom, 0);
@@ -394,40 +390,15 @@ void describe_keymap (void)
     }
 }
 
-void close_current_game (void)
+void update_titlebar (void)
 {
-    save_sram(nes.save, &nes.rom, 1);
-    save_state_to_disk(state_filename(&nes.rom, 0));
-    mapper->mapper_shutdown();
-    free_rom(&nes.rom);
-}
-
-int open_game (char *filename)
-{
-    static int first_time = 1;
-    nes.rom = load_nes_rom (filename);
-    if (nes.rom.prg == NULL) {
-        printf("Unable to load rom \"%s\".\n", filename);
-        return 1;
+    static char current_title[1024] = "";
+    if (strcmp(current_title, nes.rom.title)) {
+        strncpy(current_title, nes.rom.title, sizeof(current_title));
+        current_title[sizeof(current_title)-1] = 0;
+        SDL_WM_SetCaption(current_title,"tenes");
     }
-    
-    save_pref_string("lastfile", filename);
-
-    init_nes(&nes);
-    reset_nes(&nes);
-
-    if (startup_restore_state >= 0) {
-        if (!restore_state_from_disk(state_filename(&nes.rom, startup_restore_state))) reset_nes(&nes);
-    }
-    
-    /* First time through here, the video hasn't been initalized yet
-     * (in case we can't open the rom file). */
-    if (first_time) first_time = 0;
-    else SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
-
-    return 0;
 }
-
 
 int main (int argc, char **argv)
 {
@@ -440,7 +411,7 @@ int main (int argc, char **argv)
     }
 
     if (open_game(romfilename)) return 1;
-    
+
     if (movie_input_filename) {
         movie_input = fopen(movie_input_filename, "rb");
         if (!movie_input) printf("Unable to open '%s' for movie input.\n", movie_input_filename);
@@ -452,7 +423,7 @@ int main (int argc, char **argv)
         else printf("Recording movie to '%s'\n", movie_output_filename);
     }
 
-    sys_init();   
+    sys_init();
 
     fs_add_chunk("ram", nes.ram, sizeof(nes.ram), 1);
     fs_add_chunk("sram", nes.save, sizeof(nes.save), 1);
@@ -478,6 +449,7 @@ int main (int argc, char **argv)
     time_frame_target = usectime();
 
     while (running) {
+        update_titlebar();
         memset(window_surface->pixels, 0, window_surface->pitch * window_surface->h);
 
         struct inputctx ctx;
@@ -495,7 +467,7 @@ int main (int argc, char **argv)
         if (menu) run_menu(&ctx);
         else dim_y_target = 0;
 
-        SDL_Flip(window_surface);        
+        SDL_Flip(window_surface);
         switch (nes.machine_type) {
         case NES_NTSC:
             if (!no_throttle) sys_framesync();
@@ -510,11 +482,11 @@ int main (int argc, char **argv)
         default:
             assert(0);
         }
-    
+
         if (0)
             printf("Frame cycles: %i (expect %i samples, actually generated %i samples)\n",
                    (nes.cpu.Cycles - frame_start_cycles)/120,
-                   (nes.cpu.Cycles - frame_start_cycles)/4467, 
+                   (nes.cpu.Cycles - frame_start_cycles)/4467,
                    buffer_high - frame_start_samples);
     }
 

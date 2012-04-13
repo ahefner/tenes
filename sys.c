@@ -44,7 +44,7 @@ void sys_framesync (void)
         assert((target - now) < 1000000ll);
         if (target-now > 10000) usleep(6000);
     } while (now < target);
-    
+
     //if ((now-target)>1) printf("framesync: missed by %lli microseconds\n", now - target);
 }
 
@@ -54,13 +54,13 @@ int numsticks = 0;
 
 void print_video_info (void)
 {
-    SDL_VideoInfo *vi = SDL_GetVideoInfo();
+    const SDL_VideoInfo *vi = SDL_GetVideoInfo();
     char namebuf[64];
     printf("Video driver: %s\n", SDL_VideoDriverName(namebuf, 64));
     printf("Video memory: %i KB   BPP: %i %X/%X/%X   HW? %s   Accel: %s %s\n",
-           vi->video_mem, 
-           vi->vfmt->BitsPerPixel, vi->vfmt->Rmask, vi->vfmt->Gmask, vi->vfmt->Bmask, 
-           vi->hw_available? "yes" : "no", 
+           vi->video_mem,
+           vi->vfmt->BitsPerPixel, vi->vfmt->Rmask, vi->vfmt->Gmask, vi->vfmt->Bmask,
+           vi->hw_available? "yes" : "no",
            vi->blit_hw? "HW" : "",
            vi->blit_sw? "SW" : "");
 }
@@ -80,7 +80,7 @@ void sys_init (void)
         printf ("Could not initialize SDL!\n");
         exit (1);
     }
-    
+
     /* Initializes video fitering */
     build_color_maps();
     if (vid_fullscreen && (vid_filter == no_filter)) vid_filter = rescale_2x;
@@ -88,7 +88,7 @@ void sys_init (void)
 
     window_width = max(window_width, vid_width);
     window_height = max(window_height, vid_height);
-      
+
       window_surface = SDL_SetVideoMode(window_width, window_height, vid_bpp, surfaceflags);
       if (window_surface == NULL) {
           printf("Could not set desired display mode!\n");
@@ -106,7 +106,7 @@ void sys_init (void)
       palette[128].b = 0;
       palette[128].unused = 0;
 
-      SDL_WM_SetCaption (nes.rom.title, nes.rom.title);
+      SDL_WM_SetCaption ("tenes","tenes");
       //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
@@ -124,7 +124,7 @@ void sys_init (void)
                   else {
                       int j, js_mapping=-1;
                       joystick[i].connected = 1;
-                      for (j=0; j<4; j++) 
+                      for (j=0; j<4; j++)
                       {
                           if (cfg_jsmap[j]==i)
                           {
@@ -135,7 +135,7 @@ void sys_init (void)
                       printf ("  %i: %s (%i buttons)   ", i, SDL_JoystickName(i), SDL_JoystickNumButtons(joystick[i].sdl));
                       if (js_mapping==-1) printf("[unmapped]\n");
                       else printf("[joypad %i]\n", js_mapping);
-                  }      
+                  }
               }
               SDL_JoystickEventState (SDL_ENABLE);
           }
@@ -147,13 +147,13 @@ void sys_init (void)
 void sys_shutdown (void)
 {
     int i;
-  
+
     for (i=0; i<numsticks; i++) {
         if (joystick[i].sdl) SDL_JoystickClose(joystick[i].sdl);
     }
 
     SDL_FreeSurface (window_surface);
-    SDL_Quit (); 
+    SDL_Quit ();
 }
 
 void image_free (image_t image)

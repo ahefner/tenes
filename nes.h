@@ -24,7 +24,7 @@
 #define spr_data   0x2004        /* RW */
 #define spr_dma    0x4014
 
-/**  Control pad registers  **/ 
+/**  Control pad registers  **/
 
 #define joypad_1   0x4016        /* RW */
 #define joypad_2   0x4017        /* RW */
@@ -118,18 +118,18 @@ struct ppu_struct
 {
     byte vram[0x4000];
     byte spriteram[0x100];
-    byte sprite_address;	
-    
+    byte sprite_address;
+
     word v, t;
     byte x;
 
     dualmode ppu_addr_mode;
     int ppu_writemode; /* horizontal or vertical write pattern */
-    
+
     byte read_latch;
-    
+
     byte control1,control2;
-    
+
     int vblank_flag;
     int hit_flag;
     int spritecount_flag; /* more than 8 sprites on current scanline ? */
@@ -193,7 +193,7 @@ struct nes_machine
     unsigned scanline_start_cycle;
 
     struct joypad_info joypad;
-    
+
     enum machine_type machine_type;
     int nsf_current_song;  /* Zero-based, as it should be. */
 };
@@ -211,7 +211,10 @@ struct nes_machine nes;
 void init_nes (struct nes_machine *nes);
 void shutdown_nes (struct nes_machine *nes);
 void reset_nes (struct nes_machine *nes);
+int open_game (char *filename);
+void close_current_game (void);
 void nes_emulate_frame(void);
+
 void nsf_emulate_frame(void);
 void nsf_load_bank (unsigned frame, unsigned bank);
 
@@ -237,7 +240,6 @@ int mem_read_state_chunk  (struct saved_state *state, const char *name, void *da
 void save_state_to_mem (struct saved_state *state);
 void restore_state_from_mem (struct saved_state *state);
 
-
 int file_write_state_chunk (FILE *stream, const char *name, void *data, unsigned length);
 int file_read_state_chunk  (FILE *stream, const char *name, void *data_out, unsigned length);
 
@@ -247,17 +249,17 @@ char *state_filename (struct nes_rom *rom, unsigned index);
 static inline word ppu_mirrored_nt_addr (word paddr)
 {
     //word paddr_hbit = (paddr & 0x400) >> 10;
-    word paddr_vbit = (paddr & 0x800) >> 11;    
-    
+    word paddr_vbit = (paddr & 0x800) >> 11;
+
     switch (nes.mirror_mode) {
 
-    case MIRROR_HORIZ: 
+    case MIRROR_HORIZ:
         return (paddr & 0xF3FF) | (paddr_vbit << 10);
 
-    case MIRROR_VERT: 
+    case MIRROR_VERT:
         return paddr & 0xF7FF;
 
-    case MIRROR_NONE:                      
+    case MIRROR_NONE:
         return paddr;
 
     case MIRROR_ONESCREEN:
@@ -266,7 +268,7 @@ static inline word ppu_mirrored_nt_addr (word paddr)
     default:
         assert(0);
         return 0x2000;
-    }        
+    }
 }
 
 static inline word ppu_mirrored_addr (word paddr)

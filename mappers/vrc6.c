@@ -27,7 +27,7 @@ void vrc6_write (register word addr, register byte value)
 
     case 0xB000:                /* Mirroring control */
         switch ((value >> 2) & 3) {
-        case 0: 
+        case 0:
             nes.mirror_mode = MIRROR_VERT;
             break;
         case 1:
@@ -46,12 +46,12 @@ void vrc6_write (register word addr, register byte value)
 
     case 0xC000:                /* Program 8 KB bank */
         vrc6.bankC = value & ((nes.rom.prg_size / 0x2000)-1);
-        break;        
+        break;
     case 0xD000:                /* Character bank select */
     case 0xE000:
         value &= ((nes.rom.chr_size / 0x400)-1);
         memcpy(nes.ppu.vram + ((addr & 0x1000) ^ 0x1000) + (0x400 * (addr & 3)),
-               nes.rom.chr + 0x400 * value, 
+               nes.rom.chr + 0x400 * value,
                0x400);
         break;
     case 0xF000:
@@ -83,7 +83,7 @@ byte vrc6_read (register word addr)
     case 0xE000:
         return nes.rom.prg[nes.rom.prg_size - 0x2000 + (addr & 0x1FFF)];
     default:
-        return 0;        
+        return 0;
     }
 }
 

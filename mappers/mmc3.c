@@ -2,7 +2,7 @@
 
 struct {
     int chrpages; /* # of 1k VROM pages */
-    int prgpages; /* # of 8k PRG pages */   
+    int prgpages; /* # of 8k PRG pages */
     byte reg8000;
 
     /* The MMC3 switches two 8 KB banks. Depending on bit 6 of register
@@ -34,7 +34,7 @@ int mmc3_init (void)
 {
     mmc3.chrpages = nes.rom.chr_size / 0x400;
     mmc3.prgpages = nes.rom.prg_size / 0x2000;
-  
+
     mmc3_select_chr(0,0);
     mmc3_select_chr(1,1);
     mmc3_select_chr(2,2);
@@ -47,8 +47,8 @@ int mmc3_init (void)
     mmc3.latched = 0;
     mmc3.latch_trigger = 0;
     mmc3.irq_enabled = 0;
-  
-    printf ("MMC3 initialized. %i CHR pages (%ik), %i PRG pages (%ik).\n", 
+
+    printf ("MMC3 initialized. %i CHR pages (%ik), %i PRG pages (%ik).\n",
             mmc3.chrpages, nes.rom.chr_size/1024, mmc3.prgpages, nes.rom.prg_size/1024);
     return 1;
 }
@@ -102,10 +102,10 @@ void mmc3_write (register word addr, register byte value)
         } else {   /* PRG-ROM switch */
             int bank = mmc3.reg8000 & 1; /* LSB of 6 or 7 */
             if (nes.cpu.Trace)
-                printf ("%sMMC3: Switching program - bank %u (mode %i) to page %u.\n", 
-                        nes_time_string(), (unsigned)bank, ((unsigned)mmc3.reg8000 & 0x40)>>6, 
+                printf ("%sMMC3: Switching program - bank %u (mode %i) to page %u.\n",
+                        nes_time_string(), (unsigned)bank, ((unsigned)mmc3.reg8000 & 0x40)>>6,
                         (unsigned)value);
-               
+
             mmc3.bank[bank] = value;
         }
         break;
@@ -141,10 +141,10 @@ void mmc3_write (register word addr, register byte value)
             printf ("%u.%u: MMC3: IRQ CR1: IRQ enabled.\n", nes.time, nes.scanline);
         mmc3.irq_enabled = 1;
         break;
-        
+
     default:
         printf("MMC3: wrote %02X to %X ???\n", value, addr);
-    }      
+    }
 }
 
 

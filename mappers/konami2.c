@@ -24,7 +24,7 @@ byte mapper2_read (register word Addr)
 {
     if (Addr >= 0xC000) return nes.rom.prg[(Addr & 0x3FFF) + nes.rom.prg_size - 0x4000];
     else return nes.rom.prg[mapper2_page * 0x4000 + (Addr & 0x3FFF)];
-    
+
 }
 
 int mapper2_save_state (chunk_writer_t writer, void *arg)
@@ -44,9 +44,9 @@ struct mapper_methods mapper_konami = {
    mapper2_read,
    mapper_ignores_scanline_start,
    mapper_ignores_scanline_end,
-   mapper2_save_state, 
+   mapper2_save_state,
    mapper2_restore_state,
    ignore_write,
    ignore_read
 };
-   
+

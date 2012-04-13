@@ -17,11 +17,11 @@ typedef unsigned char v16qu __attribute__ ((__vector_size__ (16)));
 unsigned rgb_palette[64];
 unsigned grayscale_palette[64];
 
-void build_color_maps (void)    
+void build_color_maps (void)
 {
     for (int i=0; i<64; i++) {
         rgb_palette[i] = (nes_palette[i*3] << 16) | (nes_palette[i*3+1] << 8) | nes_palette[i*3+2];
-        grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3;        
+        grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3;
     }
 }
 
@@ -36,7 +36,7 @@ static inline unsigned convert_pixel (byte color, byte emphasis)
         // This is almost certainly wrong.
         if (emphasis & 0x20) { g = g*3/4; b = b*3/4; }
         if (emphasis & 0x40) { r = r*3/4; b = b*3/4; }
-        if (emphasis & 0x80) { r = r*3/4; g = g*3/4; }        
+        if (emphasis & 0x80) { r = r*3/4; g = g*3/4; }
         return (r << 16) | (g << 8) | b;
     }
 }
@@ -70,9 +70,9 @@ void rescale_2x_emitter (unsigned y, byte *colors, byte *emphasis)
     Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+1) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
         Uint32 px = convert_pixel(colors[x], emphasis[x]);
-        *dest0++ = px; 
         *dest0++ = px;
-        *dest1++ = px; 
+        *dest0++ = px;
+        *dest1++ = px;
         *dest1++ = px;
     }
 }
@@ -94,13 +94,13 @@ void scanline_emitter (unsigned y, byte *colors, byte *emphasis)
     Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+(field^1)) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
         Uint32 px = convert_pixel(colors[x], emphasis[x]);
-        *dest0++ = px; 
+        *dest0++ = px;
         *dest0++ = px;
 
         Uint32 nx = dest1[0];
         byte r = nx >> 16, g = (nx >> 8) & 0xFF, b = nx & 0xFF;
-        r = r*3/4; 
-        g = g*3/4; 
+        r = r*3/4;
+        g = g*3/4;
         b = b*3/4;
         nx = (r << 16) | (g << 8) | b;
         dest1[1] = dest1[0] = nx;
@@ -192,7 +192,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         int idx = (padding + x*5 + off - 18)>>1;
 
 #if 0
-        for (int i=0; i<22; i++) {            
+        for (int i=0; i<22; i++) {
             vbuf[idx][0] += rgb[0];
             vbuf[idx][1] += rgb[1];
             vbuf[idx][2] += rgb[2];
@@ -202,7 +202,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 #else
         v8hi *in = (v8hi *)rgb;
         v8hi *out = &vbuf[idx][0];
-        
+
         /* Performance of aligned versus unaligned loads: On the Core
          * 2 Quad (2.4 GHz), we win big (2x) from switching to aligned
          * loads (at the cost of correctness; we might lose some of
@@ -225,14 +225,14 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         // if ((((size_t)out)&0xF) != 0) printf("Output pointer not aligned! %p vbuf=%p idx=%i off=%i x=%i\n", out, vbuf, idx, off, x);
         for (int i=0; i<11; i++) {
             // If I fixed the alignment issue, I could do this:
-            //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);            
+            //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);
             //out[i] += in[i];
 
             v8hi old = __builtin_ia32_loaddqu(out);
             __builtin_ia32_storedqu(out, in[i] + old);
             out++;
         }
-#endif        
+#endif
         step_vs_chroma++;
         if (step_vs_chroma == 3) step_vs_chroma = 0;
     }
@@ -265,7 +265,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     // Interpolate scanlines
     if (line) {
         for (int x=0; x<640; x++) {
-            
+
             Uint32 nx = line0[x];
             nx >>= 1;
             nx &= 0x7F7F7F;
@@ -302,7 +302,7 @@ void build_sinc_filter (float *buf, unsigned n, float cutoff)
     }
 }
 
-void downsample_composite (float *y_out, float *i_out, float *q_out,                            
+void downsample_composite (float *y_out, float *i_out, float *q_out,
                            float *ykern, float *ikern, float *qkern,
                            short *rgb_even, short *rgb_odd,
                            int modthree, float *chroma)
@@ -312,7 +312,7 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
     float qbuf[40+KSIZE];
     memset(ybuf, 0, sizeof(ibuf));
     memset(ibuf, 0, sizeof(ibuf));
-    memset(qbuf, 0, sizeof(qbuf));    
+    memset(qbuf, 0, sizeof(qbuf));
 
     for (int i=0; i<40; i+=5) {
         float level = chroma[(i/5 + modthree*8)%12];
@@ -359,9 +359,9 @@ void precompute_downsampling (void)
     for (int emphasis=0; emphasis<8; emphasis++) {
         for (int alignment=0; alignment<3; alignment++) {
             for (int color=0; color<64; color++) {
-                downsample_composite(&y_output[emphasis][alignment][color][0], 
-                                     &i_chroma[emphasis][alignment][color][0], 
-                                     &q_chroma[emphasis][alignment][color][0], 
+                downsample_composite(&y_output[emphasis][alignment][color][0],
+                                     &i_chroma[emphasis][alignment][color][0],
+                                     &q_chroma[emphasis][alignment][color][0],
                                      yfilter, ifilter, qfilter,
                                      &rgb_output[emphasis][alignment][color][0][0][0],
                                      &rgb_output[emphasis][alignment][color][1][0][0],
@@ -390,7 +390,7 @@ void ntsc_filter (void)
 
     // Generate composite waveform at 12 * 3.57 MHz:
     for (int col=0; col<64; col++) {
-        int x = col & 15;        
+        int x = col & 15;
         double black = 0.518;
         double output_black = 0.04;
         double low[4]  = { 0.350, 0.518, 0.962, 1.550 };
@@ -411,15 +411,15 @@ void ntsc_filter (void)
                                      { 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 }};
 
             // Generate color waveform:
-            for (int i=0; i<6; i++) 
+            for (int i=0; i<6; i++)
             {
-                composite_output[emph][col][(i-x-1+24)%12] += 
+                composite_output[emph][col][(i-x-1+24)%12] +=
                     output_black + scale * (hi[col>>4] - black);
 
-                composite_output[emph][col][(i-x-1+24+6)%12] += 
+                composite_output[emph][col][(i-x-1+24+6)%12] +=
                     output_black + scale * (lo[col>>4] - black);
             }
-            
+
             // Apply color emphasis:
             for (int i=0; i<12; i++) {
                 float dim = 0.746;

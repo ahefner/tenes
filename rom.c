@@ -46,7 +46,7 @@ void print_nsf_header_info (struct nsf_header *h)
     printf("  Version: %02Xh\n", h->version);
     printf("  Total songs: %i\n", h->total_songs);
     printf("  Starting song: %i\n", h->starting_song);
-    printf("  Load $%04X / Init $%04X / Play $%04X\n", 
+    printf("  Load $%04X / Init $%04X / Play $%04X\n",
            h->load_addr, h->init_addr, h->play_addr);
 
     printf("  Mode: ");
@@ -77,13 +77,13 @@ int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
 {
     static struct nsf_header header;
     assert(sizeof(header) == 0x80);
-    
+
     fseek(in, 0, SEEK_SET);
     if (1 != fread(&header, 0x80, 1, in)) {
         printf("Incomplete header.\n");
         return 0;
     }
-    
+
     print_nsf_header_info(&header);
 
     if (header.total_songs < 1) {
@@ -93,7 +93,7 @@ int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
 
     rom->prg_size = filesize - 0x80;
     printf("Music program is %i ($%X) bytes\n", rom->prg_size, rom->prg_size);
-    rom->prg = malloc(rom->prg_size);    
+    rom->prg = malloc(rom->prg_size);
     rom->chr_size = 0;
     rom->chr = NULL;
     rom->mapper_info = get_NSF_minf();
@@ -103,7 +103,7 @@ int load_nsf (struct nes_rom *rom, FILE *in, int filesize)
 
     if (!rom->prg) return 0;
     if (1 != fread(rom->prg, rom->prg_size, 1, in)) return 0;
-    
+
     return 1;
 }
 
@@ -141,16 +141,16 @@ int load_ines (struct nes_rom *rom, FILE *in, int filesize)
     fread((void *)rom->chr, rom->chr_size, 1, in);
 
     printf("PRG ROM is %i bytes\n", rom->prg_size);
-    printf("CHR ROM is %i bytes\n", rom->chr_size);  
-    printf("Mapper is %i (%s)\n", 
-           rom->mapper, 
-           rom->mapper_info? rom->mapper_info->name : 
+    printf("CHR ROM is %i bytes\n", rom->chr_size);
+    printf("Mapper is %i (%s)\n",
+           rom->mapper,
+           rom->mapper_info? rom->mapper_info->name :
                             "corrupt rom header or unknown mapper");
 
-    printf("%s mirroring    %s    %s    %s\n", 
-           (rom->flags & 1) ? "Vertical" : "Horizontal", 
-           (rom->flags & 2) ? "SRAM" : "", 
-           (rom->flags & 4) ? "Trainer" : "", 
+    printf("%s mirroring    %s    %s    %s\n",
+           (rom->flags & 1) ? "Vertical" : "Horizontal",
+           (rom->flags & 2) ? "SRAM" : "",
+           (rom->flags & 4) ? "Trainer" : "",
            (rom->flags & 8) ? "4-Screen VRAM" : "");
 
     printf ("\n");
@@ -167,7 +167,7 @@ struct nes_rom load_nes_rom (char *filename)
     FILE *in;
     struct stat statbuf;
     struct nes_rom rom;
-    
+
     memset(&rom, 0, sizeof(rom));
 
     in = fopen (filename, "rb");
@@ -208,7 +208,7 @@ struct nes_rom load_nes_rom (char *filename)
     printf("Error loading or unrecognized file format.\n");
     fclose(in);
     exit(1);
-  
+
 success:
     rom.hash = rom_hash(filesize, &rom);
     printf("ROM hash is %llX\n", rom.hash);
@@ -225,7 +225,7 @@ void save_sram (byte save[0x2000], struct nes_rom *rom, int verbose)
         strncpy(name, sram_filename(rom), sizeof(name));
         snprintf(tmpname, sizeof(tmpname), "%s-tmp", name);
         unlink(tmpname);
-        
+
         out = fopen(tmpname, "wb");
         if (!out) printf("Warning: Unable to create save file!\n");
         else {
@@ -244,7 +244,7 @@ void save_sram (byte save[0x2000], struct nes_rom *rom, int verbose)
 
             if (n && verbose) printf("Saved game to %s\n", sram_filename(rom));
             else if (!n) printf("Error writing save ram.\n");
-            
+
         }
     }
 }

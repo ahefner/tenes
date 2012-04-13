@@ -32,7 +32,7 @@ void init_nes (struct nes_machine *nes)
     if (nes->rom.mapper_info->methods) mapper = nes->rom.mapper_info->methods;
     else {
         printf("Warning: This mapper is not currently implemented.\n");
-        mapper = &mapper_None;        
+        mapper = &mapper_None;
     }
   } else {
       printf("Unknown mapper (%i). Defaulting to mapper 0.\n", nes->rom.mapper);
@@ -62,7 +62,7 @@ void init_nes (struct nes_machine *nes)
 
 void shutdown_nes (struct nes_machine *nes)
 {
-    mapper->mapper_shutdown();  
+    mapper->mapper_shutdown();
 }
 
 int nsf_uses_bankswitching (struct nsf_header *h)
@@ -99,7 +99,7 @@ void nsf_load_bank (unsigned frame, unsigned bank)
 }
 
 void nsf_init (struct nes_machine *nes)
-{   
+{
     struct nsf_header *h = nes->rom.nsf_header;
     assert(h != NULL);
     memset(ram32k, 0, 0x8000);
@@ -109,9 +109,9 @@ void nsf_init (struct nes_machine *nes)
             nsf_load_bank(frame, nes->rom.nsf_header->bankswitch[frame]);
         }
     } else {
-        int top = h->load_addr;        
+        int top = h->load_addr;
         top += nes->rom.prg_size;
-        if (top > 0x10000) { 
+        if (top > 0x10000) {
             printf("Music program doesn't fit in address space. Odd.\n");
             top = 0x10000;
         }
@@ -121,7 +121,7 @@ void nsf_init (struct nes_machine *nes)
         }
     }
 
-    if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;    
+    if (nes->nsf_current_song > h->total_songs) nes->nsf_current_song = 0;
     int song = nes->nsf_current_song; /* Already zero-based! */
 //    nes->cpu.Trace = 1;
     nes->cpu.A = song;
@@ -133,59 +133,88 @@ void nsf_init (struct nes_machine *nes)
     nes->snd.regs[0x15] = 0x0F;
 
     Sub6502(&nes->cpu, h->init_addr, 100000 * MASTER_CLOCK_DIVIDER);
-//    printf("  done.\n");    
+//    printf("  done.\n");
 //    nes->cpu.Trace = 0;
 }
 
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
 void reset_nes (struct nes_machine *nes)
 {
-  memset((void *) nes->ram, 0, 0x800);
+    memset((void *) nes->ram, 0, 0x800);
 
-  SDL_mutexP(producer_mutex);
+    SDL_mutexP(producer_mutex);
 
-  memset((void *) &nes->snd, 0, sizeof (nes->snd));
-  Reset6502(&nes->cpu);
-  nes->cpu.Trace = cputrace;
-  nes->last_sound_cycle = 0;
-  assert(nes->cpu.Cycles == 0);
-  assert(nes->last_sound_cycle == 0);
-  snd_reset();
-  
-  SDL_mutexV(producer_mutex);
+    memset((void *) &nes->snd, 0, sizeof (nes->snd));
+    Reset6502(&nes->cpu);
+    nes->cpu.Trace = cputrace;
+    nes->last_sound_cycle = 0;
+    assert(nes->cpu.Cycles == 0);
+    assert(nes->last_sound_cycle == 0);
+    snd_reset();
 
-  if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
-  else nes->cpu.TrapBadOps = 0;
+    SDL_mutexV(producer_mutex);
 
-  nes->scanline_start_cycle = 0;
+    if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
+    else nes->cpu.TrapBadOps = 0;
 
-  memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
-  nes->ppu.control1 = 0;
-  nes->ppu.control2 = 0;
-  nes->ppu.v = 0;
-  nes->ppu.t = 0;
-  nes->ppu.x = 0;
-  nes->ppu.sprite_address = 0;
-  nes->ppu.read_latch = 0;
-  nes->ppu.ppu_addr_mode = DUAL_HIGH;
-  nes->ppu.ppu_writemode = PPUWRITE_HORIZ;
-  nes->ppu.vblank_flag = 0;
+    nes->scanline_start_cycle = 0;
 
-  memset((void *)nes->joypad.pad, 0, sizeof(nes->joypad.pad));
-  nes->joypad.state[0] = 0;
-  nes->joypad.state[1] = 0;
+    memset((void *)(nes->ppu.vram + 0x2000), 0, 0x2000);
+    nes->ppu.control1 = 0;
+    nes->ppu.control2 = 0;
+    nes->ppu.v = 0;
+    nes->ppu.t = 0;
+    nes->ppu.x = 0;
+    nes->ppu.sprite_address = 0;
+    nes->ppu.read_latch = 0;
+    nes->ppu.ppu_addr_mode = DUAL_HIGH;
+    nes->ppu.ppu_writemode = PPUWRITE_HORIZ;
+    nes->ppu.vblank_flag = 0;
 
-  rendering_scanline = 0;
+    memset((void *)nes->joypad.pad, 0, sizeof(nes->joypad.pad));
+    nes->joypad.state[0] = 0;
+    nes->joypad.state[1] = 0;
 
-  /* Shadow from ROM struct */
-  nes->mirror_mode = nes->rom.hw_mirror_mode;
-  nes->onescreen_page = nes->rom.hw_onescreen_page;
-  nes->machine_type = nes->rom.machine_type;
+    rendering_scanline = 0;
 
-  /* NSF init */
-  if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
+    /* Shadow from ROM struct */
+    nes->mirror_mode = nes->rom.hw_mirror_mode;
+    nes->onescreen_page = nes->rom.hw_onescreen_page;
+    nes->machine_type = nes->rom.machine_type;
 
-  printf("Machine reset.\n");
+    /* NSF init */
+    if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
+
+    printf("Machine reset.\n");
+}
+
+int open_game (char *filename)
+{
+    nes.rom = load_nes_rom (filename);
+    if (nes.rom.prg == NULL) {
+        printf("Unable to load rom \"%s\".\n", filename);
+        return 1;
+    }
+
+    save_pref_string("lastfile", filename);
+
+    init_nes(&nes);
+    reset_nes(&nes);
+
+    /* Why the fuck is this here? */
+    if (startup_restore_state >= 0) {
+        if (!restore_state_from_disk(state_filename(&nes.rom, startup_restore_state))) reset_nes(&nes);
+    }
+
+    return 0;
+}
+
+void close_current_game (void)
+{
+    save_sram(nes.save, &nes.rom, 1);
+    save_state_to_disk(state_filename(&nes.rom, 0));
+    mapper->mapper_shutdown();
+    free_rom(&nes.rom);
 }
 
 int file_write_state_chunk (FILE *stream, const char *name, void *data, Uint32 length)
@@ -204,14 +233,14 @@ int file_read_state_chunk (FILE *stream, const char *name, void *data_out, Uint3
     char chunkname[64];
     Uint32 read_length;
     if (fread(chunkname, sizeof(chunkname), 1, stream) != 1) return 0;
-    if (strncmp(chunkname, name, sizeof(chunkname))) { 
+    if (strncmp(chunkname, name, sizeof(chunkname))) {
         printf("Wrong state chunk: Read \"%s\", expected \"%s\"\n", chunkname, name);
         return 0;
     }
     if (fread(&read_length, sizeof(read_length), 1, stream) != 1) return 0;
     if (read_length != length) {
-        printf("Size of chunk \"%s\" is wrong. Expected %i, actually %i.\n", 
-               name, length, read_length); 
+        printf("Size of chunk \"%s\" is wrong. Expected %i, actually %i.\n",
+               name, length, read_length);
         return 0;
     }
     if (fread(data_out, read_length, 1, stream) != 1) return 0;
@@ -233,7 +262,7 @@ void save_state_to_disk (char *filename)
         if (!(file_write_state_chunk(out, nes_machine_vstring, &nes, sizeof(nes)) &&
               mapper->save_state((chunk_writer_t)file_write_state_chunk, out))) {
             printf("Error writing state file to %s\n", filename);
-        }        
+        }
 
         fclose(out);
 
@@ -249,7 +278,7 @@ int restore_state_from_disk (char *filename)
     struct nes_rom rom;
     if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *in = fopen(filename, "rb");
-    
+
     /* Preserve nes.rom structure */
     memcpy(&rom, &nes.rom, sizeof(rom));
 
@@ -276,7 +305,7 @@ int restore_state_from_disk (char *filename)
 /* Memory state save/restore should not ever fail except due to memory exhaustion. */
 
 int mem_write_state_chunk (struct saved_state *state, const char *name, void *data, unsigned length)
-{    
+{
     state->num++;
     if (state->num >= MEMSTATE_MAX_CHUNKS) return 0;
     byte *ptr = malloc(strlen(name) + 1 + length);
@@ -331,7 +360,7 @@ void copy_saved_chunks (struct saved_state *dst, struct saved_state *src)
             dst->lengths[i] = length;
         } else assert(src->lengths[i] == 0);
     }
-    
+
     dst->num = src->num;
 }
 
@@ -345,7 +374,7 @@ void save_state_to_mem (struct saved_state *state)
 
 void restore_state_from_mem (struct saved_state *state)
 {
-    struct nes_rom rom;   
+    struct nes_rom rom;
     memcpy(&rom, &nes.rom, sizeof(rom));
     assert(mem_read_state_chunk(state, nes_machine_vstring, &nes, sizeof(nes)));
     assert(mapper->restore_state((chunk_reader_t)mem_read_state_chunk, state));
@@ -484,9 +513,7 @@ void Wr6502 (register word Addr, register byte Value)
 	  if (trace_ppu_writes)
           {
 	      nes_printtime ();
-              printf("PPU $2000 = ");
-	      PrintBin (Value);
-	      printf(" next PC=$%04X, ",nes.cpu.PC.W);
+              printf("PPU $2000 = %s next PC=$%04X, ", format_binary(Value), nes.cpu.PC.W);
 	      if (Value & 0x80) printf ("NMI ON  ");
 	      if (Value & 0x10) printf ("bg1 "); else printf ("bg0 ");
 	      if (Value & 0x08) printf ("spr1 "); else printf ("spr0 ");
@@ -497,7 +524,7 @@ void Wr6502 (register word Addr, register byte Value)
           }
 	  break;
 
-	
+
       case ppu_cr2: /* 2001 */
           catchup_emphasis();
 	  nes.ppu.control2 = Value;
@@ -508,7 +535,7 @@ void Wr6502 (register word Addr, register byte Value)
 	    else printf ("sprites OFF  ");
 	    if (Value & 0x08) printf ("bg ON  ");
 	    else printf ("bg OFF  ");
-            if (Value & 0x01) printf("MONO  "); 
+            if (Value & 0x01) printf("MONO  ");
             if (Value & 0xE0) printf("Emphasis %i", Value >> 5);
 	    printf ("\n");
 	    /*                 if(!in_vblank(&nes)) printf("PPU: CR2 written during frame\n"); */
@@ -547,8 +574,8 @@ void Wr6502 (register word Addr, register byte Value)
           nes.ppu.ppu_addr_mode ^= 1;
           if (trace_ppu_writes) {
               nes_printtime();
-              printf("ppu.t = %04X (wrote %02X to %s scroll)\n", 
-                     nes.ppu.t, Value, 
+              printf("ppu.t = %04X (wrote %02X to %s scroll)\n",
+                     nes.ppu.t, Value,
                      nes.ppu.ppu_addr_mode ? "horizontal" : "vertical");
           }
 	  break;
@@ -556,7 +583,7 @@ void Wr6502 (register word Addr, register byte Value)
       case ppu_addr: /* 2006 */
 
 	  if (nes.ppu.ppu_addr_mode == DUAL_HIGH) {
-              nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);            
+              nes.ppu.t = (nes.ppu.t & 0x00FF) | ((Value&0x3F) << 8);
           } else {
               nes.ppu.t = (nes.ppu.t & 0xFF00) | Value;
               nes.ppu.v = nes.ppu.t;
@@ -568,7 +595,7 @@ void Wr6502 (register word Addr, register byte Value)
           nes.ppu.ppu_addr_mode ^= 1;
 
 	  break;
-	
+
 
       case ppu_data: /* 2007 */
 	  if ((!in_vblank (&nes)) && (nes.ppu.control2 & 0x08)) {
@@ -581,7 +608,7 @@ void Wr6502 (register word Addr, register byte Value)
                   if (nes.ppu.v < 0x3F00) {
                       if (nes.ppu.v < 0x3000) {	/* name/attribute table write */
                           int maddr = ppu_mirrored_nt_addr(nes.ppu.v);
-                          
+
                           if (trace_ppu_writes) {
                               nes_printtime();
                               printf("ppu write: %04X (mirrored to %04X), wrote %02X, writemode=%i\n",
@@ -600,7 +627,7 @@ void Wr6502 (register word Addr, register byte Value)
                       word tmp = nes.ppu.v;
                       tmp &= 0x1F;
                       Value &= 63;
-                      if (trace_ppu_writes) printf("%sPalette write of %02X to %04X (mirrored to %04X)\n", 
+                      if (trace_ppu_writes) printf("%sPalette write of %02X to %04X (mirrored to %04X)\n",
                                                    nes_time_string(), Value, nes.ppu.v, tmp);
                       catchup_emphasis();
 
@@ -630,7 +657,7 @@ void Wr6502 (register word Addr, register byte Value)
           if (Addr == 0x4014) {	/* sprite DMA transfer */
 	  word i, tmp = nes.ppu.sprite_address;
           /* Sprite DMA should start from the current sprite ram address
-             on the PPU. It seems unlikely that the CPU is designed to 
+             on the PPU. It seems unlikely that the CPU is designed to
              first reset the address register. It costs 513 CPU cycles.
           */
           /* (If that's really the case, why not use it for other things?) */
@@ -658,19 +685,19 @@ void Wr6502 (register word Addr, register byte Value)
       }
       break;
 
-  case 0x6000:    
+  case 0x6000:
       /* Many games map RAM here, even without battery backing. It
        * isn't specified when in the header, so enable it by
        * default. */
       nes.save[Addr & 0x1FFF] = Value;
       break;
-    
+
   case 0x8000:
   case 0xA000:
   case 0xC000:
-  case 0xE000:    
+  case 0xE000:
       mapper->mapper_write (Addr, Value);
-      break;    
+      break;
   }
 }
 
@@ -698,7 +725,7 @@ byte Rd6502 (register word Addr)
 }
 
 byte InnerRd6502 (register word Addr)
-#else 
+#else
 byte Rd6502 (register word Addr)
 #endif
 {
@@ -729,9 +756,9 @@ byte Rd6502 (register word Addr)
               sprite0_detected = 0;
           }
 
-	  byte tmp = 
+	  byte tmp =
               (nes.ppu.vblank_flag << 7) |
-              (nes.ppu.hit_flag << 6) | 
+              (nes.ppu.hit_flag << 6) |
               (nes.ppu.spritecount_flag << 5) |
               ((in_vblank(&nes))<<4); /* VRAM Write flag - this is a guess. ccovel's cmcwavy demo uses this. */
 
@@ -739,7 +766,7 @@ byte Rd6502 (register word Addr)
 	    if (nes.ppu.vblank_flag) {
 	      nes_printtime ();
 	      printf ("cleared vblank flag\n");
-	    }	    
+	    }
 	    if (nes.ppu.hit_flag) {
 	      nes_printtime ();
 	      printf ("clear hit flag\n");
@@ -747,7 +774,7 @@ byte Rd6502 (register word Addr)
 	  }
 
           /* Don't clear the PPU write mode! Breaks SMB2. */
-          
+
 	  nes.ppu.vblank_flag = 0;
 	  /*	  nes.ppu.hit_flag = 0; */
 
@@ -765,19 +792,19 @@ byte Rd6502 (register word Addr)
       case ppu_data:
       {
 	  byte ret;
-          
+
           /* Palette reads aren't buffered? */
           if (nes.ppu.v >= 0x3f00) nes.ppu.read_latch =  nes.ppu.vram[0x3f00 | (nes.ppu.v & 0x1f)];
 
           ret = nes.ppu.read_latch;
-          
+
 
           nes.ppu.read_latch = nes.ppu.vram[ppu_mirrored_addr(nes.ppu.v & 0x3FFF)];
           // TODO: Manual scanline twiddle for IRQ counter?
-          
+
           nes.ppu.v += nes.ppu.ppu_writemode;
           nes.ppu.v &= 0x7FFF;
-          
+
 	  return ret;
       }
 
@@ -786,7 +813,7 @@ byte Rd6502 (register word Addr)
 	  break;
 
       }
-      break;      
+      break;
 
   case 0x4000:
       if (Addr <= 0x4017) {
@@ -826,8 +853,8 @@ byte Debug6502 (register M6502 * R)
     tmp[3] = Rd6502 (R->PC.W + 3);
     DAsm (buffer, tmp, R->PC.W);
     nes_printtime ();
-    printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %17s   ", 
-            (unsigned)R->PC.W, (unsigned)R->A, 
+    printf ("$%04X  A=%02X X=%02X Y=%02X S=%02X  %17s   ",
+            (unsigned)R->PC.W, (unsigned)R->A,
             (unsigned)R->X, (unsigned)R->Y, (unsigned)R->S,
             buffer);
     printf("\n");
@@ -901,13 +928,13 @@ void nes_emulate_frame (void)
     run_until(nes.scanline_start_cycle + scan_cycles * PPU_CLOCK_DIVIDER);
     finish_scanline_rendering();
     run_until(nes.scanline_start_cycle + line_cycles * PPU_CLOCK_DIVIDER);
-    nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;    
+    nes.scanline_start_cycle += line_cycles * PPU_CLOCK_DIVIDER;
 
     tv_scanline = 0;
     vscroll = ppu_current_vscroll() - 1;
 
     if (0 && trace_ppu_writes)
-        printf("At frame start, hscroll=%03i vscroll=%03i\n", 
+        printf("At frame start, hscroll=%03i vscroll=%03i\n",
                ppu_current_hscroll(), ppu_current_vscroll());
 
     // This is the visible frame:
@@ -973,7 +1000,7 @@ void nsf_emulate_frame (void)
     if (speed < 1) speed = 1;
     double foo = 1789772.0 * (double)MASTER_CLOCK_DIVIDER * speed / 1000000.0;
     int tick_cycles = foo;
-    
+
     /* FIXME: This will cause the UI to repaint at the NSF tick
      * rate. Fine if it's 60 Hz, but bad if it's considerably faster
      * or slower. */
@@ -1000,11 +1027,11 @@ void nsf_emulate_frame (void)
      * quit, because in the extra time spent printing tracing
      * information, the buffer has to be refilled. So limit to an
      * arbitrary maximum number of spins through here. */
-    
+
     //printf("snd_buffered_samples() = %i\n", snd_buffered_samples());
     for (int i=0; i<10; i++) {
         if (snd_buffered_samples() > 10000) break;
-        // Sub6502 will call the music player routine, returning to a wait 
+        // Sub6502 will call the music player routine, returning to a wait
         // loop written on the top three bytes of the stack. Run6502 will
         // execute the wait loop for the remaining cycles. Come to think of it,
         // that's fairly pointless when we could not run the emulator and say
@@ -1046,7 +1073,7 @@ void vectors (void)
 
 void regs (void)
 {
-    printf("PC=%04X  A=%02X  X=%02X Y=%02X  P=%02X S=%02X\n", 
+    printf("PC=%04X  A=%02X  X=%02X Y=%02X  P=%02X S=%02X\n",
            nes.cpu.PC.W, nes.cpu.A, nes.cpu.X, nes.cpu.Y, nes.cpu.P, nes.cpu.S);
 }
 

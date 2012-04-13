@@ -23,8 +23,8 @@ void mmc1_print_status (void)
            mmc1.reg[0] & REG0_SWITCH_HIGH_LOW ? "Switching LOW" : "Switching HIGH",
            mmc1.reg[0] & REG0_SIZE_32K_16K ? "16k" : "32k",
            mmc1.reg[0] & REG0_MIRROR_MODE ? "Vertical" : "Horizontal",
-           nes.rom.chr_size? 
-           (mmc1.reg[0] & REG0_CHROM_8KB_4KB ? "CHR:4KB" : "CHR:8KB") : 
+           nes.rom.chr_size?
+           (mmc1.reg[0] & REG0_CHROM_8KB_4KB ? "CHR:4KB" : "CHR:8KB") :
            (mmc1.reg[0] & BIT(4) ? "Large mode 0" : "Large mode 1"));
 }
 
@@ -60,8 +60,8 @@ void mmc1_shutdown (void)
 
 void mmc1_short_status (void)
 {
-    printf("(r0..3=%02X,%02X,%02X,%02X large=%i,mask=%i)", 
-           mmc1.reg[0], mmc1.reg[1], mmc1.reg[2], mmc1.reg[3], 
+    printf("(r0..3=%02X,%02X,%02X,%02X large=%i,mask=%i)",
+           mmc1.reg[0], mmc1.reg[1], mmc1.reg[2], mmc1.reg[3],
            mmc1.large_bank, mmc1.large_bank_mask);
 }
 
@@ -71,7 +71,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
     assert(reg<4);
 
     //printf("mmc1_write: %02X to register %i\n", val, reg);
-    
+
     switch (reg)
     {
     case 0:
@@ -88,8 +88,8 @@ void mmc1_write_reg (unsigned reg, unsigned val)
 
         if (trace_ppu_writes)
             printf("MMC1: switch low CHR: pagebase = %i, pages = %i, switching both? %s\n",
-                   pagebase, mmc1.chr_pages, mmc1.reg[0] & REG0_CHROM_8KB_4KB ? "No" : "Yes"); 
-        if (pagebase < mmc1.chr_pages) {          
+                   pagebase, mmc1.chr_pages, mmc1.reg[0] & REG0_CHROM_8KB_4KB ? "No" : "Yes");
+        if (pagebase < mmc1.chr_pages) {
             if (!(mmc1.reg[0] & REG0_CHROM_8KB_4KB) && (pagebase < mmc1.chr_pages-1))
                 memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x2000);
             else memcpy((void *)nes.ppu.vram,(void *)nes.rom.chr + 0x1000 * pagebase,0x1000);
@@ -98,7 +98,7 @@ void mmc1_write_reg (unsigned reg, unsigned val)
     case 2:
         mmc1.reg[2]=val;
         pagebase = val & 0x1F;
-        if ((pagebase < mmc1.chr_pages) && 
+        if ((pagebase < mmc1.chr_pages) &&
             (mmc1.reg[0] & REG0_CHROM_8KB_4KB)) {
             memcpy((void *)nes.ppu.vram + 0x1000,
                    (void *)nes.rom.chr + 0x1000 * pagebase,
@@ -129,7 +129,7 @@ void mmc1_write (register word addr, register byte value)
         reg[0] = reset;
         mmc1.accum = 0;
         mmc1.counter = 0;
-      
+
     }
     else
     {
@@ -156,10 +156,10 @@ byte mmc1_read (register word addr)
     large_offset = mmc1.large_bank;
     large_offset &= mmc1.large_bank_mask;
     large_offset *= KB(256);
-  
+
     if (reg[0] & REG0_SIZE_32K_16K)
     { /* 16KB switching mode */
-        if (GETBIT(14,addr)^GETBIT(2,reg[0])) 
+        if (GETBIT(14,addr)^GETBIT(2,reg[0]))
         { /* Read from the switching page */
             //printf("  read %04X -- bank %i\n", addr, BANK);
             return prg[BANK*KB(16)+large_offset+offset];
@@ -208,8 +208,8 @@ struct mapper_methods mapper_MMC1 = {
 };
 
 #undef BANK
-#undef REG0_MIRROR_MODE        
-#undef REG0_ONE_SCREEN_ENABLE  
-#undef REG0_SWITCH_HIGH_LOW    
-#undef REG0_SIZE_32K_16K       
-#undef REG0_CHROM_8KB_4KB      
+#undef REG0_MIRROR_MODE
+#undef REG0_ONE_SCREEN_ENABLE
+#undef REG0_SWITCH_HIGH_LOW
+#undef REG0_SIZE_32K_16K
+#undef REG0_CHROM_8KB_4KB

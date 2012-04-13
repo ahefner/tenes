@@ -22,7 +22,7 @@
 
 
 /* Mapper table - contains iNES mapper number, name, and pointer to
- * mapper_methods struct (if implemented). 
+ * mapper_methods struct (if implemented).
  */
 
 struct mapperinfo MapTable[] = {
@@ -64,7 +64,7 @@ struct mapperinfo MapTable[] = {
   {34, "iNES Mapper #34", NULL},
   {71, "Camerica", &mapper_camerica}};
 
-static int mapper_table_size (void) 
+static int mapper_table_size (void)
 {
     return sizeof(MapTable) / sizeof(MapTable[0]);
 }
@@ -75,7 +75,7 @@ mapper_find (int ines_number)
     int i;
     for (i=0; i<mapper_table_size(); i++)
         if (MapTable[i].id == ines_number) return MapTable+i;
-    
+
     return NULL;
 }
 

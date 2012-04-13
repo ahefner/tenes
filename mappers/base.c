@@ -15,7 +15,7 @@ void mapper0_shutdown(void)
 }
 
 void mapper_noprgwrite(register word Addr,register byte Value)
-{ 
+{
 }
 
 byte mapper0_read(register word Addr)
@@ -28,7 +28,7 @@ void mapper_novramwrite(register word Addr,register byte Value)
 { }
 
 byte mapper_vramread(register word Addr)
-{   
+{
    return nes.ppu.vram[Addr];
 }
 
