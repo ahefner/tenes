@@ -3,16 +3,18 @@
 
 void load_config (void);
 void save_config (void);
-void cfg_parseargs (int argc,char **argv);
+void cfg_parseargs (int argc,const char **argv);
 
-char *ensure_config_dir (void);
-char *ensure_save_dir (void);
-char *ensure_state_dir(long long hash);
+const char *ensure_config_dir (void);
+const char *ensure_save_dir (void);
+const char *ensure_state_dir(long long hash);
 
-char *pref_filename (char *name);
-char *pref_string (char *name, char *defaultval);
+const char *pref_filename (const char *name);
 
-void save_pref_file (char *name, byte *data, size_t size);
-void save_pref_string (char *name, char *string);
+/* Result freed by caller. */
+char *pref_string (const char *name, const char *defaultval);
+
+void save_pref_file (const char *name, const byte *data, size_t size);
+void save_pref_string (const char *name, const char *string);
 
 #endif

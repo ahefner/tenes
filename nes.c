@@ -188,9 +188,9 @@ void reset_nes (struct nes_machine *nes)
     printf("Machine reset.\n");
 }
 
-int open_game (char *filename)
+int open_game (const char *filename)
 {
-    nes.rom = load_nes_rom (filename);
+    nes.rom = load_nes_rom(filename);
     if (nes.rom.prg == NULL) {
         printf("Unable to load rom \"%s\".\n", filename);
         return 1;
@@ -201,9 +201,11 @@ int open_game (char *filename)
     init_nes(&nes);
     reset_nes(&nes);
 
-    /* Why the fuck is this here? */
+    /* Why is this here? */
     if (startup_restore_state >= 0) {
-        if (!restore_state_from_disk(state_filename(&nes.rom, startup_restore_state))) reset_nes(&nes);
+        const char *filename = state_filename(&nes.rom,startup_restore_state);
+        if (!restore_state_from_disk(filename))
+            reset_nes(&nes);
     }
 
     return 0;
@@ -253,7 +255,7 @@ int file_read_state_chunk (FILE *stream, const char *name, void *data_out, Uint3
 
 static const char *nes_machine_vstring = "NES Machine v2";
 
-void save_state_to_disk (char *filename)
+void save_state_to_disk (const char *filename)
 {
     if (!filename) filename = state_filename(&nes.rom, 1);
     FILE *out = fopen(filename, "wb");
@@ -273,7 +275,7 @@ void save_state_to_disk (char *filename)
     }
 }
 
-int restore_state_from_disk (char *filename)
+int restore_state_from_disk (const char *filename)
 {
     struct nes_rom rom;
     if (!filename) filename = state_filename(&nes.rom, 1);
@@ -456,7 +458,7 @@ int scanline_cycles (void)
     return (int)(nes.cpu.Cycles - nes.scanline_start_cycle) / MASTER_CLOCK_DIVIDER;
 }
 
-char *nes_time_string (void)
+const char *nes_time_string (void)
 {
     static char buf[128];
     sprintf(buf, "%i/%3i.%3i   ", nes.time, nes.scanline, (int)scanline_cycles());

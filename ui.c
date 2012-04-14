@@ -170,7 +170,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
                     tmp += row[xoff];
                     ptr[ox0+xoff] = clamp_byte(tmp);
                 }
-            } else printf("    fuck off at %i\n", y);
+            } else printf("    fixme at %i\n", y);
         }
 
         pen_x += face_sans->glyph->advance.x >> 6;
@@ -555,7 +555,7 @@ int have_screencap = 0;
 
 void update_state_image (void)
 {
-    char *filename = state_filename(&nes.rom, 1);
+    const char *filename = state_filename(&nes.rom, 1);
     time_t mtime = file_write_date(filename);
     char buf[512];
 
@@ -1237,7 +1237,7 @@ void run_game_browser (struct inputctx *input)
                 if (input->released & 1) {
                     ent->xtarget = 0.0;
                     close_current_game();
-                    if (open_game(ent->path)) printf("!!!FUCK!!!\n");
+                    if (open_game(ent->path)) printf("ui: open game failed.\n");
 
                 }
             }

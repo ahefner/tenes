@@ -14,7 +14,7 @@
 #include "global.h"
 #include "sys.h"
 
-void scan_video_option (char *arg)
+void scan_video_option (const char *arg)
 {
     void *mode = NULL;
 
@@ -100,11 +100,11 @@ void print_usage (void)
 
 }
 
-void cfg_parseargs (int argc, char **argv)
+void cfg_parseargs (int argc, const char **argv)
 {
   int i;
   for (i = 1; i < argc; i++) {
-    char *txt = argv[i];
+    const char *txt = argv[i];
 
     if (txt[0] == '-') {
 
@@ -251,7 +251,7 @@ void cfg_parseargs (int argc, char **argv)
      usage message as normal, rather than confuse the user by
      erring on a file they didn't explicitly specify. */
   if (!romfilename) {
-      romfilename = (char *)pref_string("lastfile", NULL);
+      romfilename = pref_string("lastfile", NULL);
       if (!romfilename || !probe_file(romfilename)) romfilename = NULL;
   }
 
@@ -264,7 +264,7 @@ void cfg_parseargs (int argc, char **argv)
 /* User preferences and save data */
 
 char config_dir[PATH_MAX];
-char *ensure_config_dir (void)
+const char *ensure_config_dir (void)
 {
 #ifdef _WIN32
     snprintf(config_dir, sizeof(config_dir), "C:\\fixme\\");
@@ -286,7 +286,7 @@ char *ensure_config_dir (void)
 }
 
 char save_dir[PATH_MAX];
-char *ensure_save_dir (void)
+const char *ensure_save_dir (void)
 {
     snprintf(save_dir, sizeof(save_dir), "%s/sram", ensure_config_dir());
     make_dir(save_dir);
@@ -294,7 +294,7 @@ char *ensure_save_dir (void)
 }
 
 char state_dir[PATH_MAX];
-char *ensure_state_dir (long long hash)
+const char *ensure_state_dir (long long hash)
 {
     snprintf(state_dir, sizeof(state_dir), "%s/state", ensure_config_dir());
     make_dir(state_dir);
@@ -305,7 +305,7 @@ char *ensure_state_dir (long long hash)
     return state_dir;
 }
 
-char *sram_filename (struct nes_rom *rom)
+const char *sram_filename (struct nes_rom *rom)
 {
     static char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(),
@@ -314,56 +314,69 @@ char *sram_filename (struct nes_rom *rom)
     return path;
 }
 
-char *state_filename (struct nes_rom *rom, unsigned index)
+const char *state_filename (struct nes_rom *rom, unsigned index)
 {
     static char path[PATH_MAX];
     snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
     return path;
 }
 
-char *pref_filename (char *name)
+const char *pref_filename (const char *name)
 {
     static char buf[PATH_MAX];
     snprintf(buf, sizeof(buf), "%s/%s", ensure_config_dir(), name);
     return buf;
 }
 
-char *pref_string (char *name, char *defaultval)
+/* The caller is responsible for freeing the resulting string. If the
+ * defaultval is used, a copy is returned. */
+char *pref_string (const char *name, const char *defaultval)
 {
     /* Load binary file adds a terminator for us, just in case. */
     char *string = (char *)load_binary_file(pref_filename(name), NULL);
-    if (!string) return defaultval;
+    if ((string==NULL) && (defaultval!=NULL)) return strdup(defaultval);
     else return string;
 }
 
-void save_pref_file (char *name, byte *data, size_t size)
+void save_pref_file (const char *name, const byte *data, size_t size)
 {
     save_binary_data(pref_filename(name), data, size);
 }
 
-void save_pref_string (char *name, char *string)
+void save_pref_string (const char *name, const char *string)
 {
-    save_pref_file(name, (byte *)string, strlen(string));
+    save_pref_file(name, (const byte *)string, strlen(string));
 }
 
-void save_pref_int (char *name, int n)
+void save_pref_int (const char *name, int n)
 {
     char buf[16];
     snprintf(buf, sizeof(buf), "%i", n);
     save_pref_string(name, buf);
 }
 
-int pref_int (char *name, int defaultval)
+int pref_int (const char *name, int defaultval)
 {
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%i", defaultval); /* Oh no I didn't! */
-    return atoi(pref_string(name, buf));
+    char *result;
+    result = pref_string(name,NULL);
+    if (result != NULL) {
+        int value = atoi(result);
+        free(result);
+        return value;
+    } else return defaultval;
 }
 
 void load_config (void)
 {
-    scan_video_option(pref_string("video-mode", NULL));
-    if (!strcmp(pref_string("sound-muted", ""), "true")) sound_muted = 1;
+    char *video = pref_string("video-mode", NULL);
+    char *muted = pref_string("sound-muted", "");
+
+    scan_video_option(video);
+    if (video) free(video);
+
+    if (!strcmp(muted, "true")) sound_muted = 1;
+    free(muted);
+
     cfg_keyboard_controller = pref_int("keyboard-controller", 0);
 }
 

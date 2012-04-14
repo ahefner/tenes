@@ -51,8 +51,8 @@ extern SDLKey keymap[8];
 extern int cfg_disable_joysticks;
 extern int cfg_disable_keyboard;
 
-extern char *movie_output_filename;
-extern char *movie_input_filename;
+extern const char *movie_output_filename;
+extern const char *movie_input_filename;
 extern FILE *movie_output, *movie_input;
 extern int quit_after_playback;
 
@@ -115,7 +115,7 @@ extern unsigned frame_start_samples;
 
 extern int unique_frame_number;
 
-extern char *cfg_mountpoint;
+extern const char *cfg_mountpoint;
 extern int cfg_mount_fs;
 
 extern SDL_mutex *producer_mutex;

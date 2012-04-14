@@ -211,18 +211,18 @@ struct nes_machine nes;
 void init_nes (struct nes_machine *nes);
 void shutdown_nes (struct nes_machine *nes);
 void reset_nes (struct nes_machine *nes);
-int open_game (char *filename);
+int open_game (const char *filename);
 void close_current_game (void);
 void nes_emulate_frame(void);
 
 void nsf_emulate_frame(void);
 void nsf_load_bank (unsigned frame, unsigned bank);
 
-char *nes_time_string (void);
+const char *nes_time_string (void);
 void nes_printtime (void);
 
-void save_state_to_disk (char *filename);
-int restore_state_from_disk (char *filename);
+void save_state_to_disk (const char *filename);
+int restore_state_from_disk (const char *filename);
 
 #define MEMSTATE_MAX_CHUNKS 32
 struct saved_state {
@@ -243,8 +243,8 @@ void restore_state_from_mem (struct saved_state *state);
 int file_write_state_chunk (FILE *stream, const char *name, void *data, unsigned length);
 int file_read_state_chunk  (FILE *stream, const char *name, void *data_out, unsigned length);
 
-char *sram_filename (struct nes_rom *rom);
-char *state_filename (struct nes_rom *rom, unsigned index);
+const char *sram_filename (struct nes_rom *rom);
+const char *state_filename (struct nes_rom *rom, unsigned index);
 
 static inline word ppu_mirrored_nt_addr (word paddr)
 {

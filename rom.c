@@ -162,7 +162,7 @@ int load_ines (struct nes_rom *rom, FILE *in, int filesize)
     return 1;
 }
 
-struct nes_rom load_nes_rom (char *filename)
+struct nes_rom load_nes_rom (const char *filename)
 {
     FILE *in;
     struct stat statbuf;

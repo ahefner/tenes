@@ -5,7 +5,7 @@
 #include "global.h"
 #include "utility.h"
 
-byte *load_binary_file (char *filename, size_t *len_out)
+byte *load_binary_file (const char *filename, size_t *len_out)
 {
     FILE *in = fopen(filename, "rb");
     if (!in) return 0;
@@ -41,7 +41,7 @@ byte *load_binary_file (char *filename, size_t *len_out)
     }
 }
 
-int load_binary_data (char *filename, void *dest, size_t size)
+int load_binary_data (const char *filename, void *dest, size_t size)
 {
     FILE *in = fopen(filename, "rb");
     if (!in) return 0;
@@ -52,7 +52,7 @@ int load_binary_data (char *filename, void *dest, size_t size)
     }
 }
 
-int save_binary_data (char *filename, void *data, size_t size)
+int save_binary_data (const char *filename, const void *data, size_t size)
 {
     FILE *out = fopen(filename, "wb");
     if (!out) return 0;
@@ -64,27 +64,27 @@ int save_binary_data (char *filename, void *data, size_t size)
 }
 
 
-int probe_file (char *path)
+int probe_file (const char *path)
 {
     struct stat st;
     return !stat(path, &st);
 }
 
-int probe_regular_file (char *path)
+int probe_regular_file (const char *path)
 {
     struct stat st;
     if (stat(path, &st)) return 0;
     else return S_ISREG(st.st_mode);
 }
 
-time_t file_write_date (char *path)
+time_t file_write_date (const char *path)
 {
     struct stat st;
     if (!stat(path, &st)) return st.st_mtime;
     else return (time_t)0;
 }
 
-char *make_absolute_filename (char *filename)
+char *make_absolute_filename (const char *filename)
 {
 #ifdef _WIN32
     printf("FIXME make absolute filename\n");

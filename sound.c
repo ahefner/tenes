@@ -174,7 +174,7 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
         memset(delta_log, 0, sizeof(delta_log));
         memset(fill_log, 0, sizeof(fill_log));
         memset(time_log, 0, sizeof(time_log));
-    } else {                    /* Strictly stats bullshit: */
+    } else {
         int i, avg_x = 0, avg_dx = 0;
         long long avg_time = 0;
         time_log[delta_log_idx] = delta_time;
@@ -682,22 +682,19 @@ const int clocks_per_sample = 4467;
 /* Generate audio. Call this with the producer lock held. */
 void snd_render_samples (int emergency_mode, int samples)
 {
-    int prev_space = -1;
-
     //printf("catchup: %i cycles since last call (%i samples).\n", delta, samples);
     if (samples > 0) {
         if (!sound_enabled) buffer_low = buffer_high = 0;
 
         while (samples) {
             unsigned space = buffer_space(), nfill = space;
-            //if (prev_space != -1) printf("waiting (%i samples, space=%i, prev_space=%i)..\n", samples, space, prev_space);
             if (nfill > samples) nfill = samples;
             //printf("sound delta: %i cycles: %i samples. %i free in buffer. filling %i. low=%i, high=%i\n", delta, samples, space, nfill, buffer_low, buffer_high);
             snd_fillbuffer(audio_buffer, buffer_high & BUFFER_PTR_MASK, nfill);
             samples -= nfill;
             buffer_high = buffer_high + nfill;
             if (!emergency_mode) nes.last_sound_cycle += nfill * clocks_per_sample;
-            prev_space = space;
+
         }
     }
 }

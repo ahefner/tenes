@@ -400,7 +400,7 @@ void update_titlebar (void)
     }
 }
 
-int main (int argc, char **argv)
+int main (int argc, const char **argv)
 {
     memset(joystick, 0, sizeof(joystick));
     load_config();

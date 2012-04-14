@@ -32,8 +32,8 @@ int cfg_disable_keyboard = 0;
 
 float aux_position[2] = {0,0};  /* Mutable */
 
-char *movie_output_filename = NULL;
-char *movie_input_filename = NULL;
+const char *movie_output_filename = NULL;
+const char *movie_input_filename = NULL;
 FILE *movie_output = NULL, *movie_input = NULL; /* Mutable */
 int quit_after_playback = 0;
 
@@ -109,6 +109,6 @@ int unique_frame_number = 0;
 
 SDL_mutex *producer_mutex;      /* Held while filling audio buffer */
 
-char *cfg_mountpoint = "/tmp/nesfs";
+const char *cfg_mountpoint = "/tmp/nesfs";
 int cfg_mount_fs = 0;
 

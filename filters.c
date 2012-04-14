@@ -10,7 +10,6 @@ typedef unsigned char v16qu __attribute__ ((__vector_size__ (16)));
 #include "global.h"
 
 #ifndef M_PI
-/* Fuck you too, ANSI C! */
 #define M_PI            3.14159265358979323846
 #endif
 
@@ -114,8 +113,9 @@ void scanline_filter (void)
     filter_output_line = scanline_emitter;
 }
 
-/* NTSC filter */
+/*** NTSC filter ***/
 
+/* Clamp and convert floating point RGB to packed 24-bit form. */
 static inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
@@ -131,6 +131,7 @@ static inline Uint32 rgbf (float r, float g, float b)
     return rgbi(r,g,b);
 }
 
+/* YIQ to RGB conversion via matrix. */
 static inline void yiq2rgb (float yiq[3], float rgb[3])
 {
     rgb[0] = yiq[0] +  0.9563*yiq[1] +  0.6210*yiq[2];
@@ -138,13 +139,39 @@ static inline void yiq2rgb (float yiq[3], float rgb[3])
     rgb[2] = yiq[0] + -1.1070*yiq[1] +  1.7046*yiq[2];
 }
 
+/* composite_output[emph][color][clock mod 12]
+
+   This is the raw composite waveform at each PPU output clock, for
+   each combination of color and emphasis. */
+
 float composite_output[8][64][12];
+
+/* Explanation of these indices:
+     Dimension 0 [8]: Color emphasis bits
+     Dimension 1 [3]: Phase of output waveform versus chroma.
+       The composite waveform is generated at 12x the NTSC color
+       subcarrier frequency, but an NES pixel is only eight of these
+       clocks long, or 2/3 of a color clock, so for any given pixel
+       there are three possible alignments versus the chroma signal.
+    Dimension 2 [64]: NES color index.
+       The lower four bits determine the phase of the PPU's internal
+       digital chroma square wave. The upper two bits determine the
+       resulting intensity / saturation by choice of the high/low
+       output voltages produced from the color signal.
+    Dimension 3 [42]: Size of pre-filtered, resampled impulse response.
+ */
 float y_output[8][3][64][42];
 float i_chroma[8][3][64][42];
 float q_chroma[8][3][64][42];
 
-#define RGB_SCALE 64
+/* The Y/I/Q tables above are then transformed to the RGB values used
+   for final rendering. It's done using 16 shorts, because we need
+   negative values and some extra precision to sum the impulse
+   responses. */
+
 #define RGB_SHIFT 6
+#define RGB_SCALE (1<<RGB_SHIFT)
+
 short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
 static inline byte shift_clamp_to_u8 (int x)
@@ -192,6 +219,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         int idx = (padding + x*5 + off - 18)>>1;
 
 #if 0
+        /* Straightforward, slow output loop. */
         for (int i=0; i<22; i++) {
             vbuf[idx][0] += rgb[0];
             vbuf[idx][1] += rgb[1];
@@ -200,6 +228,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
             idx++;
         }
 #else
+        /* Vectorized output loop. */
         v8hi *in = (v8hi *)rgb;
         v8hi *out = &vbuf[idx][0];
 
@@ -218,9 +247,6 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
          * faster than real time, so I'm not inclined to spend any
          * more time here.
         */
-
-        // Awful alignment kludge for benchmarking:
-        // if ((idx) & 1) out = &vbuf[idx-1][0];
 
         // if ((((size_t)out)&0xF) != 0) printf("Output pointer not aligned! %p vbuf=%p idx=%i off=%i x=%i\n", out, vbuf, idx, off, x);
         for (int i=0; i<11; i++) {
@@ -248,8 +274,9 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         *dest0++ = px;
     }
 */
-    if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned! Fuck!\n");
-    if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned! Fuck!\n");
+    /* This shouldn't happen, but check just in case. */
+    if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned!\n");
+    if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned!\n");
 
     __v16qi *out = (v16qu *)dest0;
     for (int x=0; x<640; x+=4) {
@@ -277,8 +304,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 #undef padding
 }
 
-
-void yiq_test_emitter (unsigned y, byte *colors, byte *emphasis);
+/* For resampling, a Blackman-windowed sinc filter. */
 
 double blackman (double i, double n)
 {
@@ -335,7 +361,9 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         yiq[0] = ybuf[idx] * 0.7;
         yiq[1] = ibuf[idx];
         yiq[2] = qbuf[idx];
+
         for (int j=0; j<3; j++) yiq[j] *= 7.5;
+
         yiq2rgb(yiq, rgbf);
         short *rgb = ((i&1)? rgb_odd : rgb_even) + 4*(i>>1);
         rgb[2] = rgbf[0] * 255.0 * (float)RGB_SCALE;
@@ -405,7 +433,7 @@ void ntsc_filter (void)
         if (x > 0x0D) scale = 0.0;
 
         for (int emph=0; emph<8; emph++) {
-            /* Something quite possibly wrong here. */
+            // My best guess interpretation of the color emphasis.
             const int emap[3][12] = {{ 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
                                      { 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1 },
                                      { 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0 }};
