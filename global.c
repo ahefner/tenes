@@ -50,7 +50,9 @@ int tv_scanline = 0;            /* Mutable */
 /* Set during first 256 cycles of scanline, but not during hblank: */
 int rendering_scanline = 0;
 
-SDL_Surface *window_surface=NULL;
+SDL_Surface *window_surface = NULL;
+
+struct rgb_shifts rgb_shifts;
 
 /* Frame buffer, for screenshots. First dimension separates color versus emphasis. */
 byte frame_buffer[2][SCREEN_HEIGHT][SCREEN_WIDTH];

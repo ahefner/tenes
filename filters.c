@@ -18,31 +18,48 @@ unsigned grayscale_palette[64];
 
 void build_color_maps (void)
 {
+    memset(rgb_palette, 0, sizeof(rgb_palette));
+    memset(grayscale_palette, 0, sizeof(grayscale_palette));
     for (int i=0; i<64; i++) {
-        rgb_palette[i] = (nes_palette[i*3] << 16) | (nes_palette[i*3+1] << 8) | nes_palette[i*3+2];
-        grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3;
+        rgb_palette[i] = (nes_palette[i*3+0] << 16) | (nes_palette[i*3+1] << 8) | nes_palette[i*3+2];
+        grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3; /* FIXME.. */
+    }
+
+    for (int i=64; i<128; i++) {
+        rgb_palette[i] = rgb_palette[i-64];
+        grayscale_palette[i] = grayscale_palette[i-64];
     }
 }
 
-static inline unsigned convert_pixel (byte color, byte emphasis)
+static inline unsigned convert_pixel (byte color, byte emphasis, struct rgb_shifts sw)
 {
     emphasis &= 0xE1;
-    if (!emphasis) return rgb_palette[color & 63];
-    else {
+
+    unsigned px = rgb_palette[color & 63];
+    byte r = px >> 16, g = (px >> 8) & 0xFF, b = px & 0xFF;
+
+    if (!emphasis)
+    {
+        return (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
+    }
+    else
+    {
         if (emphasis & 1) color &= 0x30;
-        unsigned px = rgb_palette[color & 63];
-        byte r = px >> 16, g = (px >> 8) & 0xFF, b = px & 0xFF;
+
         // This is almost certainly wrong.
         if (emphasis & 0x20) { g = g*3/4; b = b*3/4; }
         if (emphasis & 0x40) { r = r*3/4; b = b*3/4; }
         if (emphasis & 0x80) { r = r*3/4; g = g*3/4; }
-        return (r << 16) | (g << 8) | b;
+
+        return (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
     }
 }
 
 void inline emit_unscaled (Uint32 *out, byte *colors, byte *emphasis, size_t n)
 {
-    for (int x = 0; x < n; x++) out[x] = convert_pixel(colors[x], emphasis[x]);
+    struct rgb_shifts sw = rgb_shifts;
+    for (int x = 0; x < n; x++)
+        out[x] = convert_pixel(colors[x], emphasis[x], sw);
 }
 
 void no_filter_emitter (unsigned y, byte *colors, byte *emphasis)
@@ -65,10 +82,11 @@ void filter_finish_nop (void)
 
 void rescale_2x_emitter (unsigned y, byte *colors, byte *emphasis)
 {
+    struct rgb_shifts sw = rgb_shifts;
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2) * window_surface->pitch);
     Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+1) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
-        Uint32 px = convert_pixel(colors[x], emphasis[x]);
+        Uint32 px = convert_pixel(colors[x], emphasis[x], sw);
         *dest0++ = px;
         *dest0++ = px;
         *dest1++ = px;
@@ -88,11 +106,12 @@ void rescale_2x (void)
 
 void scanline_emitter (unsigned y, byte *colors, byte *emphasis)
 {
+    struct rgb_shifts sw = rgb_shifts;
     int field = (nes.time & 1);
     Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+field) * window_surface->pitch);
     Uint32 *dest1 = (Uint32 *) (((byte *)window_surface->pixels) + (y*2+(field^1)) * window_surface->pitch);
     for (int x = 0; x < 256; x++) {
-        Uint32 px = convert_pixel(colors[x], emphasis[x]);
+        Uint32 px = convert_pixel(colors[x], emphasis[x], sw);
         *dest0++ = px;
         *dest0++ = px;
 

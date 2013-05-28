@@ -282,4 +282,11 @@ static inline word ppu_mirrored_addr (word paddr)
     } else return paddr;
 }
 
+/// Used by video filters to swizzle output pixels
+struct rgb_shifts
+{
+    byte r_shift, g_shift, b_shift;
+};
+
+
 #endif

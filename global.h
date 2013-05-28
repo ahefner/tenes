@@ -82,6 +82,9 @@ extern int tv_scanline;
 extern int rendering_scanline;
 extern SDL_Surface *window_surface; /* Window surface */
 
+extern struct rgb_shifts rgb_shifts;
+
+
 /* The renderer fills color_buffer at the beginning of the line, and
  * emphasis_bits are in filled by hblank as ppu.control2 changes.
  * These are the input to the video filter, which should combine them

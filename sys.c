@@ -57,12 +57,15 @@ void print_video_info (void)
     const SDL_VideoInfo *vi = SDL_GetVideoInfo();
     char namebuf[64];
     printf("Video driver: %s\n", SDL_VideoDriverName(namebuf, 64));
-    printf("Video memory: %i KB   BPP: %i %X/%X/%X   HW? %s   Accel: %s %s\n",
+    printf("Video memory: %i KB   BPP: %i R:%X(%i) G:%X(%i) B:%X(%i)   HW? %s   Accel: %s %s\n",
            vi->video_mem,
-           vi->vfmt->BitsPerPixel, vi->vfmt->Rmask, vi->vfmt->Gmask, vi->vfmt->Bmask,
+           vi->vfmt->BitsPerPixel,
+           vi->vfmt->Rmask, vi->vfmt->Rshift,
+           vi->vfmt->Gmask, vi->vfmt->Gshift,
+           vi->vfmt->Bmask, vi->vfmt->Bshift,
            vi->hw_available? "yes" : "no",
-           vi->blit_hw? "HW" : "",
-           vi->blit_sw? "SW" : "");
+           vi->blit_hw? "HW" : "-",
+           vi->blit_sw? "SW" : "-");
 }
 
 void sys_init (void)
@@ -95,19 +98,14 @@ void sys_init (void)
           exit(1);
       }
 
-      for (i = 0; i < 128; i++) {
-          palette[i].r = nes_palette[(i&63) * 3 + 0];
-          palette[i].g = nes_palette[(i&63) * 3 + 1];
-          palette[i].b = nes_palette[(i&63) * 3 + 2];
-          palette[i].unused = 0;
-      }
-      palette[128].r = 0;
-      palette[128].g = 0;
-      palette[128].b = 0;
-      palette[128].unused = 0;
+      const SDL_VideoInfo *vi = SDL_GetVideoInfo();
+      rgb_shifts.r_shift = vi->vfmt->Rshift;
+      rgb_shifts.g_shift = vi->vfmt->Gshift;
+      rgb_shifts.b_shift = vi->vfmt->Bshift;
+
+      print_video_info();
 
       SDL_WM_SetCaption ("tenes","tenes");
-      //SDL_SetColors(window_surface, palette, 0, 129);
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
       SDL_Flip (window_surface);
       SDL_ShowCursor(SDL_DISABLE);

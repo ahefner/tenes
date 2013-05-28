@@ -400,11 +400,11 @@ void update_titlebar (void)
     }
 }
 
-int main (int argc, char *argv[])
+int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 {
     memset(joystick, 0, sizeof(joystick));
     load_config();
-    cfg_parseargs(argc, argv);
+    cfg_parseargs(argc, (const char **)argv);
 
     if (ensure_freetype() != 1) {
         /* TODO: Do some magic to disable the UI here. */
@@ -456,7 +456,11 @@ int main (int argc, char *argv[])
         process_events(&ctx);
 
         for (int i=0; i<4; i++) nes.joypad.pad[i] = 0;
-        for (int i=0; i<numsticks; i++) if ((cfg_jsmap[i]>=0) && joystick[cfg_jsmap[i]].connected) process_joystick(i);
+        for (int i=0; i<numsticks; i++) {
+            if ((cfg_jsmap[i]>=0) && joystick[cfg_jsmap[i]].connected)
+                process_joystick(i);
+        }
+
         if (hold_button_a) nes.joypad.pad[0] |= nes.time & 1;
 
         nes.joypad.pad[cfg_keyboard_controller] |= keyboard_input;
