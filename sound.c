@@ -213,8 +213,10 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
         SDL_mutexV(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
         /* Don't pollute traces with audio messages */
+/*
         if (!(trace_ppu_writes || nes.cpu.Trace))
             printf("Underrun! requested %i, %i available. Time since last callback: %i us\n", req, num, (int)delta_time);
+*/
     }
 
     if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
