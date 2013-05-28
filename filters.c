@@ -215,8 +215,6 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 {
     int x_out = (window_surface->w - 640) / 2;
     Uint32 *dest0 = display_ptr(x_out, line*2);
-    Uint32 *interpolate = display_ptr(x_out, line*2-1);
-    Uint32 *prevline = display_ptr(x_out, line*2-2);
 //    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
     Uint32 *line0 = dest0;
     //Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
@@ -308,15 +306,29 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         out++;
     }
 
-    // Interpolate scanlines
-    if (line) {
+    // Swizzle pixels (unfortunate..)
+    {
+        struct rgb_shifts sw = rgb_shifts;
         for (int x=0; x<640; x++) {
+            unsigned px = line0[x];
+            byte r = px >> 16, g = (px >> 8) & 0xFF, b = px & 0xFF;
+            line0[x] = (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
+        }
+    }
 
-            Uint32 nx = line0[x];
-            nx >>= 1;
-            nx &= 0x7F7F7F;
-            nx += (prevline[x] >> 1) & 0x7F7F7F;
-            interpolate[x] = nx;
+    // Interpolate scanlines
+    {
+        Uint32 *interpolate = display_ptr(x_out, line*2-1);
+        Uint32 *prevline = display_ptr(x_out, line*2-2);
+
+        if (line) {
+            for (int x=0; x<640; x++) {
+                Uint32 nx = line0[x];
+                nx >>= 1;
+                nx &= 0x7F7F7F;
+                nx += (prevline[x] >> 1) & 0x7F7F7F;
+                interpolate[x] = nx;
+            }
         }
     }
 
