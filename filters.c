@@ -24,11 +24,6 @@ void build_color_maps (void)
         rgb_palette[i] = (nes_palette[i*3+0] << 16) | (nes_palette[i*3+1] << 8) | nes_palette[i*3+2];
         grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3; /* FIXME.. */
     }
-
-    for (int i=64; i<128; i++) {
-        rgb_palette[i] = rgb_palette[i-64];
-        grayscale_palette[i] = grayscale_palette[i-64];
-    }
 }
 
 static inline unsigned convert_pixel (byte color, byte emphasis, struct rgb_shifts sw)
@@ -247,7 +242,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 #else
         /* Vectorized output loop. */
         v8hi *in = (v8hi *)rgb;
-        v8hi *out = &vbuf[idx][0];
+        v8hi *out = (v8hi *)&vbuf[idx][0];
 
         /* Performance of aligned versus unaligned loads: On the Core
          * 2 Quad (2.4 GHz), we win big (2x) from switching to aligned
@@ -271,8 +266,8 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
             //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);
             //out[i] += in[i];
 
-            v8hi old = __builtin_ia32_loaddqu(out);
-            __builtin_ia32_storedqu(out, in[i] + old);
+            v8hi old = __builtin_ia32_loaddqu((const char *)out);
+            __builtin_ia32_storedqu((char *)out, in[i] + old);
             out++;
         }
 #endif
@@ -295,7 +290,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned!\n");
     if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned!\n");
 
-    __v16qi *out = (v16qu *)dest0;
+    __v16qi *out = (__v16qi *)dest0;
     for (int x=0; x<640; x+=4) {
         int cidx = padding + x;
         v8hi v1 = *(v8hi *)(&vbuf[cidx][0]);
