@@ -132,4 +132,6 @@ byte Debug6502(register M6502 *R);
 
 word Sub6502(M6502 *R, word addr, unsigned max_cycles);
 
+void note_brk (void);
+
 #endif /* M6502_H */
