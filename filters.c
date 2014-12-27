@@ -24,11 +24,6 @@ void build_color_maps (void)
         rgb_palette[i] = (nes_palette[i*3+0] << 16) | (nes_palette[i*3+1] << 8) | nes_palette[i*3+2];
         grayscale_palette[i] = (nes_palette[i*3] + nes_palette[i*3+1] + nes_palette[i*3+2]) / 3; /* FIXME.. */
     }
-
-    for (int i=64; i<128; i++) {
-        rgb_palette[i] = rgb_palette[i-64];
-        grayscale_palette[i] = grayscale_palette[i-64];
-    }
 }
 
 static inline unsigned convert_pixel (byte color, byte emphasis, struct rgb_shifts sw)
@@ -248,6 +243,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 #else
         /* Vectorized output loop. */
         v8hi *in = (v8hi *)rgb;
+
         //v8hi *out = &vbuf[idx][0];
         __m128i *out = (__m128i *)&vbuf[idx][0];
 
@@ -271,12 +267,11 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         for (int i=0; i<11; i++) {
             // If I fixed the alignment issue, I could do this:
             //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);
-
-            //out[i] += in[i];
+            //out[i] += in[i];  (assumes aligned read/write)
 
             //v8hi old = __builtin_ia32_loadups(out);
-
             v8hi old = _mm_loadu_si128(out);
+
             //__builtin_ia32_storedqu(out, in[i] + old);
             _mm_storeu_si128(out, in[i] + old);
 

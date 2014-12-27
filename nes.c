@@ -1105,6 +1105,7 @@ void note_brk (void)
     if (debug_brk) {
         byte code = Rd6502(nes.cpu.PC.W);
         printf("%sBRK %02X: ", nes_time_string(), code);
+        fflush(stdout);
         regs();
         /* The MSB of the break code enables instruction tracing */
         nes.cpu.Trace = code >> 7;
