@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL/SDL.h>
-#include <SDL/SDL_timer.h>
+#include <SDL.h>
+#include <SDL_timer.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <math.h>

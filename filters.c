@@ -135,7 +135,7 @@ void scanline_filter (void)
 /*** NTSC filter ***/
 
 /* Clamp and convert floating point RGB to packed 24-bit form. */
-static inline Uint32 rgbf (float r, float g, float b)
+inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
     if (r < 0.0) r = 0.0;
@@ -193,7 +193,7 @@ float q_chroma[8][3][64][42];
 
 short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
-static inline byte shift_clamp_to_u8 (int x)
+inline byte shift_clamp_to_u8 (int x)
 {
     x >>= RGB_SHIFT;
     if (x < 0) return 0;
@@ -241,13 +241,15 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
             vbuf[idx][0] += rgb[0];
             vbuf[idx][1] += rgb[1];
             vbuf[idx][2] += rgb[2];
+            vbuf[idx][3] += rgb[3];
             rgb += 4;
             idx++;
         }
 #else
         /* Vectorized output loop. */
         v8hi *in = (v8hi *)rgb;
-        v8hi *out = &vbuf[idx][0];
+        //v8hi *out = &vbuf[idx][0];
+        __m128i *out = (__m128i *)&vbuf[idx][0];
 
         /* Performance of aligned versus unaligned loads: On the Core
          * 2 Quad (2.4 GHz), we win big (2x) from switching to aligned
@@ -269,10 +271,15 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         for (int i=0; i<11; i++) {
             // If I fixed the alignment issue, I could do this:
             //printf("out[%i] += in[%i];   out=%p vbuf=%p idx=%i off=%i x=%i\n", i, i, out, vbuf, idx, off, x);
+
             //out[i] += in[i];
 
-            v8hi old = __builtin_ia32_loaddqu(out);
-            __builtin_ia32_storedqu(out, in[i] + old);
+            //v8hi old = __builtin_ia32_loadups(out);
+
+            v8hi old = _mm_loadu_si128(out);
+            //__builtin_ia32_storedqu(out, in[i] + old);
+            _mm_storeu_si128(out, in[i] + old);
+
             out++;
         }
 #endif
@@ -295,7 +302,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned!\n");
     if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned!\n");
 
-    __v16qi *out = (v16qu *)dest0;
+    __v16qi *out = (__v16qi *)dest0;
     for (int x=0; x<640; x+=4) {
         int cidx = padding + x;
         v8hi v1 = *(v8hi *)(&vbuf[cidx][0]);

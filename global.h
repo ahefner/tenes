@@ -1,7 +1,7 @@
 #ifndef global_h
 #define global_h
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <sys/time.h>
 #include <time.h>
 

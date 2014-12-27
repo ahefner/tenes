@@ -9,7 +9,7 @@ int probe_file (const char *path);
 int probe_regular_file (const char *path);
 time_t file_write_date (const char *path);
 
-char *make_absolute_filename (const const char *filename);
+char *make_absolute_filename (const char *filename);
 
 static inline float clampf (float min, float max, float value)
 {

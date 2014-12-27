@@ -1,7 +1,7 @@
 #ifndef NES_SYS_H
 #define NES_SYS_H
 
-#include <SDL/SDL.h>
+#include <SDL.h>
 
 // Stupid image wrapper, because you really need alignment offsets
 // attached to the image to have a nice interface. Also helps with

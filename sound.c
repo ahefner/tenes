@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <SDL/SDL.h>
+#include <SDL.h>
 #include <signal.h>
 #include <math.h>
 #include "sys.h"

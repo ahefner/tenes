@@ -25,7 +25,7 @@
 #include "filesystem.h"
 #include "ui.h"
 
-#include <SDL/SDL_image.h>
+#include <SDL_image.h>
 
 
 void (*menu) (struct inputctx *) = NULL;
