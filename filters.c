@@ -313,24 +313,16 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         struct rgb_shifts sw = rgb_shifts;
         for (int x=0; x<640; x++) {
             unsigned px = line0[x];
-            byte r = px >> 16, g = (px >> 8) & 0xFF, b = px & 0xFF;
+            byte r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
             line0[x] = (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
         }
     }
 
-    // Interpolate scanlines
+    // Fill odd scanlines with dim copy of current scanline.
     {
-        Uint32 *interpolate = display_ptr(x_out, line*2-1);
-        Uint32 *prevline = display_ptr(x_out, line*2-2);
-
-        if (line) {
-            for (int x=0; x<640; x++) {
-                Uint32 nx = line0[x];
-                nx >>= 1;
-                nx &= 0x7F7F7F;
-                nx += (prevline[x] >> 1) & 0x7F7F7F;
-                interpolate[x] = nx;
-            }
+        Uint32 *nextline = display_ptr(x_out, line*2+1);
+        for (int x=0; x<640; x++) {
+            nextline[x] = (line0[x] >> 1) & 0x7F7F7F7F;
         }
     }
 
