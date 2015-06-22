@@ -130,7 +130,7 @@ void scanline_filter (void)
 /*** NTSC filter ***/
 
 /* Clamp and convert floating point RGB to packed 24-bit form. */
-inline Uint32 rgbf (float r, float g, float b)
+static inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
     if (r < 0.0) r = 0.0;
