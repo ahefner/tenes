@@ -206,13 +206,8 @@ inline byte shift_clamp_to_u8 (int x)
 #define SCLEN KSIZE
 float kern_i[SCLEN], kern_q[SCLEN];
 
-void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
+void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
 {
-    int x_out = (window_surface->w - 640) / 2;
-    Uint32 *dest0 = display_ptr(x_out, line*2);
-//    Uint32 *dest0 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2) * window_surface->pitch);
-    Uint32 *line0 = dest0;
-    //Uint32 *line1 = (Uint32 *) (((byte *)window_surface->pixels) + (line*2+1) * window_surface->pitch);
 
 #define padding 30
     short __attribute__((aligned(16))) vbuf[1280+padding*2][4];
@@ -294,10 +289,10 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     }
 */
     /* This shouldn't happen, but check just in case. */
-    if ((((size_t)dest0)&0xF) != 0) printf("Output pointer not aligned!\n");
+    if ((((size_t)line0)&0xF) != 0) printf("Output pointer not aligned!\n");
     if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned!\n");
 
-    __v16qi *out = (__v16qi *)dest0;
+    __v16qi *out = (__v16qi *)line0;
     for (int x=0; x<640; x+=4) {
         int cidx = padding + x;
         v8hi v1 = *(v8hi *)(&vbuf[cidx][0]);
@@ -318,15 +313,55 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
         }
     }
 
+#undef padding
+}
+
+void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
+{
+    int x_out = (window_surface->w - 640) / 2;
+    Uint32 *line0 = display_ptr(x_out, line*2);
+    Uint32 *nextline = display_ptr(x_out, line*2+1);
+
+    assert(window_surface->w >= 640);
+
+    // A miracle occurs
+    ntsc_scanline(line,colors,emphasis,line0);
+
     // Fill odd scanlines with dim copy of current scanline.
+    for (int x=0; x<640; x++) {
+        nextline[x] = (line0[x] >> 1) & 0x7F7F7F7F;
+    }
+}
+
+void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
+{
+    Uint32 linebuf[640], dbl[1280], dim[1280];
+    int x_out = (window_surface->w - 640*2) / 2;
+    Uint32 *line0 = display_ptr(x_out, line*4);
+    Uint32 *line1 = display_ptr(x_out, line*4+1);
+    Uint32 *line2 = display_ptr(x_out, line*4+2);
+    Uint32 *line3 = display_ptr(x_out, line*4+3);
+
+    assert(window_surface->w >= 640*2);
+    assert(sizeof(dbl) == sizeof(dim));
+
+    ntsc_scanline(line, colors, emphasis, linebuf);
+    for (int i=0; i<640; i++)
     {
-        Uint32 *nextline = display_ptr(x_out, line*2+1);
-        for (int x=0; x<640; x++) {
-            nextline[x] = (line0[x] >> 1) & 0x7F7F7F7F;
-        }
+        dbl[i*2+0] = linebuf[i];
+        dbl[i*2+1] = linebuf[i];
     }
 
-#undef padding
+    for (int x=0; x<1280; x++) {
+        dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
+    }
+
+    memcpy(line0, dim, sizeof(dim));
+    memcpy(line1, dbl, sizeof(dbl));
+    memcpy(line2, dbl, sizeof(dbl));
+    memcpy(line3, dim, sizeof(dim));
+    //memset(line3, 0, sizeof(dbl));
+
 }
 
 /* For resampling, a Blackman-windowed sinc filter. */
@@ -499,5 +534,10 @@ void ntsc_filter (void)
     printf("NTSC init took %f ms.\n", (end_time - start_time) / 1000.0);
 }
 
-
-
+void ntsc2x_filter (void)
+{
+    ntsc_filter();
+    vid_height *= 2;
+    vid_width *= 2;
+    filter_output_line = ntsc2x_emitter;
+}

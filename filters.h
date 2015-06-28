@@ -12,6 +12,7 @@ extern unsigned grayscale_palette[64];
 void build_color_maps (void);
 
 void ntsc_filter (void);
+void ntsc2x_filter (void);
 void rescale_2x (void);
 void no_filter (void);
 void scanline_filter (void);

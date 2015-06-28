@@ -23,6 +23,7 @@ void scan_video_option (const char *arg)
     if (!strcmp(arg, "scale")) mode = rescale_2x;
     if (!strcmp(arg, "scanline")) mode = scanline_filter;
     if (!strcmp(arg, "ntsc")) mode = ntsc_filter;
+    if (!strcmp(arg, "ntsc2x")) mode = ntsc2x_filter;
 
     if (mode) {
         save_pref_string("video-mode", arg);
@@ -41,6 +42,7 @@ void print_usage (void)
            " -scale          Double output pixels\n"
 //           " -scanline       Interleaved scanline mode\n"
            " -ntsc           Use NTSC filter (default)\n"
+           " -ntsc2x         Doubled NTSC filter\n"
            " -windowed       Run in a window (default)\n"
            " -fullscreen     Run fullscreen\n"
            " -width          Set window width\n"
