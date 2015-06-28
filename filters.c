@@ -335,7 +335,7 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
 
 void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
 {
-    Uint32 linebuf[640], dbl[1280], dim[1280];
+    Uint32 linebuf[641], dbl[1280], dim[1280];
     int x_out = (window_surface->w - 640*2) / 2;
     Uint32 *line0 = display_ptr(x_out, line*4);
     Uint32 *line1 = display_ptr(x_out, line*4+1);
@@ -346,10 +346,12 @@ void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
     assert(sizeof(dbl) == sizeof(dim));
 
     ntsc_scanline(line, colors, emphasis, linebuf);
+    linebuf[640] = 0;
     for (int i=0; i<640; i++)
     {
-        dbl[i*2+0] = linebuf[i];
-        dbl[i*2+1] = linebuf[i];
+        Uint32 x = linebuf[i], y = linebuf[i+1];
+        dbl[i*2+0] = x;
+        dbl[i*2+1] = ((x>>1) & 0x7F7F7F7F) + ((y>>1) & 0x7F7F7F7F) + ((((x & 0x01010101) + (y & 0x01010101)) >> 1) & 0x7F7F7F7F);
     }
 
     for (int x=0; x<1280; x++) {
