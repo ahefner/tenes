@@ -358,11 +358,17 @@ void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
         dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
     }
 
+#if 0
     memcpy(line0, dim, sizeof(dim));
     memcpy(line1, dbl, sizeof(dbl));
     memcpy(line2, dbl, sizeof(dbl));
     memcpy(line3, dim, sizeof(dim));
-    //memset(line3, 0, sizeof(dbl));
+#else
+    memcpy(line0, dim, sizeof(dim));
+    memcpy(line1, dbl, sizeof(dbl));
+    memcpy(line2, dim, sizeof(dbl));
+    memset(line3, 0, sizeof(dbl));
+#endif
 
 }
 
@@ -420,7 +426,7 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         q_out[i] = qbuf[idx];
 
         float yiq[3], rgbf[8];
-        yiq[0] = ybuf[idx] * 0.7;
+        yiq[0] = ybuf[idx] * 0.70;
         yiq[1] = ibuf[idx];
         yiq[2] = qbuf[idx];
 
@@ -437,10 +443,9 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
 void precompute_downsampling (void)
 {
     /* The correct cutoff frequencies for the YIQ channels are 3.5
-     * MHz, 1.5 MHz, and 0.5 MHz respectively, but my filters suck (I
-     * really should measure what's going on or use better ones), so I
-     * have to set them a bit lower to keep the leakage under
-     * control. */
+     * MHz, 1.5 MHz, and 0.5 MHz respectively, but these filters have
+     * a wide roll-off so I set them a bit lower to keep the leakage
+     * under control. */
     float yfilter[KSIZE], ifilter[KSIZE], qfilter[KSIZE];
     build_sinc_filter(yfilter, KSIZE, 0.7 / 60.0);
     build_sinc_filter(ifilter, KSIZE, 0.7 / 142.8);
