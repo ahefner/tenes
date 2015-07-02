@@ -41,6 +41,8 @@ FILE *video_stripe_output = NULL;
 byte video_stripe_idx = 128;
 unsigned video_stripe_rate = 0;
 
+FILE *apu_dump_output = NULL;
+
 int window_width = 256;
 int window_height = 256;
 int vid_fullscreen = 0;         /* Mutable */

@@ -162,6 +162,17 @@ void cfg_parseargs (int argc, const char **argv)
 	window_height = 480;
       }
 
+      if (!strcmp(txt, "-apudump") && (i != argc-1)) {
+          i++;
+          const char *outfile = argv[i++];
+          printf("Dumping APU register dump to \"%s\"\n", outfile);
+          apu_dump_output = fopen(outfile, "wb");
+          if (!apu_dump_output) {
+              printf("Couldn't open \"%s\" for writing: %s\n", outfile, strerror(errno));
+              exit(1);
+          }
+      }
+
       if (!strcmp(txt, "-superverbose")) superverbose = 1;
 
       if (!strcmp(txt, "-despair")) cfg_disable_joysticks = 1;

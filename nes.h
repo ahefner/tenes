@@ -288,5 +288,26 @@ struct rgb_shifts
     byte r_shift, g_shift, b_shift;
 };
 
+/* Per-frame APU write log, for audio ripping */
+struct apuwrite {
+    byte reg_index;             /* Register offset from 0x4000 */
+    byte value;                 /* Value written to register */
+};
+#define APU_LOG_LENGTH 32
+
+#ifndef global_c
+extern
+#endif
+struct apuwrite frame_apu_log[APU_LOG_LENGTH];
+
+#ifndef global_c
+extern
+#endif
+unsigned frame_apu_log_index
+#ifdef global_c
+= 0
+#endif
+;
+
 
 #endif

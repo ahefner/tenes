@@ -60,6 +60,8 @@ extern FILE *video_stripe_output;
 extern byte video_stripe_idx;
 extern unsigned video_stripe_rate;
 
+extern FILE *apu_dump_output;
+
 extern int cfg_syncmode;
 extern int cfg_framelines;
 extern int video_alignment_cycles_kludge;

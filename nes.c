@@ -407,6 +407,8 @@ void nes_initframe (void)
 
   nes.scanline = 0;
   emphasis_position = -1;
+
+  frame_apu_log_index = 0;
 }
 
 /* nes_vblankstate - sets things that change when a vblank occurs */
@@ -653,8 +655,22 @@ void Wr6502 (register word Addr, register byte Value)
       }
       break;
 
-
+  // FIXME: nesdev wiki claims everything after 0x4020 goes to the cartridge. Is that true?
   case 0x4000:
+
+      if (apu_dump_output && (Addr < 0x4020) && (Addr != 0x400D))
+      {
+          if (frame_apu_log_index < APU_LOG_LENGTH)
+          {
+              frame_apu_log[frame_apu_log_index] = (struct apuwrite){ Addr - 0x4000, Value };
+              frame_apu_log_index++;
+          }
+          else
+          {
+              printf("APU frame write log overflowed!\n");
+          }
+      }
+
       if (Addr <= 0x4017) {
           if (Addr == 0x4014) {	/* sprite DMA transfer */
 	  word i, tmp = nes.ppu.sprite_address;
@@ -993,6 +1009,21 @@ void nes_emulate_frame (void)
 
     snd_catchup();
     nes.time++;
+
+    // If APU logging is enabled, write this frame's log entry.
+    if (apu_dump_output)
+    {
+        printf("frame_apu_log_index = %u\n", frame_apu_log_index);
+        fprintf(apu_dump_output, "(para");
+        for (unsigned i = 0; i < frame_apu_log_index; i++)
+        {
+            fprintf(apu_dump_output, "\n  (register %i %i)",
+                    frame_apu_log[i].reg_index,
+                    frame_apu_log[i].value);
+        }
+
+        fprintf(apu_dump_output, ")\n");
+    }
 }
 
 void nsf_emulate_frame (void)
