@@ -484,6 +484,54 @@ static inline int in_vblank (struct nes_machine *nes)
     return nes->scanline >= 242;
 }
 
+static void log_apu_write (word Addr, byte Value)
+{
+    if (frame_apu_log_index < APU_LOG_LENGTH)
+    {
+        frame_apu_log[frame_apu_log_index] = (struct apuwrite){ Addr - 0x4000, Value };
+        frame_apu_log_index++;
+    }
+    else
+    {
+        printf("APU frame write log overflowed!\n");
+    }
+}
+
+static void maybe_log_apu_write (word Addr, byte Value)
+{
+    static unsigned written_set = 0;
+    unsigned already_written = (0 != (written_set & (1 << (Addr & 0x1F))));
+
+    switch (Addr)
+    {
+    case 0x4015:
+        if (!already_written && ((Value & 0x5F) != nes.snd.regs[0x15])) log_apu_write(Addr, Value);
+        break;
+
+    case 0x4014:
+    case 0x4016:
+        // Not sound registers, ignore them.
+        break;
+
+    // Writes to these registers are idempotent and can be suppressed:
+    case 0x4000:
+    case 0x4004:
+    case 0x4008:
+    case 0x4012:
+    case 0x400E:
+    case 0x4010:
+        if (!already_written && (Value != nes.snd.regs[Addr & 0x1F])) log_apu_write(Addr, Value);
+        break;
+
+    default:
+        log_apu_write(Addr, Value);
+        break;
+
+    }
+
+    written_set |= (1 << (Addr & 0x1F));
+}
+
 void Wr6502 (register word Addr, register byte Value)
 {
 #ifdef INSTRUCTION_TRACING
@@ -658,17 +706,9 @@ void Wr6502 (register word Addr, register byte Value)
   // FIXME: nesdev wiki claims everything after 0x4020 goes to the cartridge. Is that true?
   case 0x4000:
 
-      if (apu_dump_output && (Addr < 0x4020) && (Addr != 0x400D))
+      if (apu_dump_output && (Addr <= 0x4017) && (Addr != 0x400D) && (Addr != 0x4014) && (Addr != 0x4016))
       {
-          if (frame_apu_log_index < APU_LOG_LENGTH)
-          {
-              frame_apu_log[frame_apu_log_index] = (struct apuwrite){ Addr - 0x4000, Value };
-              frame_apu_log_index++;
-          }
-          else
-          {
-              printf("APU frame write log overflowed!\n");
-          }
+          maybe_log_apu_write(Addr, Value);
       }
 
       if (Addr <= 0x4017) {
@@ -1014,7 +1054,7 @@ void nes_emulate_frame (void)
     if (apu_dump_output)
     {
         printf("frame_apu_log_index = %u\n", frame_apu_log_index);
-        fprintf(apu_dump_output, "(para");
+        fprintf(apu_dump_output, "(frame");
         for (unsigned i = 0; i < frame_apu_log_index; i++)
         {
             fprintf(apu_dump_output, "\n  (register %i %i)",
