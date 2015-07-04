@@ -503,6 +503,8 @@ void age_pixels (Uint32 *ptr, size_t n)
         level += 31;
         ptr[i] = rgbi_clamp(level+30, level+30, level);
     }
+
+    swizzle_pixels(ptr,n);
 }
 
 /*** Menu dispatch ***/
@@ -580,6 +582,25 @@ void update_state_image (void)
     printf("Updated screencap %s\n", buf);
 }
 
+static Uint32 getbyte (Uint32 x, unsigned shift)
+{
+    return (x >> shift) & 0xFF;
+}
+
+static Uint32 blendbyte (Uint32 x, Uint32 y, int fade, int notfade)
+{
+    return (x * fade + y * notfade) >> 8;
+}
+
+static Uint32 blend (Uint32 x, Uint32 y, int fade)
+{
+    int notfade = 256 - fade;
+    return blendbyte(getbyte(x,0), getbyte(y,0), fade, notfade)
+        | blendbyte(getbyte(x,8), getbyte(y,8), fade, notfade) << 8
+        | blendbyte(getbyte(x,16), getbyte(y,16), fade, notfade) << 16
+        | blendbyte(getbyte(x,24), getbyte(y,24), fade, notfade) << 24;
+}
+
 void render_restorestate (struct inputctx *input)
 {
     const int photo_border = 10;
@@ -614,20 +635,25 @@ void render_restorestate (struct inputctx *input)
 
         int d_fade = hover? -10: 10;
         fade = clamp_byte(fade + d_fade);
-        int notfade = 255-fade;
 
-        if (have_screencap) {
+        if (have_screencap)
+        {
             for (int i=0; i<actual_height; i++)
             {
                 Uint32 *ptr = display_ptr(vx, vy+i);
                 Uint32 *aged = &aged_screencap[i+overscan][overscan];
                 Uint32 *rgb = &rgb_screencap[i+overscan][overscan];
-                if (fade==255) memcpy(ptr, aged, 4*actual_width);
-                else for (int x = 0; x<actual_width; x++) {
-                        ptr[x] = rgbi((fade*(RED(aged[x]))   + notfade*(RED(rgb[x]))) >> 8,
-                                      (fade*(GREEN(aged[x])) + notfade*(GREEN(rgb[x]))) >> 8,
-                                      (fade*(BLUE(aged[x]))  + notfade*(BLUE(rgb[x]))) >> 8);
+                if (fade==255)
+                {
+                    memcpy(ptr, aged, 4*actual_width);
+                }
+                else
+                {
+                    for (int x = 0; x<actual_width; x++)
+                    {
+                        ptr[x] = blend(aged[x], rgb[x], fade);
                     }
+                }
             }
         }
 
@@ -1020,6 +1046,8 @@ image_t render_gamepak_label (struct gbent *ent)
 
 noinline void fill_rect (Uint32 color, int x0, int y0, int x1, int y1)
 {
+    swizzle_pixels(&color,1);
+
     int width = x1 - x0;
     x0 = clampi(0, x0, window_surface->w);
     x1 = clampi(0, x1, window_surface->w);

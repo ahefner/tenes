@@ -40,8 +40,4 @@ static inline Uint32 rgbi_clamp (int r, int g, int b)
     return rgbi(clamp_byte(r), clamp_byte(g), clamp_byte(b));
 }
 
-#define RED(x) (((x)>>16)&0xFF)
-#define GREEN(x) (((x)>>8)&0xFF)
-#define BLUE(x) ((x)&0xFF)
-
 #endif

@@ -142,6 +142,8 @@ static inline Uint32 *next_line (Uint32 *ptr, int n)
     return (Uint32 *)(((byte *)ptr) + n*window_surface->pitch);
 }
 
+void swizzle_pixels (uint32_t *pixels, size_t len);
+
 #endif
 
 #define max(x,y) ((x)>(y)?(x):(y))

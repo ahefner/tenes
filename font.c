@@ -249,6 +249,8 @@ int draw_string (int x0, int baseline, char *string, unsigned color)
     int len = strlen(string);
     int x;
 
+    swizzle_pixels(&color, 1);
+
     for (int line = 0; line < text_height; line++) {
         x = x0;
         int y = baseline - text_ascent + line;
