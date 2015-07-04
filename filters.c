@@ -57,6 +57,18 @@ void inline emit_unscaled (Uint32 *out, byte *colors, byte *emphasis, size_t n)
         out[x] = convert_pixel(colors[x], emphasis[x], sw);
 }
 
+void swizzle_pixels (uint32_t *pixels, size_t len)
+{
+    struct rgb_shifts sw = rgb_shifts;
+
+    for (size_t x = 0; x < len; x++)
+    {
+        unsigned px = pixels[x];
+        byte r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
+        pixels[x] = (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
+    }
+}
+
 void no_filter_emitter (unsigned y, byte *colors, byte *emphasis)
 {
     Uint32 *dest = display_ptr(0,y);
@@ -303,15 +315,7 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
         out++;
     }
 
-    // Swizzle pixels (unfortunate..)
-    {
-        struct rgb_shifts sw = rgb_shifts;
-        for (int x=0; x<640; x++) {
-            unsigned px = line0[x];
-            byte r = (px >> 16) & 0xFF, g = (px >> 8) & 0xFF, b = px & 0xFF;
-            line0[x] = (r << sw.r_shift) | (g << sw.g_shift) | (b << sw.b_shift);
-        }
-    }
+    swizzle_pixels(line0, 640);
 
 #undef padding
 }
