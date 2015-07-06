@@ -41,7 +41,7 @@ FILE *video_stripe_output = NULL;
 byte video_stripe_idx = 128;
 unsigned video_stripe_rate = 0;
 
-FILE *apu_dump_output = NULL;
+struct apulog apu_dump = { 0, NULL };
 
 int window_width = 256;
 int window_height = 256;

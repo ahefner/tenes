@@ -27,7 +27,6 @@
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 240
 
-/* I'm really starting to hate GCC. */
 #define noinline __attribute__((noinline))
 
 #ifndef global_c
@@ -60,7 +59,7 @@ extern FILE *video_stripe_output;
 extern byte video_stripe_idx;
 extern unsigned video_stripe_rate;
 
-extern FILE *apu_dump_output;
+extern struct apulog *apu_dump;
 
 extern int cfg_syncmode;
 extern int cfg_framelines;

@@ -70,6 +70,7 @@ void print_usage (void)
            " -trapbadops     Trap bad opcodes\n"
            " -debugbrk       Display BRK instructions\n"
            " -tracewr        Trace all memory writes\n"
+           " -apudump FILE   Log APU writes to file (for audio ripping)\n"
            " -pputrace       Print PPU trace\n"
 #ifdef DEBUG
            " -cputrace       Print CPU trace\n"
@@ -166,8 +167,9 @@ void cfg_parseargs (int argc, const char **argv)
           i++;
           const char *outfile = argv[i++];
           printf("Dumping APU register dump to \"%s\"\n", outfile);
-          apu_dump_output = fopen(outfile, "wb");
-          if (!apu_dump_output) {
+          apu_dump = calloc(1, sizeof(struct apulog));
+          apu_dump->out = fopen(outfile, "wb");
+          if (!apu_dump->out) {
               printf("Couldn't open \"%s\" for writing: %s\n", outfile, strerror(errno));
               exit(1);
           }

@@ -408,7 +408,7 @@ void nes_initframe (void)
   nes.scanline = 0;
   emphasis_position = -1;
 
-  frame_apu_log_index = 0;
+  apulog_start_frame(apu_dump);
 }
 
 /* nes_vblankstate - sets things that change when a vblank occurs */
@@ -484,17 +484,43 @@ static inline int in_vblank (struct nes_machine *nes)
     return nes->scanline >= 242;
 }
 
-static void log_apu_write (word Addr, byte Value)
+void apulog_write (struct apulog *log, word Addr, byte Value)
 {
-    if (frame_apu_log_index < APU_LOG_LENGTH)
+    if (!log) return;
+
+    if (log->log_index < APU_LOG_LENGTH)
     {
-        frame_apu_log[frame_apu_log_index] = (struct apuwrite){ Addr - 0x4000, Value };
-        frame_apu_log_index++;
+        log->regnum[log->log_index] = Addr - 0x4000;
+        log->value[log->log_index] = Value;
+        log->log_index++;
     }
     else
     {
         printf("APU frame write log overflowed!\n");
     }
+}
+
+void apulog_start_frame (struct apulog *log)
+{
+    if (!log) return;
+
+    log->log_index = 0;
+}
+
+void apulog_end_frame (struct apulog *log)
+{
+    if (!log) return;
+    assert(log->out != NULL);
+
+    printf("frame_apu_log_index = %u\n", log->log_index);
+    fprintf(log->out, "(frame");
+    for (unsigned i = 0; i < log->log_index; i++)
+    {
+        fprintf(log->out, "\n  (register %i %i)", log->regnum[i], log->value[i]);
+    }
+
+    fprintf(log->out, ")\n");
+    log->frame_count++;
 }
 
 static void maybe_log_apu_write (word Addr, byte Value)
@@ -505,7 +531,8 @@ static void maybe_log_apu_write (word Addr, byte Value)
     switch (Addr)
     {
     case 0x4015:
-        if (!already_written && ((Value & 0x5F) != nes.snd.regs[0x15])) log_apu_write(Addr, Value);
+        if (!already_written && ((Value & 0x5F) != nes.snd.regs[0x15]))
+            apulog_write(apu_dump, Addr, Value);
         break;
 
     case 0x4014:
@@ -520,11 +547,12 @@ static void maybe_log_apu_write (word Addr, byte Value)
     case 0x4012:
     case 0x400E:
     case 0x4010:
-        if (!already_written && (Value != nes.snd.regs[Addr & 0x1F])) log_apu_write(Addr, Value);
+        if (!already_written && (Value != nes.snd.regs[Addr & 0x1F]))
+            apulog_write(apu_dump, Addr, Value);
         break;
 
     default:
-        log_apu_write(Addr, Value);
+        apulog_write(apu_dump, Addr, Value);
         break;
 
     }
@@ -706,7 +734,7 @@ void Wr6502 (register word Addr, register byte Value)
   // FIXME: nesdev wiki claims everything after 0x4020 goes to the cartridge. Is that true?
   case 0x4000:
 
-      if (apu_dump_output && (Addr <= 0x4017) && (Addr != 0x400D) && (Addr != 0x4014) && (Addr != 0x4016))
+      if (apu_dump && (Addr <= 0x4017) && (Addr != 0x400D) && (Addr != 0x4014) && (Addr != 0x4016))
       {
           maybe_log_apu_write(Addr, Value);
       }
@@ -1051,19 +1079,7 @@ void nes_emulate_frame (void)
     nes.time++;
 
     // If APU logging is enabled, write this frame's log entry.
-    if (apu_dump_output)
-    {
-        printf("frame_apu_log_index = %u\n", frame_apu_log_index);
-        fprintf(apu_dump_output, "(frame");
-        for (unsigned i = 0; i < frame_apu_log_index; i++)
-        {
-            fprintf(apu_dump_output, "\n  (register %i %i)",
-                    frame_apu_log[i].reg_index,
-                    frame_apu_log[i].value);
-        }
-
-        fprintf(apu_dump_output, ")\n");
-    }
+    apulog_end_frame(apu_dump);
 }
 
 void nsf_emulate_frame (void)
