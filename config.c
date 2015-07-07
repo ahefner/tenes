@@ -164,8 +164,7 @@ void cfg_parseargs (int argc, const char **argv)
       }
 
       if (!strcmp(txt, "-apudump") && (i != argc-1)) {
-          i++;
-          const char *outfile = argv[i++];
+          const char *outfile = argv[++i];
           printf("Dumping APU register dump to \"%s\"\n", outfile);
           apu_dump = calloc(1, sizeof(struct apulog));
           apu_dump->out = fopen(outfile, "wb");
