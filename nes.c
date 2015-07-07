@@ -505,6 +505,35 @@ void apulog_start_frame (struct apulog *log)
     if (!log) return;
 
     log->log_index = 0;
+
+    // For first frame, snapshot initial channel configuration
+    if (log->frame_count == 0)
+    {
+        int r;
+        fprintf(log->out, "\n(init");
+        for (r = 0; r < 0x20; r++)
+        {
+            switch (r)
+            {
+            case 0x00:
+            case 0x02:
+            case 0x04:
+            case 0x06:
+            case 0x08:
+            case 0x0A:
+            case 0x0C:
+            case 0x12:
+            case 0x0E:
+            case 0x10:
+                fprintf(log->out, "\n (register %i %i)", r, nes.snd.regs[r]);
+                break;
+            default:
+                break;
+            }
+        }
+
+        fprintf(log->out, ")\n");
+    }
 }
 
 void apulog_end_frame (struct apulog *log)
@@ -525,13 +554,10 @@ void apulog_end_frame (struct apulog *log)
 
 static void maybe_log_apu_write (word Addr, byte Value)
 {
-    static unsigned written_set = 0;
-    unsigned already_written = (0 != (written_set & (1 << (Addr & 0x1F))));
-
     switch (Addr)
     {
     case 0x4015:
-        if (!already_written && ((Value & 0x5F) != nes.snd.regs[0x15]))
+        if ((Value & 0x5F) != nes.snd.regs[0x15])
             apulog_write(apu_dump, Addr, Value);
         break;
 
@@ -542,13 +568,18 @@ static void maybe_log_apu_write (word Addr, byte Value)
 
     // Writes to these registers are idempotent and can be suppressed:
     case 0x4000:
+    case 0x4002:
     case 0x4004:
+    case 0x4006:
     case 0x4008:
+    case 0x400A:
+    case 0x400C:
     case 0x4012:
     case 0x400E:
     case 0x4010:
-        if (!already_written && (Value != nes.snd.regs[Addr & 0x1F]))
+        if (Value != nes.snd.regs[Addr & 0x1F])
             apulog_write(apu_dump, Addr, Value);
+        // FIXME: If register was already written, ???
         break;
 
     default:
@@ -556,8 +587,6 @@ static void maybe_log_apu_write (word Addr, byte Value)
         break;
 
     }
-
-    written_set |= (1 << (Addr & 0x1F));
 }
 
 void Wr6502 (register word Addr, register byte Value)
