@@ -16,5 +16,7 @@ char *pref_string (const char *name, const char *defaultval);
 
 void save_pref_file (const char *name, const byte *data, size_t size);
 void save_pref_string (const char *name, const char *string);
+void save_pref_int (const char *name, int n);
+int pref_int (const char *name, int defaultval);
 
 #endif

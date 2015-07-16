@@ -84,8 +84,8 @@ disasm.o: Makefile disasm.c
 dis6502: Makefile disasm.o dasm.o
 	$(CC) $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) disasm.o dasm.o -o dis6502
 
-nespal.o: Makefile nespal.c nespal.h 
-	$(COBJ) nespal.c     
+nespal.o: Makefile nespal.c nespal.h
+	$(COBJ) nespal.c
 
 mapper_info.o: Makefile mapper_info.c mapper_info.h $(MAPPERFILES)
 	$(COBJ) mapper_info.c

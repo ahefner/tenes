@@ -17,24 +17,24 @@ an MIT-style license, pending the replacement of the M6502 CPU core,
 which was written by a third party with incompatible, undesirable
 license constraints.
 
+One neat feature: A FUSE filesystem providing read/write access to a
+live view of the emulator memory. Enable by exporting "USE_FUSE=1" in
+the environment before compiling, then run the program as:
+
+   tenes -mountfs -mountpoint MOUNTPOINT
+
+
 Known bugs / TODO items:
- * UI broken on OS X (?)
  * Save/restore/configure controller button maps
  * Controller config GUI
  * MMC2, MMC4, MMC5 mapper support
  * VRC6 mapper (Akumajou Densetsu)
  * MMC3 timing / quirks (SMB3, TMNT2, others)
  * Replace M6502 core
- * Fix license
- * Scanlines in NTSC simulation (?)
+ * Fix license (requires replacing M6502)
  * Correct interrupt acknowledgement
  * Misc. accuracy fixes to satisfy the various test roms.
 
-One neat feature: A FUSE filesystem providing read/write access to a
-live view of the emulator memory. Enable by exporting "USE_FUSE=1" in
-the environment before compiling, then run the program as:
-
-   tenes -mountfs -mountpoint MOUNTPOINT
 
 All code copyright (C) Andy Hefner <ahefner@gmail.com> 2000-2011,
 except where otherwise noted.

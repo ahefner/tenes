@@ -67,6 +67,8 @@ int vid_width = 256;  /* These may increse if pixel filtering is enabled */
 int vid_height = 240; /* "                                             " */
 int vid_bpp = 32;
 
+int ntsc_simulate_dot_crawl = 1;
+
 byte color_buffer[256];
 byte emphasis_buffer[256];
 int emphasis_position = -1;

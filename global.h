@@ -110,6 +110,8 @@ extern int vid_width;           /* Filter output resolution, determining window 
 extern int vid_height;
 extern int vid_bpp;
 
+extern int ntsc_simulate_dot_crawl;
+
 extern int superverbose;
 extern int trace_mem_writes;
 extern int trace_ppu_writes;

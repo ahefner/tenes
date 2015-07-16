@@ -18,6 +18,17 @@ void scan_video_option (const char *arg)
 {
     void *mode = NULL;
 
+    if (!strcmp(arg, "ntsc_nocrawl")) {
+        ntsc_simulate_dot_crawl = 0;
+        save_pref_int("ntsc_dotcrawl", 0);
+    }
+
+    if (!strcmp(arg, "ntsc_realistic")) {
+        ntsc_simulate_dot_crawl = 1;
+        save_pref_int("ntsc_dotcrawl", 1);
+    }
+
+
     if (arg == NULL) return;
     if (!strcmp(arg, "noscale")) mode = no_filter;
     if (!strcmp(arg, "scale")) mode = rescale_2x;
@@ -43,6 +54,8 @@ void print_usage (void)
 //           " -scanline       Interleaved scanline mode\n"
            " -ntsc           Use NTSC filter (default)\n"
            " -ntsc2x         Doubled NTSC filter\n"
+           " -ntsc_realistic Default NTSC simulation settings\n"
+           " -ntsc_nocrawl   Average away NTSC dot crawl pattern\n"
            " -windowed       Run in a window (default)\n"
            " -fullscreen     Run fullscreen\n"
            " -width          Set window width\n"
@@ -393,6 +406,7 @@ void load_config (void)
     free(muted);
 
     cfg_keyboard_controller = pref_int("keyboard-controller", 0);
+    ntsc_simulate_dot_crawl = pref_int("ntsc_dotcrawl", 1);
 }
 
 void save_config (void)

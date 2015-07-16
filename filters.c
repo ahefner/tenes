@@ -186,6 +186,8 @@ float q_chroma[8][3][64][42];
 #define RGB_SHIFT 6
 #define RGB_SCALE (1<<RGB_SHIFT)
 
+#define DOWNSAMPLED_IR_SIZE
+#define DOWNSAMPLED_IR_CHANNELS
 short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
 inline byte shift_clamp_to_u8 (int x)
@@ -400,6 +402,9 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
     memset(ibuf, 0, sizeof(ibuf));
     memset(qbuf, 0, sizeof(qbuf));
 
+    // 'chroma' waveform for this color/attribute combination at 12 * 3.5 MHz colorburst
+    // Convolve with per-channel resampling filter kernel
+    // Modulate chroma I/Q by color subcarrier.
     for (int i=0; i<40; i+=5) {
         float level = chroma[(i/5 + modthree*8)%12];
 
@@ -411,6 +416,7 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         }
     }
 
+    // Generate final impulse responses in RGB colorspace.
     for (int i=0; i<42; i++) {
         int idx = i * 8 + 14*8;
         y_out[i] = ybuf[idx];
@@ -425,6 +431,9 @@ void downsample_composite (float *y_out, float *i_out, float *q_out,
         for (int j=0; j<3; j++) yiq[j] *= 7.5;
 
         yiq2rgb(yiq, rgbf);
+
+        // Final IRs are half this sample rate, with separate versions
+        // for odd vs. even phase.
         short *rgb = ((i&1)? rgb_odd : rgb_even) + 4*(i>>1);
         rgb[2] = rgbf[0] * 255.0 * (float)RGB_SCALE;
         rgb[1] = rgbf[1] * 255.0 * (float)RGB_SCALE;
@@ -454,6 +463,28 @@ void precompute_downsampling (void)
                                      &rgb_output[emphasis][alignment][color][1][0][0],
                                      alignment,
                                      &composite_output[emphasis][color][0]);
+            }
+        }
+    }
+
+    // Average phases to disable dot crawl pattern..
+    if (!ntsc_simulate_dot_crawl) {
+        printf("Averaging IRs to suprress NTSC dot crawl pattern...\n");
+        for (int emphasis = 0; emphasis < 8; emphasis++) {
+            for (int color = 0; color < 64; color++) {
+                for (int x = 0; x < 22; x++) {
+                    for (int decimation_phase = 0; decimation_phase < 2; decimation_phase++) {
+                        for (int component_index = 0; component_index < 4; component_index++) {
+
+                            double tmp = 0.0;
+                            for (int alignment=0; alignment<3; alignment++)
+                                tmp += rgb_output[emphasis][alignment][color][decimation_phase][x][component_index];
+
+                            for (int alignment=0; alignment<3; alignment++)
+                                rgb_output[emphasis][alignment][color][decimation_phase][x][component_index] = llround(tmp / 3.0);
+                        }
+                    }
+                }
             }
         }
     }
