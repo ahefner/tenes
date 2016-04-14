@@ -125,7 +125,7 @@ int sprite_evaluation (struct sprite_unit sprites[8], int scanline)
 /* Sprite unit output:
    Bits 0,1 come from pattern table
    Bits 2,3 are the sprite attribute
-   Bit 5 is the sprite priority (1 = Background, 0 = Foreground)
+   Bit 4 is the sprite priority (1 = Background, 0 = Foreground)
 */
 static inline word sprite_unit_clock (struct sprite_unit *s)
 {
@@ -160,7 +160,7 @@ void scanline_render_sprites (byte *dest)
          * palette so we can encode foreground versus background pixel
          * in bit 6, allowing rendering of sprites in a separate pass. */
         /* Supposedly we should ignore column 255? */
-        if ((background & 0x40) && (!sprite0_detected) && ((x >= 8) || ((nes.ppu.control2 & 4))) &&
+        if ((background & 0x40) && (!sprite0_detected) && ((x >= 8) || (nes.ppu.control2 & 4)) &&
             (sprite_output & 3) && (x < 255) && !sprites[0].number) {
             //nes.ppu.hit_flag = 1;
             sprite0_hit_cycle = nes.scanline_start_cycle + (x * PPU_CLOCK_DIVIDER);
@@ -247,14 +247,17 @@ static inline void render_tile (byte *dest, word v, word chrpage, int y_offset, 
 
 void render_scanline (void)
 {
-    byte *dest = color_buffer;
-    byte *start = dest;
+    byte * const start = color_buffer;
     word v = nes.ppu.v;
     unsigned y_offset = v >> 12;
     unsigned x_offset = nes.ppu.x;
     word chrpage = ((nes.ppu.control1 & 0x10) >> 4) * 0x1000;
 
-    if (nes.ppu.control2 & 8) {
+    if (nes.ppu.control2 & 8)
+    {
+        /* BG enabled, render tiles */
+        byte *dest = start;
+
         if (x_offset) {
             render_tile(dest, v, chrpage, y_offset, x_offset, 8);
             v = incr_v_horizontal(v);
@@ -269,12 +272,30 @@ void render_scanline (void)
 
         render_tile(dest, v, chrpage, y_offset, 0, x_offset? x_offset : 8);
         v = incr_v_horizontal(v);
+    }
+    else
+    {
+        int bgcolor = 0x3F00;
+        /* BG disabled, fill with foreground color. Mask so unused
+         * higher bits in palette index don't trick sprite renderer
+         * into misinterpreting background priority.*/
 
-    } else {
-        memset(dest, nes.ppu.vram[0x3F00], 256);
+        /* The  PPU  is  weird.  Apparently there  are  four  distinct
+         * background  color registers, only  they're mirrored  to the
+         * first one  when rendering backgrounds, robbing  us of three
+         * perfectly good extra colors. I don't understand it. Anyway,
+         * when BG rendering  is disabled, a V address  in the palette
+         * region causes that  color to be displayed on  the screen. I
+         * can imagine  this being  an accidental consequence  of some
+         * logic  to  select  internal  palette  RAM  versus  external
+         * memory, but it isn't clear why the palette mirroring should
+         * change. */
+        if ((nes.ppu.v & 0x3F00) == 0x3F00) bgcolor = 0x3F00 | (nes.ppu.v & 0x1F);
+        memset(start, nes.ppu.vram[bgcolor] & 0x3F, 256);
     }
 
-    if (!(nes.ppu.control2 & 2)) memset(start, nes.ppu.vram[0x3F00], 8);
+    /* Clear left 8 pixels? */
+    if (!(nes.ppu.control2 & 2)) memset(start, nes.ppu.vram[0x3F00] & 0x3F, 8);
 
     if (nes.ppu.control2 & 0x10) scanline_render_sprites(start);
 
@@ -308,20 +329,7 @@ void catchup_emphasis_to_x (int x)
     x = min(x, 256);
     unsigned dx = x - emphasis_position;
     if (dx) {
-        int bgcolor = 0x3F00;
         memset(emphasis_buffer + emphasis_position, nes.ppu.control2, dx);
-        /* The  PPU  is  weird.  Apparently there  are  four  distinct
-         * background  color registers, only  they're mirrored  to the
-         * first one  when rendering backgrounds, robbing  us of three
-         * perfectly good extra colors. I don't understand it. Anyway,
-         * when BG rendering  is disabled, a V address  in the palette
-         * region causes that  color to be displayed on  the screen. I
-         * can imagine  this being  an accidental consequence  of some
-         * logic  to  select  internal  palette  RAM  versus  external
-         * memory, but it isn't clear why the palette mirroring should
-         * change. */
-        if ((nes.ppu.v & 0x3F00) == 0x3F00) bgcolor = 0x3F00 | (nes.ppu.v & 0x1F);
-        if (!(nes.ppu.control2 & 0x08)) memset(color_buffer + emphasis_position, nes.ppu.vram[bgcolor], dx);
     }
     emphasis_position = x;
 }
@@ -330,11 +338,12 @@ void catchup_emphasis (void)
 {
     int tmp = (nes.cpu.Cycles - nes.scanline_start_cycle) / PPU_CLOCK_DIVIDER;
 
-    /* Mysterious but unsurprising timing kludge to fix final fantasy. */
-    tmp -= 11;
+    const int FINAL_FANTASY_KLUDGE = 11;
+    tmp -= FINAL_FANTASY_KLUDGE;
     if (tmp < 0) tmp = 0;
 
     if (emphasis_position < 0) return;
     assert(tmp >= 0);
     catchup_emphasis_to_x(tmp);
 }
+

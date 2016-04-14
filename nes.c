@@ -616,18 +616,21 @@ void Wr6502 (register word Addr, register byte Value)
           nes.ppu.t = (nes.ppu.t & 0xF3FF) | ((Value & 3) << 10);
 
           if (trace_ppu_writes)
+          {
               printf("%sCR1 write: ppu.t = %04X (selected nametable %i)\n",
                      nes_time_string(), nes.ppu.t, Value&3);
+          }
 
 	  if (trace_ppu_writes)
           {
 	      nes_printtime ();
               printf("PPU $2000 = %s next PC=$%04X, ", format_binary(Value), nes.cpu.PC.W);
 	      if (Value & 0x80) printf ("NMI ON  ");
+              if (Value & 0x20) printf ("[SPR 8x16] "); else printf ("[SPR 8x8] ");
 	      if (Value & 0x10) printf ("bg1 "); else printf ("bg0 ");
 	      if (Value & 0x08) printf ("spr1 "); else printf ("spr0 ");
 	      /*                 if(Value & 0x20) printf("8x16 sprites "); else printf("8x8 sprites "); */
-	      if (Value & 0x04) printf ("Vertical write\n"); else printf ("Horiz write.\n");
+	      if (Value & 0x04) printf ("Vertical write"); else printf ("Horiz write.");
 	      /*                 if(!in_vblank(&nes)) printf("PPU: CR1 written during frame\n"); */
 	      printf("\n");
           }
@@ -777,9 +780,13 @@ void Wr6502 (register word Addr, register byte Value)
           */
           /* (If that's really the case, why not use it for other things?) */
 
+          if (trace_ppu_writes) {
+              printf("%sSprite DMA from page %02X to sprite+%02X\n",
+                     nes_time_string(), Value, tmp);
+          }
+
           nes.cpu.Cycles += 513 * MASTER_CLOCK_DIVIDER;
 
-          //printf("Sprite DMA from page %i to sprite+%02X\n", Value, tmp);
           for (i = 0; i < 256; i++) {
 	    nes.ppu.spriteram[tmp] = Rd6502(0x100 * Value + i);
 	    tmp++;
@@ -1048,9 +1055,7 @@ void nes_emulate_frame (void)
     tv_scanline = 0;
     vscroll = ppu_current_vscroll() - 1;
 
-    if (0 && trace_ppu_writes)
-        printf("At frame start, hscroll=%03i vscroll=%03i\n",
-               ppu_current_hscroll(), ppu_current_vscroll());
+    if (trace_ppu_writes) printf("\n");
 
     // This is the visible frame:
     for (nes.scanline = 1; nes.scanline < 241; nes.scanline++)
