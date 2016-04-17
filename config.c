@@ -17,17 +17,19 @@
 void scan_video_option (const char *arg)
 {
     void *mode = NULL;
+    int enable_ntsc = 0;
 
     if (!strcmp(arg, "ntsc_nocrawl")) {
         ntsc_simulate_dot_crawl = 0;
         save_pref_int("ntsc_dotcrawl", 0);
+        enable_ntsc = 1;
     }
 
     if (!strcmp(arg, "ntsc_realistic")) {
         ntsc_simulate_dot_crawl = 1;
         save_pref_int("ntsc_dotcrawl", 1);
+        enable_ntsc = 1;
     }
-
 
     if (arg == NULL) return;
     if (!strcmp(arg, "noscale")) mode = no_filter;
@@ -35,6 +37,9 @@ void scan_video_option (const char *arg)
     if (!strcmp(arg, "scanline")) mode = scanline_filter;
     if (!strcmp(arg, "ntsc")) mode = ntsc_filter;
     if (!strcmp(arg, "ntsc2x")) mode = ntsc2x_filter;
+
+   /* Enable NTSC even if user doesn't explicitly. */
+    if (enable_ntsc && (mode != ntsc_filter) && (mode != ntsc2x_filter)) mode = ntsc_filter;
 
     if (mode) {
         save_pref_string("video-mode", arg);
