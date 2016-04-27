@@ -86,7 +86,9 @@ void print_usage (void)
            " -sound          Enable sound output (default)\n"
            " -nothrottle     Run at full speed, don't throttle to 60 Hz\n"
            " -trapbadops     Trap bad opcodes\n"
-           " -debugbrk       Display BRK instructions\n"
+           " -showbrk        Display BRK instructions\n"
+           " -traceon NUM    Enable CPU trace on BRK (byte operand, or *)\n"
+           " -traceoff NUM   Disable CPU trace on BRK (byte operand, or *)\n"
            " -tracewr        Trace all memory writes\n"
            " -apudump FILE   Log APU writes to file (for audio ripping)\n"
            " -pputrace       Print PPU trace\n"
@@ -125,6 +127,9 @@ void print_usage (void)
 void cfg_parseargs (int argc, const char **argv)
 {
   int i;
+
+  memset(&breakpoint_action, 0, sizeof(breakpoint_action));
+
   for (i = 1; i < argc; i++) {
     const char *txt = argv[i];
 
@@ -172,13 +177,53 @@ void cfg_parseargs (int argc, const char **argv)
       if (!strcmp(txt, "-cputrace")) cputrace = 1;
       if (!strcmp(txt, "-tracewr")) trace_mem_writes = 1;
       if (!strcmp(txt, "-pputrace")) trace_ppu_writes = 1;
-      if (!strcmp(txt, "-debugbrk")) debug_brk = 1;
+      if (!strcmp(txt, "-showbrk")) show_brk = 1;
       if (!strcmp(txt, "-trapbadops")) cfg_trapbadops = 1;
       if (!strcmp(txt, "-forcesram")) nes.rom.flags|=2;
       if (!strcmp(txt, "-diagnostic")) {
 	cfg_diagnostic = 1;
 	window_width = 640;
 	window_height = 480;
+      }
+
+      if (!strcmp(txt, "-traceon") && (i != argc-1)) {
+          int idx = atoi(argv[++i]);
+          if ((idx < 0) || (idx > 255))
+          {
+              printf("BRK index must be in the range 0 to 255!\n");
+              exit(1);
+          }
+
+          if (!strcmp(argv[i], "*"))
+          {
+              printf("Enabling CPU trace for all BRK instructions.\n");
+              for (int i=0; i<255; i++) breakpoint_action[i] = TRON;
+          }
+          else
+          {
+              printf("Enabling CPU trace for BRK %i\n", idx);
+              breakpoint_action[idx] = TRON;
+          }
+      }
+
+      if (!strcmp(txt, "-traceoff") && (i != argc-1)) {
+          int idx = atoi(argv[++i]);
+          if ((idx < 0) || (idx > 255))
+          {
+              printf("BRK index must be in the range 0 to 255!\n");
+              exit(1);
+          }
+
+          if (!strcmp(argv[i], "*"))
+          {
+              printf("Disabling CPU trace for all BRK instructions.\n");
+              for (int i=0; i<255; i++) breakpoint_action[i] = TROFF;
+          }
+          else
+          {
+              printf("Disabling CPU trace for BRK %i\n", idx);
+              breakpoint_action[idx] = TROFF;
+          }
       }
 
       if (!strcmp(txt, "-apudump") && (i != argc-1)) {

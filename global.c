@@ -9,7 +9,8 @@ char *romfilename = NULL;
 int running = 1;
 int sound_globalenabled = 1;
 int sound_muted = 0;            /* Mutable (hah!) */
-int debug_brk = 0;
+int show_brk = 0;
+enum BrkAction breakpoint_action[256];
 int forcemapper = -1;
 int cfg_trapbadops = 0;
 int no_throttle = 0;

@@ -1223,13 +1223,25 @@ void list (void)
 
 void note_brk (void)
 {
-    if (debug_brk) {
-        byte code = Rd6502(nes.cpu.PC.W);
+    byte code = Rd6502(nes.cpu.PC.W);
+    enum BrkAction action = breakpoint_action[code];
+
+    if (show_brk || (action != IGNORE)) {
+
         printf("%sBRK %02X: ", nes_time_string(), code);
         fflush(stdout);
         regs();
-        /* The MSB of the break code enables instruction tracing */
-        nes.cpu.Trace = code >> 7;
-        if (cputrace) nes.cpu.Trace |= 1;
+
+        switch (action)
+        {
+        case TRON:
+            nes.cpu.Trace |= 1;
+            break;
+        case TROFF:
+            nes.cpu.Trace = 0;
+            break;
+        case IGNORE:
+            break;
+        }
     }
 }

@@ -29,13 +29,16 @@
 
 #define noinline __attribute__((noinline))
 
+enum BrkAction { IGNORE, TRON, TROFF };
+
 #ifndef global_c
 extern char *romfilename;
 extern int running;
 extern int sound_globalenabled;
 extern int sound_muted;
 extern int cputrace;
-extern int debug_brk;
+extern int show_brk;
+extern enum BrkAction breakpoint_action[256];
 extern int forcemapper;
 extern int cfg_trapbadops;
 extern int cfg_diagnostic;
