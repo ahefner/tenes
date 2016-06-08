@@ -446,7 +446,7 @@ int pref_int (const char *name, int defaultval)
 
 void load_config (void)
 {
-    char *video = pref_string("video-mode", NULL);
+    char *video = pref_string("video-mode", "ntsc_nocrawl");
     char *muted = pref_string("sound-muted", "");
 
     scan_video_option(video);
