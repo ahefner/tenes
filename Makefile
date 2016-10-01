@@ -43,7 +43,7 @@ endif
 
 LIBS= $(SYS_LIBS) -lSDL `sdl-config --libs` `freetype-config --libs` -lSDL_image $(FUSE_LIBS) 
 
-MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c mappers/vrc6.c
+MAPPERFILES=mappers/base.c mappers/mmc1.c mappers/konami2.c mappers/vromswitch.c mappers/mmc3.c mappers/axrom.c mappers/camerica.c mappers/vrc6.c mappers/gxrom.c
 
 COBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c
 C90OBJ=$(CC) -std=c99 $(CFLAGS) $(DEFINES) $(INCLUDEDIRS) -c

@@ -10,6 +10,20 @@
 #include "nes.h"
 #include "vid.h"
 
+/***********************************************************************
+ * Helper functions for mapper implementation                          */
+
+void mapper_select_chr_page (byte page, byte Value)
+{
+    unsigned tmp = Value*0x1000;
+    if (tmp > (nes.rom.chr_size-0x1000)) tmp %= nes.rom.chr_size;
+    assert(tmp <= nes.rom.chr_size-0x1000);
+    memcpy((void *)nes.ppu.vram + (page&1)*0x1000,(void *)(nes.rom.chr+tmp),0x1000);
+}
+
+
+/* Mapper implementations */
+
 #include "mappers/base.c"
 #include "mappers/mmc1.c"
 #include "mappers/vromswitch.c"
@@ -19,9 +33,10 @@
 #include "mappers/camerica.c"
 #include "mappers/vrc6.c"
 #include "mappers/nsf.c"
+#include "mappers/gxrom.c"
 
-
-/* Mapper table - contains iNES mapper number, name, and pointer to
+/***********************************************************************
+ * Mapper table - contains iNES mapper number, name, and pointer to
  * mapper_methods struct (if implemented).
  */
 
@@ -62,6 +77,7 @@ struct mapperinfo MapTable[] = {
   {32, "Irem G-101", NULL},
   {33, "Taito TC0190/TC0350", NULL},
   {34, "iNES Mapper #34", NULL},
+  {66, "GxROM", &mapper_GxROM},
   {71, "Camerica", &mapper_camerica}};
 
 static int mapper_table_size (void)

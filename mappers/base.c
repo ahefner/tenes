@@ -11,7 +11,6 @@ int mapper0_init(void)
 
 void mapper0_shutdown(void)
 {
-    printf("Mapper 0 shutdown\n");
 }
 
 void mapper_noprgwrite(register word Addr,register byte Value)

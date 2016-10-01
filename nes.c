@@ -1172,7 +1172,8 @@ void nsf_emulate_frame (void)
     }
 }
 
-/* Debugging utilities: The idea is that rather than writing a 6502
+/***********************************************************************
+ * Debugging utilities: The idea is that rather than writing a 6502
  * debugger as part of the emulator, we can debug from the host's GDB
  * using watchpoints and inspecting the emulator data structures
  * directly. These are here to aid in that approach (e.g. "display
