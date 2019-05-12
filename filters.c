@@ -469,7 +469,7 @@ void precompute_downsampling (void)
 
     // Average phases to disable dot crawl pattern..
     if (!ntsc_simulate_dot_crawl) {
-        printf("Averaging IRs to suprress NTSC dot crawl pattern...\n");
+        printf("Averaging IRs to suppress NTSC dot crawl pattern...\n");
         for (int emphasis = 0; emphasis < 8; emphasis++) {
             for (int color = 0; color < 64; color++) {
                 for (int x = 0; x < 22; x++) {
