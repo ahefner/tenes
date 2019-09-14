@@ -711,15 +711,16 @@ void run_main_menu (struct inputctx *input)
 
     if (input->released & SDL_BUTTON(3)) close_menu();
 
-    cursor_base[0] = 10;
-    cursor_base[1] = 415;
+    cursor_base[0] = 92;
+    cursor_base[1] = 270;
     setcursor(0,0);
     setcolor(color00);
     print("\n");
 
     setcolor(color10);
     print("Playing: %s\n", nes.rom.title);
-    print("Size: %i KB Program,  %i KB Graphics\n", nes.rom.prg_size/1024, nes.rom.chr_size/1024);
+    print("PRG: %i KB\n", nes.rom.prg_size/1024);
+    print("CHR: %i KB\n", nes.rom.chr_size/1024);
     print("Mapper %i: %s\n", nes.rom.mapper, nes.rom.mapper_info? nes.rom.mapper_info->name : "Unknown");
 //    if (sound_globalenabled) print("Sound %s\n", sound_muted? "muted" : "enabled");
     if (cfg_disable_joysticks) print("Joysticks disabled.\n");
