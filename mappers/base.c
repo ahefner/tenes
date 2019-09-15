@@ -65,6 +65,7 @@ byte ignore_read (register word Addr)
 struct mapper_methods mapper_None = {
     mapper0_init,
     mapper0_shutdown,
+    0,
     mapper_noprgwrite,
     mapper0_read,
     mapper_ignores_scanline_start,

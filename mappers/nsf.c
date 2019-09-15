@@ -47,6 +47,7 @@ byte nsf_exram_read (register word Addr)
 struct mapper_methods mapper_NSF = {
    nsf_mapper_init,
    mapper0_shutdown,
+   0,
    mapper_noprgwrite,
    ram32k_read,
    mapper_ignores_scanline_start,

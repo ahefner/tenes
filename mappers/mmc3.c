@@ -1,5 +1,11 @@
 /* Nintendo MMC3 */
 
+/* The way CHR banking is done is totally wrong here, as a consequence
+ * of memcpy's into the flat nes.rom.chr array rather than remapping
+ * the addresses properly. In practice it doesn't seem to cause an
+ * issue unless you change the CHR mode in $8000 without rewriting all
+ * the bank selections in $8001. Guess no one does that. */
+
 struct {
     int chrpages; /* # of 1k VROM pages */
     int prgpages; /* # of 8k PRG pages */
@@ -206,9 +212,21 @@ int mmc3_restore_state (chunk_reader_t reader, void *arg)
     return reader(arg, "MMC3 driver v1", &mmc3, sizeof(mmc3));
 }
 
+const char *mmc3_describe (void)
+{
+    static char buf[256];
+    const char *prgmode = (mmc3.reg8000 & 0x20)? "$C000/$E000" : "$8000/$A000";
+    sprintf(buf, "banks $%02X $%02X at %s\n", mmc3.bank[0], mmc3.bank[1], prgmode );
+    /* It would be nice to print the CHR bank selections here, but as
+     * noted above, it isn't done right. We aren't even saving the
+     * values written to $8001. */
+    return buf;
+}
+
 struct mapper_methods mapper_MMC3 = {
     mmc3_init,
     mmc3_shutdown,
+    mmc3_describe,
     mmc3_write,
     mmc3_read,
     mmc3_scanline_start,

@@ -722,6 +722,11 @@ void run_main_menu (struct inputctx *input)
     print("PRG: %i KB\n", nes.rom.prg_size/1024);
     print("CHR: %i KB\n", nes.rom.chr_size/1024);
     print("Mapper %i: %s\n", nes.rom.mapper, nes.rom.mapper_info? nes.rom.mapper_info->name : "Unknown");
+    if (mapper->describe)
+    {
+        print("%s\n", mapper->describe());
+    }
+
 //    if (sound_globalenabled) print("Sound %s\n", sound_muted? "muted" : "enabled");
     if (cfg_disable_joysticks) print("Joysticks disabled.\n");
     if (cfg_disable_keyboard) print("Keyboard input disabled.\n");

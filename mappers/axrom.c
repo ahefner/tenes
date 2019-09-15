@@ -37,10 +37,18 @@ int mapper7_restore_state (chunk_reader_t reader, void *arg)
     return reader(arg, "AxROM driver v1", &mapper7_bank, sizeof(mapper7_bank));
 }
 
+const char *mapper7_describe (void)
+{
+    static char buf[256];
+    sprintf(buf, "bank=%i\n", mapper7_bank);
+    return buf;
+}
+
 struct mapper_methods mapper_axrom =
 {
     mapper7_init,
     mapper7_shutdown,
+    mapper7_describe,
     mapper7_write,
     mapper7_read,
     mapper_ignores_scanline_start,

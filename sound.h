@@ -15,5 +15,3 @@ unsigned char snd_read_status_reg (void);
 
 int snd_buffered_samples (void);
 
-
-

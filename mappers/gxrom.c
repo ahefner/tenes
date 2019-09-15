@@ -37,6 +37,7 @@ int mapper66_restore_state (chunk_reader_t reader, void *arg)
 struct mapper_methods mapper_GxROM = {
     mapper66_init,
     mapper0_shutdown,
+    0,
     mapper66_write,
     mapper66_read,
     mapper_ignores_scanline_start,

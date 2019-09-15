@@ -37,9 +37,17 @@ int mapper2_restore_state (chunk_reader_t reader, void *arg)
     return reader(arg, "Mapper 2 driver v1", &mapper2_page, sizeof(mapper2_page));
 }
 
+const char *mapper2_describe (void)
+{
+    static char buf[256];
+    sprintf(buf, "PRG page %i", mapper2_page);
+    return buf;
+}
+
 struct mapper_methods mapper_konami = {
    mapper2_init,
    mapper2_shutdown,
+   mapper2_describe,
    mapper2_write,
    mapper2_read,
    mapper_ignores_scanline_start,

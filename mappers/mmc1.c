@@ -194,9 +194,25 @@ int mmc1_restore_state (chunk_reader_t reader, void *arg)
     return reader(arg, "MMC1 driver v2", &mmc1, sizeof(mmc1));
 }
 
+const char *mmc1_describe (void)
+{
+    static char buf[256];
+    sprintf(buf, "%s %s %s %s\nregs %02X %02X %02X %02X",
+            mmc1.reg[0] & REG0_SWITCH_HIGH_LOW ? "Switching LOW" : "Switching HIGH",
+            mmc1.reg[0] & REG0_SIZE_32K_16K ? "16k" : "32k",
+            mmc1.reg[0] & REG0_MIRROR_MODE ? "Vertical" : "Horizontal",
+            nes.rom.chr_size?
+            (mmc1.reg[0] & REG0_CHROM_8KB_4KB ? "CHR:4KB" : "CHR:8KB") :
+            (mmc1.reg[0] & BIT(4) ? "Large mode 0" : "Large mode 1"),
+            mmc1.reg[0], mmc1.reg[1], mmc1.reg[2], mmc1.reg[3]
+        );
+    return buf;
+}
+
 struct mapper_methods mapper_MMC1 = {
     mmc1_init,
     mmc1_shutdown,
+    mmc1_describe,
     mmc1_write,
     mmc1_read,
     mapper_ignores_scanline_start,

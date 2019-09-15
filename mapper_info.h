@@ -13,6 +13,7 @@ struct mapper_methods
 {
     int (*mapper_init)(void); /* called during rom load after CHR and PPU data is loaded */
     void (*mapper_shutdown)(void);
+    const char* (*describe)(void);
     void (*mapper_write)(register word Addr, register byte Value);
     byte (*mapper_read)(register word Addr);
     void (*scanline_start)(void);

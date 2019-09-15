@@ -12,6 +12,7 @@ void mapper3_write(register word Addr,register byte Value)
 struct mapper_methods mapper_VROM = {
     mapper0_init,
     mapper0_shutdown,
+    0,
     mapper3_write,
     mapper0_read,
     mapper_ignores_scanline_start,

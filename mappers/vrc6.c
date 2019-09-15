@@ -100,9 +100,17 @@ int vrc6_scanline_end (void)
 }
 /* I didn't. */
 
+const char *vrc6_describe (void)
+{
+    static char buf[256];
+    sprintf(buf, "$8000 bank $%02X, $C000 bank $%02X", vrc6.bank8, vrc6.bankC);
+    return buf;
+}
+
 struct mapper_methods mapper_vrc6 = {
    vrc6_init,
    mapper0_shutdown,
+   vrc6_describe,
    vrc6_write,
    vrc6_read,
    mapper_ignores_scanline_start,
