@@ -441,6 +441,39 @@ float lerpf (float x, float arg, float y)
     return x*arg + y*(1.0-arg);
 }
 
+/* UI Hint */
+
+char current_hint[2048] = "";
+image_t current_hint_image = NULL;
+const int HINT_HEIGHT = 24;
+
+void display_hint (const char *text)
+{
+    if (!text)
+    {
+        current_hint[0] = 0;
+        // also free image
+        return;
+    }
+
+    if (!strncmp(text, current_hint, sizeof(current_hint)-1))
+    {
+        // Image is unchanged
+    }
+    else
+    {
+        strncpy(current_hint, text, sizeof(current_hint));
+        current_hint[sizeof(current_hint)-1] = 0;
+        printf("Set hint to '%s'\n", text);
+        image_free(current_hint_image);
+        current_hint_image = sans_label(0xFFFFFF, HINT_HEIGHT, text);
+    }
+
+    drawimage(current_hint_image, window_surface->w/2, window_surface->h - 10, center, baseline);
+}
+
+/* Floaty Buttons */
+
 struct floatybutt {
     float offset;
     int hover;
@@ -450,8 +483,10 @@ const float floaty_rate = 0.25;
 const float floaty_height = 10;
 const float floaty_linear = 0.1; // Hmm. Don't like this.
 
-int run_floatybutt (struct inputctx *input, struct floatybutt *this,
-                    image_t faces[2], image_t shadow, int x, int y)
+int run_floatybutt (
+    struct inputctx *input, struct floatybutt *this,
+    image_t faces[2], image_t shadow, int x, int y,
+    const char *hint)
 {
     this->hover = mouseover(input, drawimage(shadow, x, y, left, bottom));
 //    if (this->hover && (input->buttons & 1)) this->offset = lerpf(0, floaty_rate, this->offset);
@@ -460,6 +495,11 @@ int run_floatybutt (struct inputctx *input, struct floatybutt *this,
     else this->offset = approach(floaty_height, floaty_linear, floaty_rate, this->offset);
 
     drawimage(faces[this->hover], x+this->offset, y-this->offset, left, bottom);
+
+    if (hint && this->hover)
+    {
+        display_hint(hint);
+    }
 
     return (this->hover && (input->released & 1));
 }
@@ -664,14 +704,28 @@ void render_restorestate (struct inputctx *input)
         struct tm  *ts;
         ts = localtime(&last_state_mtime);
         strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S", ts);
-        if (hover) strcpy(buf, "Restore State");
+
+        // It used to change the caption on the photo to "Restore
+        //State", but it's redundant now that I've put the hint line
+        //at the bottom of the screen.  if (hover) strcpy(buf,
+        //"Restore State");
+
         outlined_string(vx + actual_width/2 - strlen(buf)*text_width/2,
                         vy + text_ascent, buf, 0x79786d /*0x65645b*/, 0xbab7a7);
         vy += text_height + 2;
         dim_y_target = max(dim_y_target, vy);
 
-        if (hover && (input->released & 1)) {
-            if (!restore_state_from_disk(NULL)) reset_nes(&nes);
+        if (hover)
+        {
+            display_hint("Restore Saved State");
+
+            if (input->released & 1)
+            {
+                if (!restore_state_from_disk(NULL))
+                {
+                    reset_nes(&nes);
+                }
+            }
         }
     } else {
         vy += actual_height + 8 + text_height + 2;
@@ -755,29 +809,51 @@ void run_main_menu (struct inputctx *input)
     float vert_y = icon_y;
 
     static struct floatybutt power = {0, 0};
-    if (run_floatybutt(input, &power, power_lo, drop_roundbutton, icon_x, icon_y)) running = 0;
+    if (run_floatybutt(input, &power, power_lo, drop_roundbutton, icon_x, icon_y,
+            "Exit the program"))
+    {
+        running = 0;
+    }
     icon_x += icon_pad + power_lo[0]->w;
     vert_y += icon_pad + power_lo[0]->h;
 
     static struct floatybutt reset = {0, 0};
-    if (run_floatybutt(input, &reset, reset_lo, drop_roundbutton, icon_x, icon_y)) reset_nes(&nes);
+    if (run_floatybutt(input, &reset, reset_lo, drop_roundbutton, icon_x, icon_y,
+            "Reset the NES"))
+    {
+        reset_nes(&nes);
+    }
     icon_x += icon_pad + reset_lo[0]->w;
     icon_x += icon_pad;
 
     static struct floatybutt eject_button = {0, 0};
-    if (run_floatybutt(input, &eject_button, eject, square_shadow, vert_x, vert_y)) menu = run_game_browser;
+    if (run_floatybutt(input, &eject_button, eject, square_shadow, vert_x, vert_y,
+            "Load a new rom image"))
+    {
+        menu = run_game_browser;
+    }
+    
     vert_y += icon_pad + eject[0]->h;
 
     static struct floatybutt camera_button = {0, 0};
-    if (run_floatybutt(input, &camera_button, camera, square_shadow, vert_x, vert_y)) save_state_to_disk(NULL);
+    if (run_floatybutt(input, &camera_button, camera, square_shadow, vert_x, vert_y,
+                       "Save Current State"))
+    {
+        save_state_to_disk(NULL);
+    }
     vert_y += icon_pad + camera[0]->h;
 
     static struct floatybutt mute_button = {0, 0};
     if (sound_globalenabled) {
         if (run_floatybutt(input, &mute_button, sound_muted? mute : sound,
                            square_shadow,
-                           vert_x, vert_y))
+                           vert_x, vert_y,
+                           sound_muted? "Unmute the audio" : "Mute the audio"
+                ))
+        {
             sound_muted = !sound_muted;
+        }
+
         vert_y += icon_pad + camera[0]->h;
     }
 
@@ -786,8 +862,12 @@ void run_main_menu (struct inputctx *input)
     int port_y = window_surface->h - icon_pad - 6;
     static struct floatybutt port_button = {0,0};
     if (run_floatybutt(input, &port_button, nesport, nesport_shadow,
-                       window_surface->w - 29 - nesport[0]->w, port_y))
+                       window_surface->w - 29 - nesport[0]->w, port_y,
+            "Configure Controllers"))
+    {
         menu = run_input_menu;
+    }
+
     //drawimage(nesport, window_surface->w - 8, port_y, right, bottom);
     //drawimage(nesport, window_surface->w - 10 - nesport->w, port_y, right, bottom);
 
@@ -1163,8 +1243,15 @@ void run_game_browser (struct inputctx *input)
     // Update current working directory
     if (!browser_cwd[0]) {
         char *pref = pref_string("browser_cwd", NULL);
-        if (!pref) getcwd(browser_cwd, sizeof(browser_cwd));
-        else strncpy(browser_cwd, pref, sizeof(browser_cwd));
+        if (!pref && getcwd(browser_cwd, sizeof(browser_cwd)))
+        {
+            // getcwd filled browser_cmd as intended..
+            // good.
+        }
+        else
+        {
+            strncpy(browser_cwd, pref, sizeof(browser_cwd));
+        }
         browser_rescan();
     }
 

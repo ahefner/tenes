@@ -156,6 +156,7 @@ void sys_shutdown (void)
 
 void image_free (image_t image)
 {
+    if (!image) return;
     SDL_FreeSurface(image->_sdl);
     if (image->freeptr) free(image->freeptr);
     free(image);
