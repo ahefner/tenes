@@ -137,11 +137,6 @@ void nsf_init (struct nes_machine *nes)
 //    nes->cpu.Trace = 0;
 }
 
-void update_debug_flags()
-{
-  nes.cpu.Trace = cputrace;     /* TODO: Get rid of cpu.Trace flag when I replace M6502... */
-}
-
 /* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
 void reset_nes (struct nes_machine *nes)
 {
@@ -151,6 +146,7 @@ void reset_nes (struct nes_machine *nes)
 
     memset((void *) &nes->snd, 0, sizeof (nes->snd));
     Reset6502(&nes->cpu);
+    nes->cpu.Trace = cputrace;
     nes->last_sound_cycle = 0;
     assert(nes->cpu.Cycles == 0);
     assert(nes->last_sound_cycle == 0);
@@ -189,8 +185,6 @@ void reset_nes (struct nes_machine *nes)
     /* NSF init */
     if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
 
-    update_debug_flags();
-
     printf("Machine reset.\n");
 }
 
@@ -209,7 +203,7 @@ int open_game (const char *filename)
 
     /* Why is this here? */
     if (startup_restore_state >= 0) {
-        const char *filename = state_filename(&nes.rom,1);
+        const char *filename = state_filename(&nes.rom,startup_restore_state);
         if (!restore_state_from_disk(filename))
             reset_nes(&nes);
     }
@@ -403,8 +397,6 @@ int ppu_current_vscroll (void)
 /* nes_initframe - call at the start of every frame */
 void nes_initframe (void)
 {
-  update_debug_flags();
-
   nes.ppu.hit_flag = 0;	/* set to 0 at frame start */
   nes.ppu.vblank_flag=0; /* set to 0 at frame start, I think */
   nes.ppu.spritecount_flag = 0;
@@ -758,10 +750,6 @@ void Wr6502 (register word Addr, register byte Value)
               } else {
                   if (!nes.rom.chr_size) {
                       nes.ppu.vram[nes.ppu.v] = Value;
-                      if (trace_ppu_writes) {
-                          nes_printtime();
-                          printf("vram write: %04X = %02X\n", nes.ppu.v, Value);
-                      }
                   } /* else printf("PPU: attempted write into character ROM!\n"); */
               }
 	  }

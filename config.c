@@ -56,6 +56,7 @@ void print_usage (void)
            " -help           Show this message\n"
            " -noscale        Don't scale video output\n"
            " -scale          Double output pixels\n"
+//           " -scanline       Interleaved scanline mode\n"
            " -ntsc           Use NTSC filter (default)\n"
            " -ntsc2x         Doubled NTSC filter\n"
            " -ntsc_realistic Default NTSC simulation settings\n"
