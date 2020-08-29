@@ -239,7 +239,7 @@ void process_key_event (SDL_KeyboardEvent * key)
 
         case SDLK_F10:
             printf("Toggled CPU trace.\n");
-            nes.cpu.Trace ^= 1;
+            cputrace = nes.cpu.Trace ^= 1;
             break;
 
         case SDLK_BACKSPACE:
