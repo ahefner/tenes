@@ -137,9 +137,20 @@ void nsf_init (struct nes_machine *nes)
 //    nes->cpu.Trace = 0;
 }
 
-/* reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
-void reset_nes (struct nes_machine *nes)
+/* soft_reset_set - jump to reset vector, leave everything else as is */
+void soft_reset_nes (struct nes_machine *nes)
 {
+    printf("Soft reset.\n");
+    //Reset6502(&nes->cpu);
+    nes->cpu.PC.B.l = Rd6502(0xFFFC);
+    nes->cpu.PC.B.h = Rd6502(0xFFFD);
+    //mapper->mapper_init();
+}
+
+/* hard_reset_nes - resets the state of the cpu, ppu, sound, joypads, and internal state */
+void hard_reset_nes (struct nes_machine *nes)
+{
+    printf("Hard reset.\n");
     memset((void *) nes->ram, 0, 0x800);
 
     SDL_mutexP(producer_mutex);
@@ -184,8 +195,6 @@ void reset_nes (struct nes_machine *nes)
 
     /* NSF init */
     if (nes->machine_type == NSF_PLAYER) nsf_init(nes);
-
-    printf("Machine reset.\n");
 }
 
 int open_game (const char *filename)
@@ -199,13 +208,13 @@ int open_game (const char *filename)
     save_pref_string("lastfile", filename);
 
     init_nes(&nes);
-    reset_nes(&nes);
+    hard_reset_nes(&nes);
 
     /* Why is this here? */
     if (startup_restore_state >= 0) {
         const char *filename = state_filename(&nes.rom,startup_restore_state);
         if (!restore_state_from_disk(filename))
-            reset_nes(&nes);
+            hard_reset_nes(&nes);
     }
 
     return 0;
@@ -1131,7 +1140,7 @@ void nsf_emulate_frame (void)
     if (nsf_seek_to_song) {
         nes.nsf_current_song = nsf_seek_to_song - 1;
         nsf_seek_to_song = 0;
-        reset_nes(&nes);
+        hard_reset_nes(&nes);
     }
 
     /* The NSF player buffers ahead several frames, because (unlike

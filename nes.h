@@ -210,7 +210,8 @@ struct nes_machine nes;
 
 void init_nes (struct nes_machine *nes);
 void shutdown_nes (struct nes_machine *nes);
-void reset_nes (struct nes_machine *nes);
+void hard_reset_nes (struct nes_machine *nes);
+void soft_reset_nes (struct nes_machine *nes);
 int open_game (const char *filename);
 void close_current_game (void);
 void nes_emulate_frame(void);

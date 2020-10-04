@@ -473,8 +473,8 @@ void precompute_downsampling (void)
         for (int emphasis = 0; emphasis < 8; emphasis++) {
             for (int color = 0; color < 64; color++) {
                 for (int x = 0; x < 22; x++) {
-                    for (int decimation_phase = 0; decimation_phase < 2; decimation_phase++) {
-                        for (int component_index = 0; component_index < 4; component_index++) {
+		  for (int decimation_phase = 0; decimation_phase < 2; decimation_phase++) {
+		    for (int component_index = 0; component_index < 4; component_index++) {
 
                             double tmp = 0.0;
                             for (int alignment=0; alignment<3; alignment++)

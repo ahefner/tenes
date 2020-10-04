@@ -723,7 +723,7 @@ void render_restorestate (struct inputctx *input)
             {
                 if (!restore_state_from_disk(NULL))
                 {
-                    reset_nes(&nes);
+                    hard_reset_nes(&nes);
                 }
             }
         }
@@ -821,7 +821,7 @@ void run_main_menu (struct inputctx *input)
     if (run_floatybutt(input, &reset, reset_lo, drop_roundbutton, icon_x, icon_y,
             "Reset the NES"))
     {
-        reset_nes(&nes);
+        soft_reset_nes(&nes);
     }
     icon_x += icon_pad + reset_lo[0]->w;
     icon_x += icon_pad;

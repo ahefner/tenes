@@ -242,8 +242,12 @@ void process_key_event (SDL_KeyboardEvent * key)
             nes.cpu.Trace ^= 1;
             break;
 
+        case SDLK_DELETE:
+            hard_reset_nes(&nes);
+            break;
+
         case SDLK_BACKSPACE:
-            reset_nes(&nes);
+            soft_reset_nes(&nes);
             break;
 
         case SDLK_t:
@@ -255,7 +259,8 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
 
         case SDLK_F7:
-            if (!restore_state_from_disk(NULL)) reset_nes(&nes);
+            // HMM: Resetting if there's no save state seems user-hostile...
+            if (!restore_state_from_disk(NULL)) hard_reset_nes(&nes);
             break;
 
         default: break;
