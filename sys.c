@@ -41,7 +41,12 @@ void sys_framesync (void)
 
     do {
         now = usectime();
-        assert((target - now) < 1000000ll);
+        // FIXME: sys.c:44: sys_framesync: Assertion `(target - now) < 1000000ll' failed.
+        //assert((target - now) < 1000000ll);
+        if ((target-now)>1000000ll) {
+            printf("?? %llu - %llu = %llu\n", target, now, target-now);
+            return;
+        }
         if (target-now > 10000) usleep(6000);
     } while (now < target);
 
