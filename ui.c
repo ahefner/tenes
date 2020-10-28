@@ -464,7 +464,7 @@ void display_hint (const char *text)
     {
         strncpy(current_hint, text, sizeof(current_hint));
         current_hint[sizeof(current_hint)-1] = 0;
-        printf("Set hint to '%s'\n", text);
+        //printf("Set hint to '%s'\n", text);
         image_free(current_hint_image);
         current_hint_image = sans_label(0xFFFFFF, HINT_HEIGHT, text);
     }
