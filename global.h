@@ -124,6 +124,8 @@ extern unsigned frame_start_samples;
 
 extern int unique_frame_number;
 
+extern const char *override_sram_filename;
+
 extern const char *cfg_mountpoint;
 extern int cfg_mount_fs;
 

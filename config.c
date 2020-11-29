@@ -78,6 +78,7 @@ void print_usage (void)
            " -playquit       Quit after movie playback is complete\n"
            " -restorestate   Restore from last saved state at startup (default)\n"
            " -reset          Reset NES at startup\n"
+           " -sram FILE      Use FILE for SRAM storage (also implies -reset)\n"
            " -stripe FILE    Dump a vertical stripe of video to a file\n"
            " -stripex X      X coordinate of stripe (default is 128)\n"
            " -striperate FRAMES (default=1)\n"
@@ -274,6 +275,12 @@ void cfg_parseargs (int argc, const char **argv)
           quit_after_playback = 1;
       }
 
+      if (!strcmp(txt, "-sram")) {
+          if (argc<=(++i)) break;
+          override_sram_filename = argv[i];
+          startup_restore_state = -1;
+      }
+
       if (!strcmp(txt, "-play")) {
           if (argc<=(++i)) break;
           movie_input_filename = argv[i];
@@ -386,6 +393,9 @@ const char *ensure_state_dir (long long hash)
 const char *sram_filename (struct nes_rom *rom)
 {
     static char path[PATH_MAX];
+
+    if (override_sram_filename) return override_sram_filename;
+
     snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(),
              (unsigned)(rom->hash >> 32),
              (unsigned)(rom->hash & 0xFFFFFFFFll));

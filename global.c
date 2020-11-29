@@ -114,6 +114,13 @@ unsigned tracing_counts[0x10000][3];
  */
 int unique_frame_number = 0;
 
+// Normally we save the SRAM in a folder based on a hash of the
+// ROM. This is inconvenient if you're editing the ROM image and want
+// to preserve the SRAM, or if you want to play multiple games based
+// on the same ROM file. So, via the command line, you can override
+// the SRAM file.
+const char *override_sram_filename = NULL;
+
 SDL_mutex *producer_mutex;      /* Held while filling audio buffer */
 
 const char *cfg_mountpoint = "/tmp/nesfs";
