@@ -322,8 +322,15 @@ void ntsc_emitter (unsigned line, byte *colors, byte *emphasis)
     ntsc_scanline(line,colors,emphasis,line0);
 
     // Fill odd scanlines with dim copy of current scanline.
-    for (int x=0; x<640; x++) {
-        nextline[x] = (line0[x] >> 1) & 0x7F7F7F7F;
+    if (ntsc_enable_scanlines)
+    {
+        for (int x=0; x<640; x++) {
+            nextline[x] = (line0[x] >> 1) & 0x7F7F7F7F;
+        }
+    }
+    else
+    {
+        memcpy(nextline, line0, 4*640);
     }
 }
 
@@ -348,22 +355,24 @@ void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
         dbl[i*2+1] = ((x>>1) & 0x7F7F7F7F) + ((y>>1) & 0x7F7F7F7F) + ((((x & 0x01010101) + (y & 0x01010101)) >> 1) & 0x7F7F7F7F);
     }
 
-    for (int x=0; x<1280; x++) {
-        dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
+    if (ntsc_enable_scanlines)
+    {
+        for (int x=0; x<1280; x++) {
+            dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
+        }
+
+        memcpy(line0, dim, sizeof(dim));
+        memcpy(line1, dbl, sizeof(dbl));
+        memcpy(line2, dim, sizeof(dbl));
+        memset(line3, 0, sizeof(dbl));
     }
-
-#if 0
-    memcpy(line0, dim, sizeof(dim));
-    memcpy(line1, dbl, sizeof(dbl));
-    memcpy(line2, dbl, sizeof(dbl));
-    memcpy(line3, dim, sizeof(dim));
-#else
-    memcpy(line0, dim, sizeof(dim));
-    memcpy(line1, dbl, sizeof(dbl));
-    memcpy(line2, dim, sizeof(dbl));
-    memset(line3, 0, sizeof(dbl));
-#endif
-
+    else
+    {
+        memcpy(line0, dbl, sizeof(dbl));
+        memcpy(line1, dbl, sizeof(dbl));
+        memcpy(line2, dbl, sizeof(dbl));
+        memcpy(line3, dbl, sizeof(dbl));
+    }
 }
 
 /* For resampling, a Blackman-windowed sinc filter. */

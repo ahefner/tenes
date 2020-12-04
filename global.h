@@ -114,6 +114,7 @@ extern int vid_height;
 extern int vid_bpp;
 
 extern int ntsc_simulate_dot_crawl;
+extern int ntsc_enable_scanlines;
 
 extern int superverbose;
 extern int trace_mem_writes;
