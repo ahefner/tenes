@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <math.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 #include "font.h"
 #include "filesystem.h"
 #include "ui.h"
+#include "timer.h"
 
 
 int hold_button_a = 0;
@@ -76,6 +78,79 @@ void calibrate_aux_stick (void)
     }
 }
 
+bool stopwatch_armed = false;
+
+void draw_stopwatch()
+{
+    static image_t label = NULL;
+    if (label) {
+        image_free(label);
+        label = NULL;
+    }
+
+    static image_t shadow = NULL;
+    if (shadow) {
+        image_free(shadow);
+        shadow = NULL;
+    }
+
+    const int xpad = 3, ypad = 3;
+
+    const int shadow_offset = 2;
+
+    if (stopwatch_armed)
+    {
+        char buf[80];
+        snprintf(buf, sizeof(buf), "Stopwatch armed%s: %s",
+                 stopwatch_is_enabled()? " (Alt-T to reset)" : "",
+                 format_time(stopwatch_get_elapsed()));
+
+        label = sans_label(0xFFAA66, 25, buf);
+        if (!label) return;
+        shadow = sans_label(0x000000, 25, buf);
+        if (!shadow) return;
+
+        drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
+        drawimage(label, window_surface->w - xpad, ypad, right, top);
+
+    }
+    else if (stopwatch_is_enabled())
+    {
+        label = sans_label(0x88FF88, 25, format_time(stopwatch_get_elapsed()));
+        if (!label) return;
+        shadow = sans_label(0x000000, 25, format_time(stopwatch_get_elapsed()));
+        if (!shadow) return;
+
+        static int max_width = 0;
+        if (label->w > max_width) max_width = label->w;
+        const int x = window_surface->w - max_width - xpad;
+        const int y = ypad;
+        drawimage(shadow, x - shadow_offset, y + shadow_offset, left, top);
+        drawimage(label, x, y, left, top);
+    }
+}
+
+void stopwatch_toggle()
+{
+    if (!stopwatch_is_running())
+    {
+        if (!stopwatch_armed)
+        {
+            stopwatch_armed = true;
+        }
+        else
+        {
+            stopwatch_armed = false;
+            stopwatch_start();
+        }
+    }
+    else
+    {
+        stopwatch_stop();
+        stopwatch_armed = true;
+    }
+}
+
 int screencapping = 0;
 char screencap_dest[256];
 
@@ -107,6 +182,11 @@ void process_control_key (SDLKey sym)
     case SDLK_j:
         calibrate_aux_stick();
         break;
+
+    case SDLK_t:
+        stopwatch_toggle();
+        break;
+
 
     case SDLK_a:
         hold_button_a ^= 1;
@@ -177,8 +257,17 @@ void process_key_event (SDL_KeyboardEvent * key)
         && (key->type == SDL_KEYDOWN)) return;
 
     // Actions occur on key up.
-    if ((key->keysym.mod & KMOD_CTRL ) && (key->type == SDL_KEYUP)) {
+    if ((key->keysym.mod & KMOD_CTRL) && (key->type == SDL_KEYUP)) {
         process_control_key(key->keysym.sym);
+        return;
+    }
+
+    if ((key->keysym.mod & KMOD_ALT) && (key->type == SDL_KEYUP)) {
+        if (key->keysym.sym == SDLK_t) {
+            stopwatch_stop();
+            stopwatch_reset();
+            stopwatch_armed = false;
+        }
         return;
     }
 
@@ -251,7 +340,6 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
 
         case SDLK_t:
-            nes.cpu.Trace ^= 1;
             break;
 
         case SDLK_F5:
@@ -470,7 +558,15 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 
         nes.joypad.pad[cfg_keyboard_controller] |= keyboard_input;
 
+        bool button_held = false;
+        for (int i=0; i<4; i++) button_held |= nes.joypad.pad[i];
+        if (stopwatch_armed && button_held) {
+            stopwatch_armed = false;
+            stopwatch_start();
+        }
+
         runframe();
+        draw_stopwatch();
         dim_background();
 
         if (menu) run_menu(&ctx);

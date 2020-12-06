@@ -43,6 +43,7 @@ void run_input_menu (struct inputctx *input);
 #ifndef NES_UI_C
 extern void (*menu) (struct inputctx *);
 extern float dim_y_target;
+extern alignmode left, right, center, top, bottom, baseline;
 #endif
 
 #endif

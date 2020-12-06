@@ -111,7 +111,7 @@ static int buffer_space (void)
 
 static void buffer_init (void)
 {
-    memset((void *) audio_buffer, 0, AUDIO_BUFFER_SIZE*2);
+    memset((void *)audio_buffer, 0, sizeof(audio_buffer));
 
     buffer_low = 0;
     /* Odd: */

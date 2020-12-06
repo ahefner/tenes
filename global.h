@@ -1,5 +1,5 @@
-#ifndef global_h
-#define global_h
+#ifndef TENES_GLOBAL_H
+#define TENES_GLOBAL_H
 
 #include <SDL.h>
 #include <sys/time.h>
