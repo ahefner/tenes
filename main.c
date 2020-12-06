@@ -101,8 +101,8 @@ void draw_stopwatch()
     if (stopwatch_armed)
     {
         char buf[80];
-        snprintf(buf, sizeof(buf), "Stopwatch armed%s: %s",
-                 stopwatch_is_enabled()? " (Alt-T to reset)" : "",
+        snprintf(buf, sizeof(buf), "%s: %s",
+                 stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed",
                  format_time(stopwatch_get_elapsed()));
 
         label = sans_label(0xFFAA66, 25, buf);
