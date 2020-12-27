@@ -95,7 +95,7 @@ void draw_stopwatch()
     }
 
     const int xpad = 3, ypad = 3;
-
+    const int size = 40;
     const int shadow_offset = 2;
 
     if (stopwatch_armed)
@@ -105,9 +105,9 @@ void draw_stopwatch()
                  stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed",
                  format_time(stopwatch_get_elapsed()));
 
-        label = sans_label(0xFFAA66, 25, buf);
+        label = sans_label(0xFFAA66, size, buf);
         if (!label) return;
-        shadow = sans_label(0x000000, 25, buf);
+        shadow = sans_label(0x000000, size, buf);
         if (!shadow) return;
 
         drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
@@ -116,9 +116,9 @@ void draw_stopwatch()
     }
     else if (stopwatch_is_enabled())
     {
-        label = sans_label(0x88FF88, 25, format_time(stopwatch_get_elapsed()));
+        label = sans_label(0x88FF88, size, format_time(stopwatch_get_elapsed()));
         if (!label) return;
-        shadow = sans_label(0x000000, 25, format_time(stopwatch_get_elapsed()));
+        shadow = sans_label(0x000000, size, format_time(stopwatch_get_elapsed()));
         if (!shadow) return;
 
         static int max_width = 0;
