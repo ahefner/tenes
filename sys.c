@@ -82,7 +82,7 @@ void sys_init (void)
     //if (sched_setscheduler(getpid(), SCHED_FIFO, &sparam)) perror("sched_setscheduler");
 
     int i, tmp;
-    int surfaceflags = SDL_DOUBLEBUF | SDL_HWACCEL | SDL_HWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
+    int surfaceflags = SDL_SWSURFACE | (vid_fullscreen ? SDL_FULLSCREEN : 0);
 
     if (SDL_Init (SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK)) {
         printf ("Could not initialize SDL!\n");
@@ -112,7 +112,7 @@ void sys_init (void)
 
       SDL_WM_SetCaption ("tenes","tenes");
       SDL_FillRect(window_surface, NULL, SDL_MapRGB(window_surface->format, 0, 0, 0));
-      SDL_Flip (window_surface);
+      SDL_UpdateRect(window_surface, 0, 0, 0, 0);
       SDL_ShowCursor(SDL_DISABLE);
 
       tmp = SDL_NumJoysticks();

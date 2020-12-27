@@ -572,7 +572,7 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
         if (menu) run_menu(&ctx);
         else dim_y_target = 0;
 
-        SDL_Flip(window_surface);
+        SDL_UpdateRect(window_surface, 0, 0, 0, 0);
         switch (nes.machine_type) {
         case NES_NTSC:
             if (!no_throttle) sys_framesync();
