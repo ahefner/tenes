@@ -139,7 +139,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
 
         // Clip to right edge
         int overflow = max(0, ox1 - rwidth);
-        if (overflow) printf("POSTCLIP\n");
+        //if (overflow) printf("POSTCLIP\n");
         ox1 -= overflow;
         ix1 -= overflow;
         int width = ox1 - ox0;
