@@ -130,7 +130,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
 
         // Clip to left edge
         if (ox0 < 0) {
-            printf("PRECLIP %s\n", string);
+            //printf("PRECLIP %s\n", string);
             ix0 -= ox0;
             ox0 -= ox0;
         }
