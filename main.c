@@ -347,7 +347,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             break;
 
         case SDLK_F7:
-            // HMM: Resetting if there's no save state seems user-hostile...
+            // FIXME: Resetting if there's no save state seems user-hostile...
             if (!restore_state_from_disk(NULL)) hard_reset_nes(&nes);
             break;
 

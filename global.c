@@ -20,7 +20,6 @@ int cputrace = 0;               /* These tracing options are all togglable */
 int superverbose = 0;
 int trace_mem_writes = 0;
 int trace_ppu_writes = 0;
-int cfg_diagnostic = 0;
 
 int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};

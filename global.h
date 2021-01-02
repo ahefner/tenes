@@ -41,7 +41,6 @@ extern int show_brk;
 extern enum BrkAction breakpoint_action[256];
 extern int forcemapper;
 extern int cfg_trapbadops;
-extern int cfg_diagnostic;
 extern int no_throttle;
 extern int startup_restore_state;
 

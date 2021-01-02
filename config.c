@@ -197,11 +197,6 @@ void cfg_parseargs (int argc, const char **argv)
       if (!strcmp(txt, "-showbrk")) show_brk = 1;
       if (!strcmp(txt, "-trapbadops")) cfg_trapbadops = 1;
       if (!strcmp(txt, "-forcesram")) nes.rom.flags|=2;
-      if (!strcmp(txt, "-diagnostic")) {
-	cfg_diagnostic = 1;
-	window_width = 640;
-	window_height = 480;
-      }
 
       if (!strcmp(txt, "-traceon") && (i != argc-1)) {
           int idx = atoi(argv[++i]);
