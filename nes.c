@@ -12,6 +12,7 @@
 #include "config.h"
 #include "global.h"
 #include "mapper_info.h"
+#include "ag.h"
 
 /* init_nes - initializes a nes_machine struct that already had it's rom member set properly */
 /*            after this, an nes_reset is all it should take to start the first frame.       */
@@ -844,6 +845,7 @@ byte Op6502 (register word Addr)
 #ifdef INSTRUCTION_TRACING
   tracing_counts[Addr][COUNT_EXEC]++;
 #endif
+  ag_note_pc(Addr);
   return InnerRd6502(Addr);
 }
 

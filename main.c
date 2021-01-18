@@ -541,6 +541,8 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 
     time_frame_target = usectime();
 
+    ag_init();
+
     while (running) {
         update_titlebar();
         memset(window_surface->pixels, 0, window_surface->pitch * window_surface->h);
@@ -557,6 +559,7 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
         if (hold_button_a) nes.joypad.pad[0] |= nes.time & 1;
 
         nes.joypad.pad[cfg_keyboard_controller] |= keyboard_input;
+        nes.joypad.pad[0] |= ag_get_gamepad();
 
         bool button_held = false;
         for (int i=0; i<4; i++) button_held |= nes.joypad.pad[i];
@@ -594,6 +597,8 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
                    (nes.cpu.Cycles - frame_start_cycles)/4467,
                    buffer_high - frame_start_samples);
     }
+
+    ag_shutdown();
 
     close_current_game();
 
