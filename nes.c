@@ -962,7 +962,20 @@ byte Rd6502 (register word Addr)
       break;
 
   case 0x6000:
-      return nes.save[Addr & 0x1FFF];
+    /*
+    switch (Addr) {
+    case 0x6AD3 + 3 + 0:
+    case 0x6AD3 + 3 + 4:
+    case 0x6AD3 + 3 + 8:
+    case 0x6AD3 + 3 + 12:
+
+      //fprintf(stderr, "read %04X -> %02X\n", Addr, nes.save[Addr & 0x1FFF]);
+      if (nes.save[Addr & 0x1FFF]) return nes.save[Addr & 0x1FFF];
+      else return ((nes.time + ((Addr & 0x0C)))>>5 & 1)? 0x10 : 0;
+    }
+    */
+
+    return nes.save[Addr & 0x1FFF];
 
   case 0x8000:
   case 0xA000:

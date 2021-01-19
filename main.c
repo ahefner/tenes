@@ -101,17 +101,19 @@ void draw_stopwatch()
     if (stopwatch_armed)
     {
         char buf[80];
-        snprintf(buf, sizeof(buf), "%s: %s",
-                 stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed",
-                 format_time(stopwatch_get_elapsed()));
-
-        label = sans_label(0xFFAA66, size, buf);
+        /* snprintf(buf, sizeof(buf), "%s: %s", */
+        /*          stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed", */
+        /*          format_time(stopwatch_get_elapsed())); */
+        //label = sans_label(0xFFAA66, size, buf);
+        label = sans_label(0xFFAA66, size, format_time(stopwatch_get_elapsed()));
         if (!label) return;
         shadow = sans_label(0x000000, size, buf);
         if (!shadow) return;
 
-        drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
-        drawimage(label, window_surface->w - xpad, ypad, right, top);
+//        drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
+//        drawimage(label, window_surface->w - xpad, ypad, right, top);
+
+        drawimage(label, window_surface->w - xpad, window_surface->h-ypad, right, bottom);
 
     }
     else if (stopwatch_is_enabled())
@@ -124,9 +126,11 @@ void draw_stopwatch()
         static int max_width = 0;
         if (label->w > max_width) max_width = label->w;
         const int x = window_surface->w - max_width - xpad;
-        const int y = ypad;
-        drawimage(shadow, x - shadow_offset, y + shadow_offset, left, top);
-        drawimage(label, x, y, left, top);
+        //const int y = ypad;
+        const int y = window_surface->h-ypad;
+        drawimage(shadow, x - shadow_offset, y + shadow_offset, left, bottom);
+        drawimage(label, x, y, left, bottom);
+
     }
 }
 
