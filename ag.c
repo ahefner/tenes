@@ -2,6 +2,8 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <assert.h>
 #include "ag.h"
 #include "ff1_vars.h"
 
@@ -15,11 +17,12 @@ pthread_t ag_thread;
 enum FFGameMode
 {
     FF_WUT = 0,
-    FF_SHUTDOWN,
-    FF_OVERWORLD_MODE,
-    FF_MAP_MODE,
-    FF_STORY_WAIT,
-    FF_BATTLE_MAIN_COMMAND
+    FF_SHUTDOWN = 1,
+    FF_OVERWORLD_MODE = 2,
+    FF_MAP_MODE = 3,
+    FF_STORY_WAIT = 4,
+    FF_BATTLE_MAIN_COMMAND = 5,
+    FF_POPUP_WAIT = 6
 } volatile game_mode = FF_WUT;
 
 static do_ag_shutdown = false;
@@ -27,8 +30,6 @@ static do_ag_shutdown = false;
 static unsigned controller_output = 0;
 
 /*** Called from emulator thread ***/
-
-
 
 void ag_init (void)
 {
@@ -63,6 +64,28 @@ void ag_note_pc (word pc)
         game_mode = FF_BATTLE_MAIN_COMMAND;
         break;
 
+    case 0xD641:
+    case 0xD64D:
+        game_mode = FF_POPUP_WAIT;
+        printf("popup wait1 %X\n", pc);
+        // Dialog has just opened. Game waits for buttons to be depressed.
+        controller_output = 0;
+        break;
+
+    case 0xD653:
+        game_mode = FF_POPUP_WAIT;
+        // Dialog then waits for a button press
+        printf("popup wait2 %X\n", pc);
+        controller_output = 1;
+        break;
+        
+
+    case 0xD602:
+        printf("entered dialog\n");
+//        nes.cpu.Trace = 1;
+//        exit(0);
+        break;
+
     default:
         break;
     }
@@ -85,6 +108,11 @@ void ag_shutdown()
     fprintf(stderr, "ag_shutdown: joined.\n");
 }
 /*** AG thread ***/
+
+void sleep_frames (unsigned n)
+{
+    usleep(1000000 / 60 * n);
+}
 
 static byte getbyte(unsigned addr)
 {
@@ -213,9 +241,9 @@ void tap_a()
      * frame button taps.*/
     printf("Pushed A\n");
     controller_output = 1;
-    usleep(40000);
+    sleep_frames(2);
     controller_output = 0;
-    usleep(40000);
+    sleep_frames(2);
 }
 
 void print_party()
@@ -243,6 +271,35 @@ static byte ror8nc (byte x)       /* rotate inside byte, not through carry! */
     return (x >> 1) | ((x&1) << 7);
 }
 
+uint64_t ai_timestamp = 0;
+
+enum SpecialTypes
+{
+    SPEC_NONE = 0,
+    SPEC_DOOR = 1,
+    SPEC_LOCKED = 2,
+    SPEC_CLOSEROOM = 3,
+    SPEC_TREASURE = 4,
+    SPEC_BATTLE = 5,
+    SPEC_DAMAGE = 6,
+    SPEC_CROWN = 7,
+    SPEC_CUBE = 8,
+    SPEC_4ORBS = 9,
+    SPEC_USEROD = 10,
+    SPEC_USELUTE = 11,
+    SPEC_EARTHORB = 12,
+    SPEC_FIREORB = 13,
+    SPEC_WATERORB = 14,
+    SPEC_AIRORB = 15
+};
+
+enum TeleportMode
+{
+    TELE_EXIT = 3,
+    TELE_NORM = 2,
+    TELE_WARP = 1,
+    TELE_NONE = 0
+};
 
 struct tileprop
 {
@@ -250,9 +307,15 @@ struct tileprop
     unsigned special : 4;
     unsigned teleport_mode : 2;
     unsigned explored : 1;
+    unsigned arg : 8;           /* Argument depending on special type */
 };
 
-struct tileprop mapdata[64][256][256];
+/// SM data
+struct tileprop mapdata[64][64][64]; /* map index, y, x */
+
+unsigned sm_unexplored_dist[64][64][64];
+uint64_t sm_updated_timestamp[64];
+uint64_t sm_need_timestamp[64];
 
 struct tileprop decode_sm_tile (byte tileprop)
 {
@@ -262,11 +325,12 @@ struct tileprop decode_sm_tile (byte tileprop)
     ret.special = (tileprop >> 1) & 0x0F;
     ret.teleport_mode = tileprop >> 6;
     ret.explored = 1;
+    ret.arg = 0;
     return ret;
 }
 
-/// Return tile index at x,y coordinate
-byte get_sm_tile (unsigned xc, unsigned yc)
+/// Return tile property at x,y coordinate
+byte get_sm_tile (unsigned xc, unsigned yc, unsigned propindex)
 {
     byte a,x,y;
     
@@ -324,7 +388,7 @@ byte get_sm_tile (unsigned xc, unsigned yc)
 
     /* LDA tileset_prop, X   ; get the first property byte */
 
-    return getbyte(var_tileset_prop + a);
+    return getbyte(var_tileset_prop + a + propindex);
     
     /* AND #TP_SPEC_MASK     ; isolate the 'special' bits */
     /* STA tileprop_now      ; and record them!     */
@@ -346,10 +410,6 @@ struct tileprop merge_tileprop(struct tileprop a, struct tileprop b)
 
 void print_map (byte index)
 {
-    // While I hope to treat the OW and SM maps in a unified way, SM
-    // maps are limited to 64x64 (OW is 256x256) and I'm punting on
-    // the extra effort to scan the map and bound its dimensions from
-    // its contents.
     for (int y=0; y<40 /*64*/; y++)
     {
         for (int x=0; x<64; x++)
@@ -362,13 +422,14 @@ void print_map (byte index)
                 else c = 'X';
 
                 if (tile.special && tile.special < 10) c = '0' + tile.special;
-                if (tile.special > 10) c = 'A' + tile.special;
+                if (tile.special > 10) c = 'A' + tile.special - 10;
 
                 if (tile.special == 5) c = '.';
 
                 if (tile.teleport_mode == 1) c = '^';
                 if (tile.teleport_mode == 2) c = 'T';
                 if (tile.teleport_mode == 3) c = '#';
+
             }
             
             putchar(c);
@@ -377,19 +438,234 @@ void print_map (byte index)
     }
 }
 
+void print_dist_map (byte index)
+{
+    const double SCALE = 1.0/30.0;
 
+    assert(index < 64);
+    for (int y=0; y<40 /*64*/; y++) {
+        for (int x=0; x<64; x++) {
+            unsigned raw_dist = sm_unexplored_dist[index][y][x];
+            unsigned dist = lround(ceil(raw_dist*SCALE));
+            unsigned c = ' ';
+            if (mapdata[index][y][x].explored)
+            {
+                if (dist >= 0) c = '0' + dist;
+                if (dist > 9) c = 'A' + dist-10;
+                if (c > 'Z') c = c + 'a' - 'A';
+                if (c > 'z') c = '!';
+
+                if (!mapdata[index][y][x].walkable)
+                {
+                    c = '*';
+                }
+            }
+            putchar(c);
+        }
+        putchar('\n');
+    }
+
+}
+
+unsigned min_u (unsigned a, unsigned b) { return a<b? a : b; }
+unsigned max_u (unsigned a, unsigned b) { return a<b? b : a; }
+
+// If not a goal, returns NOT_A_GOAL. Othewise, lower return values
+// indicate higher priority.
+#define NOT_A_GOAL 0xFEFEFEFE
+//#define NOT_A_GOAL 0xFFFFFFFF
+
+struct goalstuff
+{
+    unsigned some_number;
+    bool walking_only;
+    bool action_goal;
+};
+
+struct goalstuff is_goal_tile (unsigned map_index, unsigned y, unsigned x)
+{
+    assert(map_index < 0x40);
+
+    struct tileprop prop = mapdata[map_index&0x3F][y&0x3F][x&0x3F];
+
+    // Walk toward unexplored areas
+    if (!prop.explored) {
+        struct goalstuff tmp = { .some_number = 0, .walking_only = true, .action_goal = false };
+        return tmp;
+    }
+
+    // Walk toward unopened chests
+    if (prop.special == SPEC_TREASURE) {
+        byte flags = getbyte(var_game_flags + prop.arg);
+        //printf("is goal? treasure %X flags=%X\n", prop.arg, flags);
+        if (!(flags & GMFLG_TCOPEN)) {
+            // Walk to unopened chests
+            struct goalstuff tmp = { .some_number = 0, .walking_only = false, .action_goal = true };
+            return tmp;
+        }
+    }
+
+    struct goalstuff tmp = { .some_number = NOT_A_GOAL, .walking_only = true, .action_goal = false };
+    return tmp;
+}
+
+/// Returns cost for stepping on to this tile
+unsigned get_tile_cost (struct tileprop prop)
+{
+    const unsigned COST_WALK_SAFE = 1; /* Walk one tile with no encounters */
+    const unsigned COST_WALK_UNSAFE = 30; /* Walk one tile with chance of encounter - probably should be higher*/
+    const unsigned COST_WALK_SPIKED = COST_WALK_UNSAFE * 15;
+
+    unsigned cost = COST_WALK_SAFE;
+
+    if (prop.special == SPEC_BATTLE) {
+        cost = (prop.arg & 128)? COST_WALK_SPIKED : COST_WALK_UNSAFE;
+    }
+
+    return cost;
+}
+
+bool is_passable (struct tileprop prop)
+{
+    return (prop.walkable && !prop.teleport_mode)
+        || prop.special == SPEC_DOOR
+//        || prop.special == SPEC_CLOSEROOM
+//        || (prop.special == SPEC_LOCKED && getbyte(var_item_mystickey)) 
+        ;
+}
+
+void hack_iterate_pathing (byte map_index)
+{
+    //fprintf(stderr, "map iteration for %u\n", map_index);
+    
+    if (sm_need_timestamp[map_index] != sm_updated_timestamp[map_index])
+    {
+        memset(&sm_unexplored_dist[map_index], 254, sizeof(sm_unexplored_dist[map_index]));
+        sm_need_timestamp[map_index] = sm_updated_timestamp[map_index];
+        /* WRONG-ISH: Update timestamp when recompute is complete? Or
+         not, fuck it.  But the actual point was to know when we were
+         done and could go back to sleep.*/
+    }
+    
+    for (unsigned y=0; y<64; y++) {
+        for (unsigned x=0; x<64; x++) {
+            unsigned *outptr = &sm_unexplored_dist[map_index][y][x];
+            struct tileprop prop = mapdata[map_index][y][x];
+
+            unsigned tmp = *outptr;
+            unsigned cost = get_tile_cost(prop);
+            
+            if (is_passable(prop)) {
+                    
+                // Is a goal adjacent?
+                tmp = min_u(tmp, is_goal_tile(map_index,y,x+1).some_number);
+                tmp = min_u(tmp, is_goal_tile(map_index,y,x-1).some_number);
+                tmp = min_u(tmp, is_goal_tile(map_index,y+1,x).some_number);
+                tmp = min_u(tmp, is_goal_tile(map_index,y-1,x).some_number);
+                                    
+                // Add cost and propagate..
+                tmp = min_u(tmp, cost + sm_unexplored_dist[map_index][y][(x+1)&0x3F]);
+                tmp = min_u(tmp, cost + sm_unexplored_dist[map_index][y][(x-1)&0x3F]);
+                tmp = min_u(tmp, cost + sm_unexplored_dist[map_index][(y+1)&0x3F][x]);
+                tmp = min_u(tmp, cost + sm_unexplored_dist[map_index][(y-1)&0x3F][x]);
+            }
+
+            *outptr = tmp;
+        }
+    }
+}
+
+void follow_gradient (byte map_index, byte y, byte x)
+{
+    assert(map_index < 64);
+    assert(x < 64);
+    assert(y < 64);
+
+    unsigned here = sm_unexplored_dist[map_index][y][x];
+
+    controller_output = 0;
+    if (sm_unexplored_dist[map_index][(y-1)&0x3F][x] < here) controller_output = 0x10;
+    if (sm_unexplored_dist[map_index][(y+1)&0x3F][x] < here) controller_output = 0x20;
+    if (sm_unexplored_dist[map_index][y][(x-1)&0x3F] < here) controller_output = 0x40;
+    if (sm_unexplored_dist[map_index][y][(x+1)&0x3F] < here) controller_output = 0x80;
+
+    if (controller_output) printf("Seeking... ctrl=%X\n", controller_output);
+}
+
+// facing          = $33  ; 1=R  2=L  4=D  8=U
+void face_and_act__up()
+{
+    controller_output = 0x10;
+    if (getbyte(var_facing) == 8) controller_output |= 1;
+}
+
+void face_and_act__down()
+{
+    controller_output = 0x20;
+    if (getbyte(var_facing) == 4) controller_output |= 1;
+}
+
+void face_and_act__left()
+{
+    controller_output = 0x40;
+    if (getbyte(var_facing) == 2) controller_output |= 1;
+}
+
+void face_and_act__right()
+{
+    controller_output = 0x80;
+    if (getbyte(var_facing) == 1) controller_output |= 1;
+}
+
+void follow_gradient_and_do_shit (byte map_index, byte y, byte x)
+{
+    controller_output = 0;
+    printf("fgados...\n");
+
+    if (is_goal_tile(map_index,y-1,x).action_goal) {        
+        face_and_act__up();
+        return;
+    }
+
+    if (is_goal_tile(map_index,y+1,x).action_goal) {
+        face_and_act__down();
+        return;
+    }
+
+    if (is_goal_tile(map_index,y,x-1).action_goal) {
+        face_and_act__left();
+        return;
+    }
+
+    if (is_goal_tile(map_index,y,x+1).action_goal) {
+        face_and_act__right();
+        return;
+    }
+
+    // Otherwise..
+    follow_gradient(map_index, y, x);
+}
+
+#define zeromem(var) memset(&var, 0, sizeof(var))
 
 void* ag_main (void *ctx)
 {
     printf("AlphaGoat running...\n");
-    memset(mapdata, 0, sizeof(mapdata));
+
+    zeromem(mapdata);
+    zeromem(sm_unexplored_dist);
+    zeromem(sm_updated_timestamp);
+    zeromem(sm_need_timestamp);
 
     while (!do_ag_shutdown)
     {
-        //fprintf(stderr, "game_mode = %u\n", (unsigned)game_mode);
+        controller_output = 0;
+        ai_timestamp++;
 
-        print_stuff();
-        printf("\n");
+        fprintf(stderr, "game_mode = %u\n", (unsigned)game_mode);
+
+        //print_stuff();
+        //printf("\n");
 
         if (game_mode == FF_OVERWORLD_MODE)
         {
@@ -412,6 +688,7 @@ void* ag_main (void *ctx)
             if (cur_map > 63) continue;
             printf("Map mode cur_map=%u at %02X,%02X\n", cur_map, sx, sy);
 
+            bool need_pathing_update = false;
             for (int y=-5; y<=6; y++)
             {
                 for (int x=-6; x<=7; x++)
@@ -420,14 +697,45 @@ void* ag_main (void *ctx)
                     byte ty = (sy+7+y) & 0x3F;
 
                     //printf("%02X ", get_sm_tile((sx+7+x) & 0x3F, (sy+7+y) & 0x3F));
-                    byte prop = get_sm_tile((sx+7+x) & 0x3F, (sy+7+y) & 0x3F);
+                    byte prop = get_sm_tile((sx+7+x) & 0x3F, (sy+7+y) & 0x3F, 0);
+                    byte arg = get_sm_tile((sx+7+x) & 0x3F, (sy+7+y) & 0x3F, 1);
                     struct tileprop here = decode_sm_tile(prop);
-                    mapdata[cur_map][ty][tx] = merge_tileprop(mapdata[cur_map][ty][tx], here);
+                    here.arg = arg;
+
+                    // HMM: Should I fetch relevant gameflags and store them in the tileprop?
+                    if (here.special == SPEC_TREASURE)
+                    {
+                        printf("Treasure %02X,%02X: %u flags=%02X\n", tx, ty, arg, getbyte(var_game_flags + arg));
+                    }
+                    
+                    struct tileprop merged = merge_tileprop(mapdata[cur_map][ty][tx], here);
+                    if (memcmp(&mapdata[cur_map][ty][tx], &merged, sizeof(struct tileprop)))
+                    {
+                        mapdata[cur_map][ty][tx] = merged;
+                        need_pathing_update = true;
+                    }
                 }
                 //printf("\n");
             }
 
-            print_map(cur_map);
+            static unsigned wait_counter = 0;
+            if (!(++wait_counter & 0x01F)) {
+                // Periodically reupdate pathing just in case we missed a trigger
+                need_pathing_update = true;
+            }
+
+            if (need_pathing_update)
+            {
+                sm_need_timestamp[cur_map] = ai_timestamp;
+                printf("need pathing update!\n");
+            }
+
+            for (int i=0; i<1024; i++) hack_iterate_pathing(cur_map);
+
+            //print_map(cur_map);
+            print_dist_map(cur_map);
+
+            follow_gradient_and_do_shit(cur_map, (sy+7)&0x3F, (sx+7)&0x3F);
         }
 
         if (game_mode == FF_BATTLE_MAIN_COMMAND)
@@ -453,6 +761,36 @@ void* ag_main (void *ctx)
             }
             continue;
                                                          
+        }
+
+        if (game_mode == FF_POPUP_WAIT)
+        {
+            printf("Popup wait\n");
+
+            if (controller_output) {
+                controller_output = 0;
+                sleep_frames(1);
+            }
+            
+            controller_output = 1;
+            sleep_frames(1);
+            controller_output = 0;
+
+            unsigned sleep_interval = 2;
+            while (game_mode == FF_POPUP_WAIT)
+            {
+                printf("still waiting... gm=%u\n", game_mode);
+                sleep_frames(sleep_interval);
+/*
+                //controller_output = 1;
+                sleep_frames(1);
+                controller_output = 0;
+                sleep_interval *= 2;
+                if (sleep_interval > 60) sleep_interval = 60;
+*/
+            }
+
+            printf("finally closed!\n");
         }
 
         game_mode = FF_WUT;

@@ -395,12 +395,19 @@ draw_buf_at_msk = draw_buf + 0x70
 
 #define var_game_flags       UNSRAM + 0x0200  // must be on page bound
 
-// Out of battle, spell data is stored stupidly so valid values are only 00-08, where 01 to 08 are actual spells
-//   and 00 is 'empty'.  Each spell is conceptually in a "slot" that belongs to each spell level.  Therefore,
-//   both CURE and LAMP are stored as '01' because they're both the first spell in their level, but because
-//   they're in a different level slot, the game distinguishes them.
-// In battle, fortunately, that is thrown out the window (why does it do it at all?) and the spells are stored
-//   in a logical 1-based index where the level simply doesn't matter.
+#define GMFLG_OBJVISIBLE 1
+#define GMFLG_EVENT 2
+#define GMFLG_TCOPEN 4
+
+// Out of battle, spell data is stored stupidly so valid values are
+// only 00-08, where 01 to 08 are actual spells and 00 is 'empty'.
+// Each spell is conceptually in a "slot" that belongs to each spell
+// level.  Therefore, both CURE and LAMP are stored as '01' because
+// they're both the first spell in their level, but because they're in
+// a different level slot, the game distinguishes them.  In battle,
+// fortunately, that is thrown out the window (why does it do it at
+// all?) and the spells are stored in a logical 1-based index where
+// the level simply doesn't matter.
 
 #define var_ch_magicdata     UNSRAM + 0x0300  // must be on page bound
   /* ch_spells       = ch_magicdata */
