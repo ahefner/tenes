@@ -425,6 +425,9 @@ void process_events (struct inputctx *input)
 
 unsigned frame_start_cycles = 0;
 
+long long frame_times_usec[256];
+unsigned frame_times_index = 0;
+
 void runframe (void)
 {
     unique_frame_number++;
@@ -449,6 +452,14 @@ void runframe (void)
     }
 
     time_frame_start = usectime();
+    frame_times_usec[frame_times_index & 0xFF] = time_frame_start;
+    if (0xFF == (frame_times_index & 0xFF))
+    {
+        long long delta = frame_times_usec[255] - frame_times_usec[0];
+        printf("%0.1f FPS\n", 1.0 / (delta / 256.0 / 1.0e6));
+    }
+    frame_times_index++;
+
     while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
     frame_start_samples = buffer_high;
     frame_start_cycles = nes.cpu.Cycles;
@@ -543,6 +554,8 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
     if (cfg_mount_fs) fs_mount(cfg_mountpoint);
 #endif
 
+
+    memset(frame_times_usec, 0, sizeof(frame_times_usec));
     time_frame_target = usectime();
 
     while (running) {
