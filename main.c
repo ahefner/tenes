@@ -19,6 +19,8 @@
 #include "ui.h"
 #include "timer.h"
 
+#include "ag.h"
+
 
 int hold_button_a = 0;
 

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <assert.h>
+#include <math.h>
 #include "ag.h"
 #include "ff1_vars.h"
 
@@ -25,7 +26,7 @@ enum FFGameMode
     FF_POPUP_WAIT = 6
 } volatile game_mode = FF_WUT;
 
-static do_ag_shutdown = false;
+static bool do_ag_shutdown = false;
 
 static unsigned controller_output = 0;
 
