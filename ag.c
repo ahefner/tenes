@@ -61,8 +61,46 @@ void ag_note_pc (word pc)
         break;
 
     case 0x9A2C:
-        //printf("PrepAndGetBattleMainCommand\n");
-        game_mode = FF_BATTLE_MAIN_COMMAND;
+        printf("PrepAndGetBattleMainCommand\n");
+        // PrepAndGetBattleMainCommand is the wrong place for this!
+        // Is it? Yes. This is hit once while we wait for main menu
+        // input. Ideally we want something called continuously while
+        // waiting for input.
+        //game_mode = FF_BATTLE_MAIN_COMMAND;
+        break;
+
+    case 0x94E6:
+        printf("BattleSubMenu_Fight\n");
+        break;
+
+    case 0x94F5:
+        printf("BattleSubMenu_Magic\n");
+        break;
+
+        //case 0x95F5:                /* Vanilla address? */
+    case 0x95EC:                /* Randomizer address */
+        printf("BattleSubMenu_Drink\n");
+        break;
+
+    case 0x9679:
+        printf("BattleSubMenu_Item\n");
+        break;
+
+    case 0x9496:
+        printf("InputCharacterBattleCommand\n");
+        break;
+
+    case 0xA352:
+        printf("Battle_DoTurn  [$A352 :: 0x32362]  entity=%X\n", nes.cpu.A);
+        // output: battle_defenderisplayer, battle_defender_index, btl_defender_ailments
+        break;
+
+    case  0xA4BA:
+        printf("PlayerAttackEnemy_Physical  [$A4BA :: 0x324CA]  attacker=%X defender=%X\n", nes.cpu.A, nes.cpu.X);
+        break;
+
+    case 0xA67B:
+        printf("DoPhysicalAttack\n");
         break;
 
     case 0xD641:
@@ -405,7 +443,7 @@ struct tileprop merge_tileprop(struct tileprop a, struct tileprop b)
     }
 
     // Is there anything I'll ever want to do here, or am I just being overly fancy?
-    
+    // (the latter)
     return b;
 }
 
@@ -663,7 +701,7 @@ void* ag_main (void *ctx)
         controller_output = 0;
         ai_timestamp++;
 
-        fprintf(stderr, "game_mode = %u\n", (unsigned)game_mode);
+        // fprintf(stderr, "game_mode = %u\n", (unsigned)game_mode);
 
         //print_stuff();
         //printf("\n");
@@ -745,7 +783,7 @@ void* ag_main (void *ctx)
                    getbyte(var_btlcmd_curchar),
                    getbyte(var_btlcmd_target));
             //tap_a();
-            usleep(1000 * 100);
+
 //            game_mode = 0;
 
             // Note that there's a separate copy of character stats in
@@ -760,8 +798,12 @@ void* ag_main (void *ctx)
                 printf("enemy %2i: %i HP id=%u\n",
                        i, getword(addr+2), getbyte(addr+0x11));
             }
+
+            if (getbyte(var_btlform_norun) & 1) printf("UNRUNNABLE!\n");
+
+            printf("battle cursor %i,%i\n", getbyte(var_btlcurs_x), getbyte(var_btlcurs_y));
+            usleep(1000 * 100);
             continue;
-                                                         
         }
 
         if (game_mode == FF_POPUP_WAIT)

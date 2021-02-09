@@ -638,9 +638,12 @@ btlinput_prevstate  = 0x6AA6     // prev state for input
 inputdelaycounter   = 0x6AA7     // counter to delay multiple-input processing when holding a direction
 
 btl_animatingchar   = 0x6AA9     // the character currently being animated (0-3)
+#endif
 
-btlcurs_x           = 0x6AAA     // battle cursor X position (menu position, not pixel position)
-btlcurs_y           = 0x6AAB     // battle cursor Y position (menu position, not pixel position)
+#define var_btlcurs_x           0x6AAA     // battle cursor X position (menu position, not pixel position)
+#define var_btlcurs_y           0x6AAB     // battle cursor Y position (menu position, not pixel position)
+
+#if 0
 btlcurs             = 0x6AAA
 btlcurs_max         = 0x6AAB     // highest value for the cursor
 btlcurs_positions   = 0x6AAC     // ?? bytes, 2 bytes per entry, each entry is the pixel coord of where the
@@ -786,24 +789,25 @@ btl_stringbuf   = 0x6D54   // 0x20 byte buffer to contain string data for printi
 
 btltmp_backseat = 0x6D74   // 0x10 byte buffer -- backup of btltmp
 
-
-btl_formdata    = 0x6D84   // 0x10 bytes (formation data as appears in ROM)
-    btlform_type    = btl_formdata+0x0   // battle type (high 4 bits) -- low 4 bits are pattern table
-    btlform_engfx   = btl_formdata+0x1   // graphic assignment (2 bits per enemy)
-    btlform_enids   = btl_formdata+0x2   // enemy IDs (4 bytes)
-    btlform_enqty   = btl_formdata+0x6   // enemy quantities (4 bytes)
-    btlform_plts    = btl_formdata+0xA   // palettes for this battle (2 bytes)
-    btlform_surprise= btl_formdata+0xC   // surprise rate
-    btlform_enplt   = btl_formdata+0xD   // enemy palette assign (in high 4 bits)
-    btlform_norun   = btlform_enplt     // no run flag (in low bit)
-    btlform_enqtyB  = btl_formdata+0xE   // enemy quantities for B formation (2 bytes)
-
-
 // btlsfx_backseat   = 0x6D97
 
 btlmag_playerhitsfx = 0x6DA7     // sound effect to play when magic hits player
 btltmp_smallslotpos = 0x6DB0
 #endif
+
+#define var_btl_formdata    0x6D84   // 0x10 bytes (formation data as appears in ROM)
+#define    var_btlform_type     ( var_btl_formdata+0x0 )   // battle type (high 4 bits) -- low 4 bits are pattern table
+#define    var_btlform_engfx    ( var_btl_formdata+0x1 )   // graphic assignment (2 bits per enemy)
+#define    var_btlform_enids    ( var_btl_formdata+0x2 )   // enemy IDs (4 bytes)
+#define    var_btlform_enqty    ( var_btl_formdata+0x6 )   // enemy quantities (4 bytes)
+#define    var_btlform_plts     ( var_btl_formdata+0xA )   // palettes for this battle (2 bytes)
+#define    var_btlform_surprise ( var_btl_formdata+0xC )   // surprise rate
+#define    var_btlform_enplt    ( var_btl_formdata+0xD )   // enemy palette assign (in high 4 bits)
+#define    var_btlform_norun    ( var_btlform_enplt )     // no run flag (in low bit)
+#define    var_btlform_enqtyB   ( var_btl_formdata+0xE )   // enemy quantities for B formation (2 bytes)
+
+
+
 
 #define var_mapobj           0x6F00   // 0x100 bytes -- page
 #define var_mapobj_id       mapobj + 0x00  // rearranging these is ill advised
