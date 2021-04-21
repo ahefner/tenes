@@ -15,12 +15,7 @@
 #define M6502_H
 
                                /* Compilation options:       */
-/* #define FAST_RDOP */        /* Separate Op6502()/Rd6502() */
-
-/* Define this if you want the instruction tracing counts to be useful */
-/* Otherwise it slows things down. */
-/* #define FAST_RDOP
-*/
+#define FAST_RDOP              /* Separate Op6502()/Rd6502() */
 
 #define MASTER_CLOCK_DIVIDER 120
 

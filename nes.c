@@ -1,9 +1,9 @@
-
 #define NES_C
 
 #include <assert.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <math.h>
 #include "sys.h"
 #include "nes.h"
 #include "sound.h"
@@ -12,6 +12,10 @@
 #include "config.h"
 #include "global.h"
 #include "mapper_info.h"
+
+void lulz_draw_particles(unsigned line);
+void lulz_pc_hook(word Addr);
+void lulz_hook_846C(void);
 
 /* init_nes - initializes a nes_machine struct that already had it's rom member set properly */
 /*            after this, an nes_reset is all it should take to start the first frame.       */
@@ -841,6 +845,11 @@ byte InnerRd6502 (register word Addr);
 
 byte Op6502 (register word Addr)
 {
+  //  if ((Addr == 0x901B) || (Addr==0x846C))  printf("%04X\n", Addr);
+  //if ((Addr == 0x901B)) nes.cpu.Trace = 1;
+
+  lulz_pc_hook(Addr);
+  
 #ifdef INSTRUCTION_TRACING
   tracing_counts[Addr][COUNT_EXEC]++;
 #endif
@@ -1029,8 +1038,12 @@ static void finish_scanline_rendering (void)
 {
     catchup_emphasis_to_x(256);
     assert(tv_scanline < SCREEN_HEIGHT);
-    memcpy(&frame_buffer[0][tv_scanline][0], color_buffer, 256);
-    memcpy(&frame_buffer[1][tv_scanline][0], emphasis_buffer, 256);
+
+    lulz_draw_particles(tv_scanline);
+    
+    //    memcpy(&frame_buffer[0][tv_scanline][0], color_buffer, 256);
+    //memcpy(&frame_buffer[1][tv_scanline][0], emphasis_buffer, 256);
+
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
     rendering_scanline = 0;
 
@@ -1267,4 +1280,395 @@ void note_brk (void)
             break;
         }
     }
+}
+
+// ------------------------------------------------------------
+// DUMB STUFF
+
+unsigned overlay_buf[256][256];
+int particles_enabled = 0;
+
+#define MAX_PARTICLES 1024
+
+struct particle
+{
+  float x,y,z;
+  float vx,vy,vz;
+  unsigned color;
+} particles[MAX_PARTICLES];
+
+int layer_back[16][8] =
+  {{0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,1,1,1},
+   {0,0,0,0,1,1,1,1},
+   {0,0,0,1,1,1,1,1},
+   {0,0,0,1,1,1,1,1},
+   {0,0,1,1,1,1,1,1},
+   {0,0,1,1,1,1,1,1},
+   {0,1,1,1,1,1,1,1},
+   {0,1,1,1,1,1,1,1},
+   {0,1,1,1,1,1,1,1},
+   {0,1,1,1,1,1,1,1},
+   {0,1,1,1,1,1,1,1},   
+   {0,0,0,1,1,1,1,1},
+   {0,0,0,1,1,1,1,0},
+   {0,0,0,1,1,1,1,0},
+   {0,0,0,0,1,1,1,0}};
+
+int layer_skull[11][8] =
+  {{0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,1,1,1},
+   {0,0,0,0,1,1,1,1},
+   {0,0,0,0,1,1,1,1},
+   {0,0,0,1,1,1,1,1},
+   {0,0,0,1,1,2,2,1},
+   {0,0,0,1,1,2,2,1},
+   {0,0,0,1,1,1,1,2},
+   {0,0,0,0,1,1,1,1},
+   {0,0,0,0,0,1,2,2},   
+   {0,0,0,0,0,1,1,1}};
+
+int layer_bones[16][8] =
+  {{0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,2,0,1,1,1,1},
+   {0,0,2,0,0,0,0,0},
+   {0,0,2,0,1,1,1,0},
+   {0,0,0,0,0,0,0,0},
+   {0,0,0,0,1,1,1,0},
+   {0,0,0,0,0,2,0,0},
+   {0,0,0,0,0,2,0,0}};
+
+float urnd()
+{
+    return rand() / (float)RAND_MAX;
+}
+
+void enable_particles (int val)
+{
+  if (val && !particles_enabled) {
+    printf("Enabled particles %04X\n", (unsigned)nes.cpu.PC.W-1);
+  }
+
+  if (!val && particles_enabled) {
+    printf("Disabled particles %04X\n", (unsigned)nes.cpu.PC.W-1);
+  }
+
+  particles_enabled = !!val;
+}
+
+void lulz_pc_hook (word Addr)
+{
+  switch (Addr) {
+
+  case 0x846C:                  /* talk_kill hook */
+    lulz_hook_846C();
+    break;
+
+    /* Disable particles on overworld */
+  case 0xC0D1:                  /* EnterOverworldLoop also not hit */
+  case 0xC23C:                  /* ProcessOWInput.. Not hit.. */
+  case 0xC30F:                  /* load tile data.. ALSO NOT HIT.. */
+  case 0xC346:                  /* ?? */
+    memset(particles, 0, sizeof(particles));
+    enable_particles(0);
+    break;
+
+  case 0xC9C4:                  /* Enable particles on standard map */
+    enable_particles(1);
+    break;
+
+              
+  case 0xD641:                  /* Disable particles in dialog popup */
+  case 0xD64D:
+  case 0xD653:
+  case 0xD602:
+    enable_particles(0);
+    break;
+
+  default: break;
+  }
+}
+
+
+void lulz_hook_846C(void)
+{
+  printf("%02X %02X %02X %02X %02X\n",
+         InnerRd6502(0x846C),
+         InnerRd6502(0x846C+1),
+         InnerRd6502(0x846C+2),
+         InnerRd6502(0x846C+3),
+         InnerRd6502(0x846C+4));
+
+  // Are we in the right bank? Are we even in the right game?
+  if (!( InnerRd6502(0x846C+0) == 0xA0
+      && InnerRd6502(0x846C+1) == 0x00
+      && InnerRd6502(0x846C+2) == 0x20
+      && InnerRd6502(0x846C+3) == 0x96
+      && InnerRd6502(0x846C+4) == 0x90))
+  {
+      return;
+  }
+  
+  const byte sm_scroll_x = InnerRd6502(0x29);
+  const byte sm_scroll_y = InnerRd6502(0x2A);
+
+  const byte move_ctr_x = InnerRd6502(0x35);
+  const byte move_ctr_y = InnerRd6502(0x36);
+
+  const byte idx = nes.cpu.X;
+  const byte gfx_x = InnerRd6502(0x6F04 + idx);
+  const byte gfx_y = InnerRd6502(0x6F05 + idx);
+  const byte ctr_x = InnerRd6502(0x6F06 + idx);
+  const byte ctr_y = InnerRd6502(0x6F07 + idx);
+
+  const int player_offset_x = 7;
+  const int player_offset_y = 7;
+
+  const unsigned mapobj_id = InnerRd6502(0x6F00 + idx);
+  
+  const unsigned DwarfcaveDwarfHurray = 99;
+  if (mapobj_id != DwarfcaveDwarfHurray) return;
+      
+  printf("party time! player at %u.%u,%u.%u obj index=%u id=%u %u.%u,%u.%u\n",
+         sm_scroll_x + player_offset_x, move_ctr_x,
+         sm_scroll_y + player_offset_y, move_ctr_y,
+         idx, mapobj_id,
+         gfx_x, ctr_x,
+         gfx_y, ctr_y);
+
+  int x0 = gfx_x * 16 + ctr_x;
+  int y0 = gfx_y * 16 + ctr_y + 16;
+
+  memset(particles, 0, sizeof(particles));
+
+  // Ensure particles are disabled here, as we're called in the dialog
+  // popup and the character sprite is still on the screen.  Construct
+  // the particles now, then let the standard map input loop enable
+  // the particles for display/animation once we exit the dialog.
+  enable_particles(0);
+
+  unsigned pidx = 0;
+
+  // Lots of blood
+  for (int dy=0; dy<16; dy++) {
+    for (int dx=0; dx<8; dx++) {
+
+      for (int i=0; i<5; i++) {
+
+        const float angle = urnd() * 2.0 * M_PI;
+        const float r = 0.2 * urnd();
+        float vx = sin(angle) * r + 0.3*(8.0-dx)/20.0;
+        float vy = cos(angle) * r * 0.3;
+        float vz = 0.0; //(20-dy)/10.0;
+
+        if (i > 1) {
+          vz = ((20-dy)/20.0 + urnd()*0.5) * 0.2;
+          vx *= 0.7;
+          vy *= 0.7;
+        }
+
+        if (i > 1) {
+          vz = ((20-dy)/20.0 + urnd()*0.5) * 0.4;
+          vx *= 0.7;
+          vy *= 0.7;
+        }        
+
+        if (layer_back[dy][dx]) {
+          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10) };
+          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10) };
+        }
+      }
+    }
+  }
+
+  // Skull
+  for (int dy=0; dy<11; dy++) {
+    for (int dx=0; dx<8; dx++) {
+      int tmp = layer_skull[dy][dx];
+      int color = 0;
+      if (!tmp) continue;
+
+      switch (tmp) {
+      case 1:
+        color = 0x30;
+        break;
+      case 2:
+        color = 0x1D;
+        break;
+      default: break;
+      }
+
+      const float vx = 0;
+      const float vy = 0;
+      const float vz = 0.4;
+      
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color };
+      particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, vx, vy, vz, color };
+      
+    }
+  }
+
+  // Bones
+  for (int dy=0; dy<16; dy++) {
+    for (int dx=0; dx<8; dx++) {
+      int tmp = layer_bones[dy][dx];
+      if (!tmp) continue;
+
+      int color = 0;
+      float vx = 0;
+      float vy = 0;
+      float vz = 0;
+
+      switch (tmp) {
+      case 1:
+        vx = -0.2;
+        vy = urnd() * 0.1;
+        vz = 0.2 + 0.2 * urnd();
+        color = 0x10;
+        break;
+      case 2:
+        vx = -0.4;
+        vy = urnd() * 0.05;
+        vz = 0.1;        
+        color = 0x20;
+        break;
+      default: break;
+      }
+
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color };
+      particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, color };
+    }
+  }
+
+  // A little more blood in the foreground
+  for (int dy=9; dy<16; dy++) {
+    for (int dx=0; dx<8; dx++) {
+
+      for (int i=0; i<1; i++) {
+
+        const float angle = urnd() * 2.0 * M_PI;
+        const float r = 0.1 * urnd();
+        float vx = sin(angle) * r + 0.3*(8.0-dx)/20.0;
+        float vy = 0.03 + cos(angle) * r * 0.3;
+        float vz = urnd()*0.2 + (20-dy)*0.1;
+
+        if (i > 1) {
+          vz = ((20-dy)/20.0 + urnd()*0.5) * 0.2;
+          vx *= 0.7;
+          vy *= 0.7;
+        }
+
+        if (i > 1) {
+          vz = ((20-dy)/20.0 + urnd()*0.5) * 0.4;
+          vx *= 0.7;
+          vy *= 0.7;
+        }        
+
+        if (layer_back[dy][dx]) {
+          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10) };
+          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10) };
+        }
+      }
+    }
+  }
+
+  assert(pidx < MAX_PARTICLES);
+}
+
+// Called once per frame to update particle positions and render into overlay buffer
+void lulz_update_overlay()
+{
+  memset(overlay_buf, 0, sizeof(overlay_buf));
+
+  if (!particles_enabled) return;
+
+  const int magic_dx = 0;       /* Magic fudge factor to align game coordinates with display*/
+  const int magic_dy = -4;
+  
+  const byte sm_scroll_x = InnerRd6502(0x29);
+  const byte sm_scroll_y = InnerRd6502(0x2A);
+
+  const byte move_ctr_x = InnerRd6502(0x35);
+  const byte move_ctr_y = InnerRd6502(0x36);
+
+  int px = sm_scroll_x * 16 + move_ctr_x;
+  int py = sm_scroll_y * 16 + move_ctr_y;
+
+  if (px > 0x200) px -= 0x400;  /* good enough for dwarves.. */
+  if (py > 0x200) py -= 0x400;  /* good enough for dwarves.. */
+  //  printf("%i %i\n", px, py);
+
+  for (int i=0; i<MAX_PARTICLES; i++) {
+    if (!particles[i].color) continue;
+
+    // Render to overlay buffer
+    int x = lround(particles[i].x - px + magic_dx);
+    int y = lround(particles[i].y - particles[i].z - py + magic_dy);
+    if (x >=0 && x < 256 && y >= 0 && y < 256) {
+      overlay_buf[y][x] = particles[i].color;
+    }
+
+    // Update particle position
+    particles[i].x += particles[i].vx;
+    particles[i].y += particles[i].vy;
+    particles[i].z += particles[i].vz;
+
+    // Bounce
+    if (particles[i].z < 0) {
+      particles[i].z = -particles[i].z;
+      particles[i].vz = -particles[i].vz;
+
+      particles[i].vx *= 0.80;
+      particles[i].vy *= 0.35;
+
+      particles[i].vz *= 0.60;
+
+      // Don't bounce skull shadows
+      if (particles[i].color == 0x1D) particles[i].color = 0;
+      // Scatter skull fragments
+      if (particles[i].color == 0x30) {
+
+        if (particles[i].vz > 0.16) {
+          particles[i].vx += particles[i].vz * (urnd()-0.5) * 0.5;
+          particles[i].vy += particles[i].vz * (urnd()-0.5) * 0.2;
+        } else {
+          particles[i].z = 0;
+          particles[i].vx = 0;
+          particles[i].vy = 0;
+          particles[i].vz = 0;
+        }
+
+        // Randomly disappear the skull fragments on the ground
+        // if (!(rand()&0xF)) particles[i].color = 0;
+        // Or don't.
+
+      }
+    }
+
+    // Gravity
+    particles[i].vz -= 0.01;
+  }
+
+}
+
+
+void lulz_draw_particles(unsigned line)
+{
+  if (!line) lulz_update_overlay();
+  
+  if (line >= 256) return;
+
+  for (int i=0; i<256; i++) {
+    if (overlay_buf[line][i]) {
+      color_buffer[i] = overlay_buf[line][i];
+    }
+  }
 }
