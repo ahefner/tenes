@@ -48,7 +48,7 @@ const char *format_time (long long usecs)
     const long long minutes = seconds / 60;
     const long long hours = minutes / 60;
 
-    snprintf(buf, sizeof(buf), "%lli:%02lli:%02lli.%03lli",
+    snprintf(buf, sizeof(buf), "%lli:%02lli:%02lli.%02lli",
              hours,
              minutes % 60,
              seconds % 60,
