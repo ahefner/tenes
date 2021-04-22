@@ -52,7 +52,7 @@ const char *format_time (long long usecs)
              hours,
              minutes % 60,
              seconds % 60,
-             (usecs/1000) % 1000);
+             (usecs/10000) % 100);
 
     return buf;
 }
