@@ -1319,18 +1319,18 @@ int layer_back[16][8] =
    {0,0,0,1,1,1,1,0},
    {0,0,0,0,1,1,1,0}};
 
-int layer_skull[11][8] =
-  {{0,0,0,0,0,0,0,0},
-   {0,0,0,0,0,1,1,1},
-   {0,0,0,0,1,1,1,1},
-   {0,0,0,0,1,1,1,1},
-   {0,0,0,1,1,1,1,1},
-   {0,0,0,1,1,2,2,1},
-   {0,0,0,1,1,2,2,1},
-   {0,0,0,1,1,1,1,2},
-   {0,0,0,0,1,1,1,1},
-   {0,0,0,0,0,1,2,2},   
-   {0,0,0,0,0,1,1,1}};
+int layer_skull[11][16] =
+  {{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+   {0,0,0,0,0,3,3,3,3,3,3,0,0,0,0,0},
+   {0,0,0,0,3,1,1,3,3,3,3,3,0,0,0,0},
+   {0,0,0,0,3,1,1,1,3,3,3,4,0,0,0,0},
+   {0,0,0,3,1,1,1,1,3,1,3,4,4,0,0,0},
+   {0,0,0,3,3,2,2,3,3,2,2,3,4,0,0,0},
+   {0,0,0,3,3,2,2,1,1,2,2,3,3,0,0,0},
+   {0,0,0,3,4,1,1,2,2,3,3,3,3,0,0,0},
+   {0,0,0,0,4,3,3,1,1,3,4,4,0,0,0,0},
+   {0,0,0,0,0,3,2,2,2,2,2,3,0,0,0,0},   
+   {0,0,0,0,0,3,3,3,3,3,3,0,0,0,0,0}};
 
 int layer_bones[16][8] =
   {{0,0,0,0,0,0,0,0},
@@ -1495,7 +1495,7 @@ void lulz_hook_846C(void)
 
   // Skull
   for (int dy=0; dy<11; dy++) {
-    for (int dx=0; dx<8; dx++) {
+    for (int dx=0; dx<16; dx++) {
       int tmp = layer_skull[dy][dx];
       int color = 0;
       if (!tmp) continue;
@@ -1507,6 +1507,12 @@ void lulz_hook_846C(void)
       case 2:
         color = 0x1D;
         break;
+      case 3:
+        color = 0x10;
+        break;
+      case 4:
+        color = 0x2D;
+        break;
       default: break;
       }
 
@@ -1515,7 +1521,7 @@ void lulz_hook_846C(void)
       const float vz = 0.4;
       
       particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color };
-      particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, vx, vy, vz, color };
+      //    particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, vx, vy, vz, color };
       
     }
   }
@@ -1638,7 +1644,7 @@ void lulz_update_overlay()
       // Don't bounce skull shadows
       if (particles[i].color == 0x1D) particles[i].color = 0;
       // Scatter skull fragments
-      if (particles[i].color == 0x30) {
+      if (particles[i].color == 0x30 || particles[i].color == 0x20 || particles[i].color == 0x2D) {
 
         if (particles[i].vz > 0.16) {
           particles[i].vx += particles[i].vz * (urnd()-0.5) * 0.5;
