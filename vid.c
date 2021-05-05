@@ -245,6 +245,8 @@ static inline void render_tile (byte *dest, word v, word chrpage, int y_offset, 
     for (int j=x0; j<x1; j++) *dest++ = palette[resolve_index((tdata[j] & 0x3F) | attribute)] | (tdata[j] & 0x40);
 }
 
+void lulz_draw_particles(unsigned line);
+
 void render_scanline (void)
 {
     byte * const start = color_buffer;
@@ -297,7 +299,10 @@ void render_scanline (void)
     /* Clear left 8 pixels? */
     if (!(nes.ppu.control2 & 2)) memset(start, nes.ppu.vram[0x3F00] & 0x3F, 8);
 
-    if (nes.ppu.control2 & 0x10) scanline_render_sprites(start);
+    if (nes.ppu.control2 & 0x10) {
+        scanline_render_sprites(start);
+        lulz_draw_particles(tv_scanline);
+    }
 
     /* TV Borders - erase top 7 and bottom 8 lines */
     if ((tv_scanline < 7) || (tv_scanline >= 232)) memset(start, 63, 256);

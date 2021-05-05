@@ -1043,11 +1043,8 @@ static void finish_scanline_rendering (void)
     catchup_emphasis_to_x(256);
     assert(tv_scanline < SCREEN_HEIGHT);
 
-    lulz_draw_particles(tv_scanline);
+    //    lulz_draw_particles(tv_scanline);
     
-    //    memcpy(&frame_buffer[0][tv_scanline][0], color_buffer, 256);
-    //memcpy(&frame_buffer[1][tv_scanline][0], emphasis_buffer, 256);
-
     filter_output_line(tv_scanline, color_buffer, emphasis_buffer);
     rendering_scanline = 0;
 
