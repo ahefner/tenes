@@ -1296,6 +1296,7 @@ struct particle
   float x,y,z;
   float vx,vy,vz;
   unsigned color;
+  enum { P_NONE = 0, P_GORE, P_SKULL, P_SHADOW, P_BUBBLE, P_BUBBLE_BIG } type;
 } particles[MAX_PARTICLES];
 
 int layer_back[16][8] =
@@ -1346,6 +1347,25 @@ int layer_bones[16][8] =
    {0,0,0,0,1,1,1,0},
    {0,0,0,0,0,2,0,0},
    {0,0,0,0,0,2,0,0}};
+
+char layer_mermaid[16][16] =
+  {"   11 1111      ",
+   "  11*111111     ",
+   "  1*11111111    ",
+   "  1 11.11111    ",
+   "  1 1...1111    ",
+   "   1 . .. .     ",
+   "   1 . .. .     ",
+   "      ....      ",
+   "     .    .     ",
+   ".  ..........  .",
+   " ...  ....  ... ",
+   "       ..       ",
+   "      0000    * ",
+   "      0*0*0  ** ",
+   "      *0*0******",
+   "       *****    "};
+   
 
 float urnd()
 {
@@ -1399,6 +1419,9 @@ void lulz_pc_hook (word Addr)
 }
 
 
+void dwarf_gore(int x0, int y0);
+void mermaid_gore(int x0, int y0);
+
 void lulz_hook_846C(void)
 {
   printf("%02X %02X %02X %02X %02X\n",
@@ -1436,7 +1459,7 @@ void lulz_hook_846C(void)
   const unsigned mapobj_id = InnerRd6502(0x6F00 + idx);
   
   const unsigned DwarfcaveDwarfHurray = 99;
-  if (mapobj_id != DwarfcaveDwarfHurray) return;
+  //if (mapobj_id != DwarfcaveDwarfHurray) return;
       
   printf("party time! player at %u.%u,%u.%u obj index=%u id=%u %u.%u,%u.%u\n",
          sm_scroll_x + player_offset_x, move_ctr_x,
@@ -1448,14 +1471,30 @@ void lulz_hook_846C(void)
   int x0 = gfx_x * 16 + ctr_x;
   int y0 = gfx_y * 16 + ctr_y + 16;
 
-  memset(particles, 0, sizeof(particles));
+  if (mapobj_id == DwarfcaveDwarfHurray) {
 
-  // Ensure particles are disabled here, as we're called in the dialog
-  // popup and the character sprite is still on the screen.  Construct
-  // the particles now, then let the standard map input loop enable
-  // the particles for display/animation once we exit the dialog.
-  enable_particles(0);
+      memset(particles, 0, sizeof(particles));
 
+      // Ensure particles are disabled here, as we're called in the dialog
+      // popup and the character sprite is still on the screen.  Construct
+      // the particles now, then let the standard map input loop enable
+      // the particles for display/animation once we exit the dialog.
+      enable_particles(0);
+    
+    dwarf_gore(x0,y0);
+    return;
+  }
+
+  if ((mapobj_id >= 163) && (mapobj_id <= 172)) {
+    memset(particles, 0, sizeof(particles));
+    enable_particles(0);    
+    mermaid_gore(x0,y0);
+    return;
+  }
+}
+
+void dwarf_gore(int x0, int y0)
+{
   unsigned pidx = 0;
 
   // Lots of blood
@@ -1483,8 +1522,8 @@ void lulz_hook_846C(void)
         }        
 
         if (layer_back[dy][dx]) {
-          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10) };
-          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10) };
+          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10), P_GORE };
+          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10), P_GORE };
         }
       }
     }
@@ -1495,6 +1534,7 @@ void lulz_hook_846C(void)
     for (int dx=0; dx<16; dx++) {
       int tmp = layer_skull[dy][dx];
       int color = 0;
+      int type = P_SKULL;
       if (!tmp) continue;
 
       switch (tmp) {
@@ -1503,6 +1543,7 @@ void lulz_hook_846C(void)
         break;
       case 2:
         color = 0x1D;
+        type = P_SHADOW;
         break;
       case 3:
         color = 0x10;
@@ -1517,9 +1558,7 @@ void lulz_hook_846C(void)
       const float vy = 0;
       const float vz = 0.4;
       
-      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color };
-      //    particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, vx, vy, vz, color };
-      
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color, type };
     }
   }
 
@@ -1550,8 +1589,8 @@ void lulz_hook_846C(void)
       default: break;
       }
 
-      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color };
-      particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, color };
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color, P_GORE };
+      particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, color, P_GORE };
     }
   }
 
@@ -1580,8 +1619,8 @@ void lulz_hook_846C(void)
         }        
 
         if (layer_back[dy][dx]) {
-          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10) };
-          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10) };
+          particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, 0x05 | (rand() & 0x10), P_GORE };
+          particles[pidx++] = (struct particle){ x0+(15-dx), y0, 16-dy, -vx, vy, vz, 0x05 | (rand() & 0x10), P_GORE };
         }
       }
     }
@@ -1589,6 +1628,86 @@ void lulz_hook_846C(void)
 
   assert(pidx < MAX_PARTICLES);
 }
+
+void mermaid_gore (int x0, int y0)
+{
+  unsigned pidx = 0;
+  for (int dy=0; dy<16; dy++) {
+    for (int dx=0; dx<16; dx++) {
+      int tmp = layer_mermaid[dy][dx];
+      int color = 0;
+      int type = P_BUBBLE;
+      if (!tmp) continue;
+
+      switch (tmp) {
+      case '1':
+        color = 0x28;
+        break;
+      case '*':
+        color = 0x15;
+        break;
+      case '.':
+        color = 0x37;
+        break;
+      case '0':
+        color = 0x24;
+        break;
+      default: break;
+      }
+
+      const float vx = 0;
+      const float vy = 0;
+      const float vz = 0.15;
+
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz+0.07, color, type };
+      particles[pidx++] = (struct particle){ x0+dx, y0, 16-dy, vx, vy, vz, color, type };
+    }
+  }
+}
+
+static void px (int color, int x, int y)
+{
+  if (x >=0 && x < 256 && y >= 0 && y < 256) {
+    overlay_buf[y][x] = color;
+  }
+}
+
+static void dp1 (int c, int x, int y)
+{
+  px(c, x+1, y);
+  px(c, x-1, y);
+  px(c, x, y-1);
+  px(c, x, y+1);
+}
+
+static void dp2 (int c, int x, int y)
+{
+  px(c, x-1, y-1);
+  px(c, x, y-1);
+
+  px(c, x-2, y);
+  px(c, x-2, y+1);
+  px(c, x+1, y);
+  px(c, x+1, y+1);    
+
+  px(c, x-1, y+2);
+  px(c, x, y+2);    
+
+}
+
+static void drawparticle (struct particle *p, int x, int y)
+{
+  switch(p->type) {
+  case P_BUBBLE_BIG:
+    dp2(p->color,x,y);
+    break;
+
+  default:
+    px(p->color,x,y);
+    break;
+  }
+}
+
 
 // Called once per frame to update particle positions and render into overlay buffer
 void lulz_update_overlay()
@@ -1619,9 +1738,7 @@ void lulz_update_overlay()
     // Render to overlay buffer
     int x = lround(particles[i].x - px + magic_dx);
     int y = lround(particles[i].y - particles[i].z - py + magic_dy);
-    if (x >=0 && x < 256 && y >= 0 && y < 256) {
-      overlay_buf[y][x] = particles[i].color;
-    }
+    drawparticle(particles+i, x, y);
 
     // Update particle position
     particles[i].x += particles[i].vx;
@@ -1639,9 +1756,10 @@ void lulz_update_overlay()
       particles[i].vz *= 0.60;
 
       // Don't bounce skull shadows
-      if (particles[i].color == 0x1D) particles[i].color = 0;
+      if (particles[i].type == P_SHADOW) particles[i].color = 0;
+
       // Scatter skull fragments
-      if (particles[i].color == 0x30 || particles[i].color == 0x20 || particles[i].color == 0x2D) {
+      if (particles[i].type == P_SKULL) {
 
         if (particles[i].vz > 0.16) {
           particles[i].vx += particles[i].vz * (urnd()-0.5) * 0.5;
@@ -1660,12 +1778,51 @@ void lulz_update_overlay()
       }
     }
 
-    // Gravity
-    particles[i].vz -= 0.01;
+    switch (particles[i].type) {
+
+    case P_NONE:
+      break;
+
+    case P_BUBBLE:
+      // Bubbles accelerate up
+      particles[i].vz += 0.002;
+
+      // Disappear?
+      if (!(rand()&0x1F)) {
+        particles[i].color = 0;
+        particles[i].type = P_NONE;
+      }
+
+      // Brownian motion
+      if (!(rand() & 0xFF)) {
+        particles[i].x++;
+      }
+
+      if (!(rand() & 0xFF)) {
+        particles[i].x--;
+      }
+
+      // Promote?
+      if (!(rand() & 0x1FF)) {
+        particles[i].type = P_BUBBLE_BIG;
+      }
+      break;
+
+    case P_BUBBLE_BIG:
+      // Disappear?
+      if (!(rand()&0x7F)) {
+        particles[i].color = 0;
+        particles[i].type = P_NONE;
+      }      
+      break;
+      
+    default:
+      // Apply gravity
+      particles[i].vz -= 0.01;
+    }
   }
 
 }
-
 
 void lulz_draw_particles(unsigned line)
 {
