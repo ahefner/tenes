@@ -1461,7 +1461,7 @@ void lulz_hook_846C(void)
   const unsigned DwarfcaveDwarfHurray = 99;
   //if (mapobj_id != DwarfcaveDwarfHurray) return;
       
-  printf("party time! player at %u.%u,%u.%u obj index=%u id=%u %u.%u,%u.%u\n",
+  printf("party time! player at %u.%u,%u.%u obj index=%u mapobj_id=%u %u.%u,%u.%u\n",
          sm_scroll_x + player_offset_x, move_ctr_x,
          sm_scroll_y + player_offset_y, move_ctr_y,
          idx, mapobj_id,

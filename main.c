@@ -94,7 +94,7 @@ void draw_stopwatch()
         shadow = NULL;
     }
 
-    const int xpad = 3, ypad = 3;
+    const int xpad = 50, ypad = 3;
     const int size = 40;
     const int shadow_offset = 2;
 
