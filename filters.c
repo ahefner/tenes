@@ -566,7 +566,7 @@ void ntsc_filter (void)
     // Stupid 16:10 stretch kludge. Do this elsewhere:
     //if (vid_fullscreen) vid_width = 768;
 
-    vid_height = 480;
+    if (vid_height < 480) vid_height = 480;
     vid_bpp = 32;
     filter_output_line = ntsc_emitter;
     long long end_time = usectime();
