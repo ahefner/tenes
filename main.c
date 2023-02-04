@@ -280,7 +280,7 @@ void process_key_event (SDL_KeyboardEvent * key)
     }
 
     // If the menu is open, pass keystrokes through to it.
-    if (menu && menu_process_key_event(key)) return;
+ //   if (menu && menu_process_key_event(key)) return;
 
     // Match keysym against keyboard -> button mapping:
     if (cfg_disable_keyboard) idx = 8;
@@ -331,6 +331,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             nes.cpu.Trace ^= 1;
             break;
 
+        case SDLK_EQUALS:
         case SDLK_DELETE:
             hard_reset_nes(&nes);
             break;
@@ -489,7 +490,8 @@ void update_titlebar (void)
     if (strcmp(current_title, nes.rom.title)) {
         strncpy(current_title, nes.rom.title, sizeof(current_title));
         current_title[sizeof(current_title)-1] = 0;
-        SDL_WM_SetCaption(current_title,"tenes");
+	char *tmp = strrchr(current_title, '/');
+        SDL_WM_SetCaption(tmp? tmp+1 : current_title,"tenes");
     }
 }
 
@@ -567,10 +569,10 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 
         runframe();
         draw_stopwatch();
-        dim_background();
+//        dim_background();
 
-        if (menu) run_menu(&ctx);
-        else dim_y_target = 0;
+//        if (menu) run_menu(&ctx);
+//        else dim_y_target = 0;
 
         SDL_UpdateRect(window_surface, 0, 0, 0, 0);
         switch (nes.machine_type) {
@@ -588,11 +590,13 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
             assert(0);
         }
 
-        if (0)
-            printf("Frame cycles: %i (expect %i samples, actually generated %i samples)\n",
-                   (nes.cpu.Cycles - frame_start_cycles)/120,
-                   (nes.cpu.Cycles - frame_start_cycles)/4467,
-                   buffer_high - frame_start_samples);
+	/*
+	printf("Frame cycles: %lli (expect %lli samples, actually generated %i samples)\n",
+	       (nes.cpu.Cycles - frame_start_cycles)/120,
+	       (nes.cpu.Cycles - frame_start_cycles)/4467,
+	       buffer_high - frame_start_samples);
+	*/
+
     }
 
     close_current_game();

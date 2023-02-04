@@ -992,7 +992,7 @@ byte Debug6502 (register M6502 * R)
     return 1;
 }
 
-static void run_until (int master_cycle)
+static void run_until (long long master_cycle)
 {
     nes.cpu.BreakCycle = master_cycle;
     //printf("CPU to run until clock %u (%i cpu cycles)\n", nes.cpu.BreakCycle, (int)(nes.cpu.BreakCycle - nes.cpu.Cycles) / MASTER_CLOCK_DIVIDER);

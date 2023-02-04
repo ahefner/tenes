@@ -71,9 +71,9 @@ typedef struct
   byte A,P,X,Y,S;     /* CPU registers and program counter   */
   pair PC;
 
-  int Cycles;         /* Total machine cycles (master clock) */
-  int Stolen;         /* Stolen cycles */
-  int BreakCycle;     /* Cycle to break at (master clock)    */
+  long long Cycles;         /* Total machine cycles (master clock) */
+  long long Stolen;         /* Stolen cycles */
+  long long BreakCycle;     /* Cycle to break at (master clock)    */
   byte IRequest;      /* Set to the INT_IRQ when pending IRQ */
   void *User;         /* Arbitrary user data (ID,RAM*,etc.)  */
   byte TrapBadOps;    /* Set to 1 to warn of illegal opcodes */

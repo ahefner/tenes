@@ -1,6 +1,9 @@
 #define FILTERS_C
 
+#ifdef __SSE2__
 #include <emmintrin.h>
+#endif
+
 typedef short v8hi __attribute__ ((__vector_size__ (16)));
 typedef unsigned char v16qu __attribute__ ((__vector_size__ (16)));
 
@@ -130,6 +133,7 @@ void scanline_filter (void)
 /*** NTSC filter ***/
 
 /* Clamp and convert floating point RGB to packed 24-bit form. */
+#if 0
 static inline Uint32 rgbf (float r, float g, float b)
 {
     r *= 255.0;
@@ -144,6 +148,7 @@ static inline Uint32 rgbf (float r, float g, float b)
 
     return rgbi(r,g,b);
 }
+#endif
 
 /* YIQ to RGB conversion via matrix. */
 static inline void yiq2rgb (float yiq[3], float rgb[3])
@@ -227,7 +232,7 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
 
         int idx = (padding + x*5 + off - 18)>>1;
 
-#if 0
+#ifndef __SSE2__
         /* Straightforward, slow output loop. */
         for (int i=0; i<22; i++) {
             vbuf[idx][0] += rgb[0];
@@ -280,16 +285,16 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
     }
 
     // Output pixels:
-/*
+#ifndef __SSE2__
     for (int x=0; x<640; x++) {
         int cidx = padding + x;
         byte r = shift_clamp_to_u8(vbuf[cidx][2]);
         byte g = shift_clamp_to_u8(vbuf[cidx][1]);
         byte b = shift_clamp_to_u8(vbuf[cidx][0]);
         Uint32 px = rgbi(r,g,b);
-        *dest0++ = px;
+        *line0++ = px;
     }
-*/
+#else
     /* This shouldn't happen, but check just in case. */
     if ((((size_t)line0)&0xF) != 0) printf("Output pointer not aligned!\n");
     if ((((size_t)vbuf)&0xF) != 0) printf("Input pointer not aligned!\n");
@@ -304,6 +309,7 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
         *out = __builtin_ia32_packuswb128(v1, v2);
         out++;
     }
+#endif
 
     swizzle_pixels(line0, 640);
 
@@ -391,11 +397,8 @@ double sinc (double f, double i)
 
 void build_sinc_filter (float *buf, unsigned n, float cutoff)
 {
-    double sum = 0.0;
-
     for (int i=0; i<n; i++) {
         buf[i] = blackman(i, n-1) * sinc(cutoff, ((double)i) - 0.5 * ((double)(n-1)));
-        sum += buf[i];
     }
 }
 
