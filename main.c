@@ -339,7 +339,7 @@ void process_key_event (SDL_KeyboardEvent * key)
     }
 
     // If the menu is open, pass keystrokes through to it.
- //   if (menu && menu_process_key_event(key)) return;
+    if (menu && menu_process_key_event(key)) return;
 
     if (process_controller_key_event(key)) return;
 
@@ -523,8 +523,9 @@ void runframe (void)
     }
 
     if (screencapping) {
-        char dest[256];
-        snprintf(dest, sizeof(dest), "%s/%06i.bmp", screencap_dest, screencapping++);
+        char dest[1000];
+        bzero(dest, sizeof(dest));
+        snprintf(dest, sizeof(dest)-1, "%s/%06i.bmp", screencap_dest, screencapping++);
         SDL_SaveBMP(window_surface, dest);
     }
 
@@ -631,10 +632,10 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 
         runframe();
         draw_stopwatch();
-//        dim_background();
+        dim_background();
 
-//        if (menu) run_menu(&ctx);
-//        else dim_y_target = 0;
+        if (menu) run_menu(&ctx);
+        else dim_y_target = 0;
 
         SDL_UpdateRect(window_surface, 0, 0, 0, 0);
         switch (nes.machine_type) {

@@ -134,11 +134,24 @@ int load_ines (struct nes_rom *rom, FILE *in, int filesize)
 
     if ((rom->prg == NULL) || (rom->chr_size && (rom->chr == NULL))) {
         printf("Cannot allocate memory for rom data.\n");
+        free(rom->prg);
+        rom->prg = NULL;
+        free(rom->chr);
+        rom->chr = NULL;
         return 0;
     }
 
-    fread((void *)rom->prg, rom->prg_size, 1, in);
-    fread((void *)rom->chr, rom->chr_size, 1, in);
+    int okay = 1;
+    okay *= fread((void *)rom->prg, rom->prg_size, 1, in);
+    if (rom->chr_size) okay *= fread((void *)rom->chr, rom->chr_size, 1, in);
+    if (!okay) {
+        free(rom->prg);
+        rom->prg = NULL;
+        free(rom->chr);
+        rom->chr = NULL;
+        printf("Failed reading PRG/CHR data.\n");
+        return 0;
+    }
 
     printf("PRG ROM is %i bytes\n", rom->prg_size);
     printf("CHR ROM is %i bytes\n", rom->chr_size);
@@ -183,7 +196,7 @@ struct nes_rom load_nes_rom (const char *filename)
     int filesize = (int)statbuf.st_size;
     printf("%s\n", filename);
     printf("Rom image size is %i bytes.\n", filesize);
-    fread((void *) rom.header, 16, 1, in);
+    if (1 != fread((void *) rom.header, 16, 1, in)) goto failure;
 
     byte ines_magic[4] = { 'N', 'E', 'S', 0x1A };
     if (!memcmp(rom.header, ines_magic, 4)) {
@@ -204,7 +217,7 @@ struct nes_rom load_nes_rom (const char *filename)
         if (load_nsfe(&rom, in, filesize)) goto success;
     }
 
-/* failure: */
+failure:
     printf("Error loading or unrecognized file format.\n");
     fclose(in);
     exit(1);
@@ -218,12 +231,13 @@ success:
 
 void save_sram (byte save[0x2000], struct nes_rom *rom, int verbose)
 {
-    char name[PATH_MAX], tmpname[PATH_MAX];
-
+    char name[PATH_MAX], tmpname[PATH_MAX+5];
+    bzero(name,sizeof(name));
+    bzero(tmpname,sizeof(tmpname));
     if (rom->flags & 2) {
         FILE *out;
-        strncpy(name, sram_filename(rom), sizeof(name));
-        snprintf(tmpname, sizeof(tmpname), "%s-tmp", name);
+        strncpy(name, sram_filename(rom), sizeof(name)-1);
+        snprintf(tmpname, sizeof(tmpname)-1, "%s-tmp", name);
         unlink(tmpname);
 
         out = fopen(tmpname, "wb");
