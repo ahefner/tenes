@@ -603,7 +603,8 @@ void update_state_image (void)
         (mtime == last_state_mtime)) return;
 
     last_state_mtime = mtime;
-    strncpy(last_state_filename, filename, sizeof(last_state_filename));
+    strncpy(last_state_filename, filename, sizeof(last_state_filename)-1);
+    last_state_filename[sizeof(last_state_filename)-1] = 0;
 
     snprintf(buf, sizeof(buf), "%s.screen", filename);
     have_screencap = load_binary_data(buf, state_screencap, sizeof(state_screencap));
@@ -1248,7 +1249,8 @@ void run_game_browser (struct inputctx *input)
         }
         else
         {
-            strncpy(browser_cwd, pref, sizeof(browser_cwd));
+            strncpy(browser_cwd, pref, sizeof(browser_cwd)-1);
+            browser_cwd[sizeof(browser_cwd)-1] = 0;
         }
         browser_rescan();
     }

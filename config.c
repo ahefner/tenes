@@ -403,11 +403,12 @@ const char *ensure_state_dir (long long hash)
 
 const char *sram_filename (struct nes_rom *rom)
 {
-    static char path[PATH_MAX];
+    static char path[PATH_MAX+100];
+    bzero(path,sizeof(path));
 
     if (override_sram_filename) return override_sram_filename;
 
-    snprintf(path, sizeof(path), "%s/%X%X", ensure_save_dir(),
+    snprintf(path, sizeof(path)-1, "%s/%X%X", ensure_save_dir(),
              (unsigned)(rom->hash >> 32),
              (unsigned)(rom->hash & 0xFFFFFFFFll));
     return path;
@@ -415,8 +416,9 @@ const char *sram_filename (struct nes_rom *rom)
 
 const char *state_filename (struct nes_rom *rom, unsigned index)
 {
-    static char path[PATH_MAX];
-    snprintf(path, sizeof(path), "%s/%02X", ensure_state_dir(rom->hash), index);
+    static char path[PATH_MAX+100];
+    bzero(path,sizeof(path));
+    snprintf(path, sizeof(path)-1, "%s/%02X", ensure_state_dir(rom->hash), index);
     return path;
 }
 

@@ -232,7 +232,7 @@ int file_write_state_chunk (FILE *stream, const char *name, void *data, Uint32 l
 {
     char chunkname[64];
     memset(chunkname, 0, sizeof(chunkname));
-    strncpy(chunkname, name, sizeof(chunkname));
+    strncpy(chunkname, name, sizeof(chunkname)-1);
     if (fwrite(chunkname, sizeof(chunkname), 1, stream) != 1) return 0;
     if (fwrite(&length, sizeof(length), 1, stream) != 1) return 0;
     if (fwrite(data, length, 1, stream) != 1) return 0;
