@@ -126,7 +126,6 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
         int ox0 = pen_x + face_sans->glyph->bitmap_left;
         int ix0 = 0;
         int ox1 = ox0 + bmp->width;
-        int ix1 = bmp->width;
 
         // Clip to left edge
         if (ox0 < 0) {
@@ -141,7 +140,6 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
         int overflow = max(0, ox1 - rwidth);
         //if (overflow) printf("POSTCLIP\n");
         ox1 -= overflow;
-        ix1 -= overflow;
         int width = ox1 - ox0;
         //printf("Compute width \"%s\" char '%c' -- %i - %i = %i\n", string, c, ox1, ox0, width);
         assert(width >= 0);
@@ -189,7 +187,7 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
 
         for (int y=min_y; y<max_y; y++)
             for (int x=min_x; x<max_x; x++)
-                data[(y-min_y)*w+(x-min_x)] = color | (rtmp[y*rwidth+x] << 24);
+	      data[(y-min_y)*w+(x-min_x)] = color | ((unsigned)rtmp[y*rwidth+x] << 24);
 
         img->w = w;
         img->h = max_y - min_y;

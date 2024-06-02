@@ -705,14 +705,14 @@ void snd_catchup (void)
 {
     SDL_mutexP(producer_mutex);
 
-    int delta = nes.cpu.Cycles - nes.last_sound_cycle;
-    int samples = delta / clocks_per_sample;
+    long long delta = nes.cpu.Cycles - nes.last_sound_cycle;
+    long long samples = delta / clocks_per_sample;
     if (samples > 1000) {
-        printf("%sWtf. samples = %i ??? (%i - %i)\n",
+	fprintf(stderr, "%sglitch. samples = %lli ??? (%lli - %lli)\n",
                nes_time_string(),
                samples,
-               (int) nes.cpu.Cycles,
-               (int) nes.last_sound_cycle);
+               nes.cpu.Cycles,
+               nes.last_sound_cycle);
     }
 
     if (samples && (delta > 0)) snd_render_samples(0, samples);

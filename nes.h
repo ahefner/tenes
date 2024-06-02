@@ -189,8 +189,8 @@ struct nes_machine
 
     int mirror_mode, onescreen_page; /* Copy from ROM at reset. Some mappers change these. */
 
-    unsigned last_sound_cycle; /* Last CPU cycle at sound was updated */
-    unsigned scanline_start_cycle;
+    long long last_sound_cycle; /* Last CPU cycle at sound was updated */
+    long long scanline_start_cycle;
 
     struct joypad_info joypad;
 
