@@ -101,17 +101,19 @@ void draw_stopwatch()
     if (stopwatch_armed)
     {
         char buf[80];
-        snprintf(buf, sizeof(buf), "%s: %s",
-                 stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed",
-                 format_time(stopwatch_get_elapsed()));
-
-        label = sans_label(0xFFAA66, size, buf);
+        /* snprintf(buf, sizeof(buf), "%s: %s", */
+        /*          stopwatch_is_enabled()? "Stopwatch Paused (Alt-T to reset)" : "Stopwatch Armed", */
+        /*          format_time(stopwatch_get_elapsed())); */
+        //label = sans_label(0xFFAA66, size, buf);
+        label = sans_label(0xFFAA66, size, format_time(stopwatch_get_elapsed()));
         if (!label) return;
         shadow = sans_label(0x000000, size, buf);
         if (!shadow) return;
 
-        drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
-        drawimage(label, window_surface->w - xpad, ypad, right, top);
+//        drawimage(shadow, window_surface->w - xpad - shadow_offset, ypad + shadow_offset, right, top);
+//        drawimage(label, window_surface->w - xpad, ypad, right, top);
+
+        drawimage(label, window_surface->w - xpad, window_surface->h-ypad, right, bottom);
 
     }
     else if (stopwatch_is_enabled())
@@ -124,9 +126,11 @@ void draw_stopwatch()
         static int max_width = 0;
         if (label->w > max_width) max_width = label->w;
         const int x = window_surface->w - max_width - xpad;
-        const int y = ypad;
-        drawimage(shadow, x - shadow_offset, y + shadow_offset, left, top);
-        drawimage(label, x, y, left, top);
+        //const int y = ypad;
+        const int y = window_surface->h-ypad;
+        drawimage(shadow, x - shadow_offset, y + shadow_offset, left, bottom);
+        drawimage(label, x, y, left, bottom);
+
     }
 }
 
@@ -213,11 +217,65 @@ void process_control_key (SDLKey sym)
 }
 
 byte keyboard_input = 0;
+unsigned latency_bypass_count = 0;
+unsigned key_event_count[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+// Examine 'key' event. If a mapped controller input, apply and return 1. Otherwise return 0.
+int process_controller_key_event (SDL_KeyboardEvent * key)
+{
+    // Some of the control shortcuts overlap the keyboard
+    // bindings. Ignore these - process_key_event will handle them if
+    // needed.
+    if ((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT)) return 0;
+
+    // Match keysym against keyboard -> button mapping:
+    if (cfg_disable_keyboard) return 0;
+
+    int idx;
+    for (idx = 0; idx < 8; idx++) {
+        if (keymap[idx] == key->keysym.sym) break;
+    }
+
+    if (idx < 8) {
+        switch (key->type) {
+        case SDL_KEYUP:
+            keyboard_input &= ~BIT(idx);
+            key_event_count[idx]++;
+            return 1;
+        case SDL_KEYDOWN:
+            keyboard_input |= BIT(idx);
+            key_event_count[idx]++;
+            return 1;
+        default:
+            printf("??\n");
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+// Pump event loop and poll for new key events immediately (in
+// response to controller strobe), to reduce input lag.
+void poll_key_events ()
+{
+    if (menu) return;
+    if (nes.machine_type == NSF_PLAYER) return;
+
+    SDL_PumpEvents();
+
+    SDL_Event event;
+    while (1 == SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_KEYEVENTMASK)
+           && process_controller_key_event(&event.key))
+    {
+        // We processed the key event, so we'd better take it out of the queue..
+        SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_KEYEVENTMASK);
+        latency_bypass_count++;
+    }
+}
 
 void process_key_event (SDL_KeyboardEvent * key)
 {
-    int idx;
-
     // NES player keyboard controls.
 
     // FIXME: Current track not saved in state, so wrong at startup or after restore.
@@ -253,6 +311,7 @@ void process_key_event (SDL_KeyboardEvent * key)
 
     // Control and alt keys are available globally.
     // Ignore modified keys down, so as not to confuse the input code.
+    // FIXME: This is part of what makes the control/alt shortcuts feel janky!
     if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT))
         && (key->type == SDL_KEYDOWN)) return;
 
@@ -282,25 +341,9 @@ void process_key_event (SDL_KeyboardEvent * key)
     // If the menu is open, pass keystrokes through to it.
     if (menu && menu_process_key_event(key)) return;
 
-    // Match keysym against keyboard -> button mapping:
-    if (cfg_disable_keyboard) idx = 8;
-    else {
-        for (idx = 0; idx < 8; idx++) {
-            if (keymap[idx] == key->keysym.sym) break;
-        }
-    }
+    if (process_controller_key_event(key)) return;
 
-    if (idx < 8) {
-        switch (key->type) {
-        case SDL_KEYUP:
-            keyboard_input &= ~BIT(idx);
-            break;
-        case SDL_KEYDOWN:
-            keyboard_input |= BIT(idx);
-            break;
-        default: break;
-        }
-    } else if (key->type==SDL_KEYUP) {
+    if (key->type==SDL_KEYUP) {
 
         switch (key->keysym.sym) {
         case SDLK_ESCAPE:
@@ -421,6 +464,9 @@ void process_events (struct inputctx *input)
 
 unsigned frame_start_cycles = 0;
 
+long long frame_times_usec[256];
+unsigned frame_times_index = 0;
+
 void runframe (void)
 {
     unique_frame_number++;
@@ -445,6 +491,20 @@ void runframe (void)
     }
 
     time_frame_start = usectime();
+    frame_times_usec[frame_times_index & 0xFF] = time_frame_start;
+    if (0xFF == (frame_times_index & 0xFF))
+    {
+        long long delta = frame_times_usec[255] - frame_times_usec[0];
+        printf("%0.1f FPS   %u fast inputs  keys:", 1.0 / (delta / 256.0 / 1.0e6), latency_bypass_count);
+        int total = 0;
+        for (int i=0; i<8; i++) {
+            printf(" %u", key_event_count[i]);
+            total += key_event_count[i];
+        }
+        printf("  total %u\n", total);
+    }
+    frame_times_index++;
+
     while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
     frame_start_samples = buffer_high;
     frame_start_cycles = nes.cpu.Cycles;
@@ -539,6 +599,8 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
     if (cfg_mount_fs) fs_mount(cfg_mountpoint);
 #endif
 
+
+    memset(frame_times_usec, 0, sizeof(frame_times_usec));
     time_frame_target = usectime();
 
     while (running) {
