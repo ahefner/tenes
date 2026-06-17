@@ -48,11 +48,21 @@ const char *format_time (long long usecs)
     const long long minutes = seconds / 60;
     const long long hours = minutes / 60;
 
-    snprintf(buf, sizeof(buf), "%lli:%02lli:%02lli.%02lli",
-             hours,
-             minutes % 60,
-             seconds % 60,
-             (usecs/10000) % 100);
+	if (hours)
+	{
+		snprintf(buf, sizeof(buf), "%lli:%02lli:%02lli.%02lli",
+				 hours,
+				 minutes % 60,
+				 seconds % 60,
+				 (usecs/10000) % 100);
+	}
+	else
+	{
+		snprintf(buf, sizeof(buf), "%lli:%02lli.%02lli",
+				 minutes % 60,
+				 seconds % 60,
+				 (usecs/10000) % 100);
+	}
 
     return buf;
 }
