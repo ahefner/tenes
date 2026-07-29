@@ -295,6 +295,7 @@ void cfg_parseargs (int argc, const char **argv)
       if (!strcmp(txt, "-record")) {
           if (argc<=(++i)) break;
           movie_output_filename = argv[i];
+          startup_restore_state = -1;
       }
 
       if (!strcmp(txt, "-playquit")) {
