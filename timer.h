@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+/// Set offset applied when timer is reset
+void stopwatch_set_offset(double seconds);
 /// Start (or unpause) the stopwatch running. Time is not reset.
 void stopwatch_start();
 /// Pause the stopwatch (but preserve accumulated time)
