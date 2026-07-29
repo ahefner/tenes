@@ -151,7 +151,7 @@ void soft_reset_nes (struct nes_machine *nes)
 void hard_reset_nes (struct nes_machine *nes)
 {
     printf("Hard reset.\n");
-    memset((void *) nes->ram, 0, 0x800);
+    memset((void *) nes->ram, 0, sizeof(nes->ram));
 
     SDL_mutexP(producer_mutex);
 

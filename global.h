@@ -10,6 +10,7 @@
 #include "filters.h"
 #include "utility.h"
 #include "ui.h"
+#include "timer.h"
 #include "M6502/M6502.h"
 
 /* Normally instruction tracing should be off.. */

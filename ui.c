@@ -1029,8 +1029,9 @@ void browser_rescan (void)
     struct dirent *dent;
 
     while ((dent = readdir(dir))) {
-        char filename[1024];
-        snprintf(filename, sizeof(filename), "%s%s%s",
+        char filename[2000];
+        bzero(filename, sizeof(filename));
+        snprintf(filename, sizeof(filename)-1, "%s%s%s",
                  browser_cwd, dirsep(browser_cwd), dent->d_name);
 
         struct stat st;
@@ -1065,7 +1066,8 @@ void browser_rescan (void)
         }
         else if (exists && S_ISDIR(st.st_mode) && (browser_num_dirs < max_dirs))
         {   /* Add directory to browser */
-            snprintf(filename, sizeof(filename), "%s%s%s/",
+            bzero(filename, sizeof(filename));
+            snprintf(filename, sizeof(filename)-1, "%s%s%s/",
                      browser_cwd, dirsep(browser_cwd), dent->d_name);
             if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, "..")) continue;
             struct gbent *ent = calloc(1, sizeof(struct gbent));
