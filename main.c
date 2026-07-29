@@ -492,6 +492,8 @@ void runframe (void)
 
     time_frame_start = usectime();
     frame_times_usec[frame_times_index & 0xFF] = time_frame_start;
+
+#if 0
     if (0xFF == (frame_times_index & 0xFF))
     {
         long long delta = frame_times_usec[255] - frame_times_usec[0];
@@ -503,6 +505,8 @@ void runframe (void)
         }
         printf("  total %u\n", total);
     }
+#endif
+
     frame_times_index++;
 
     while (time_frame_target <= time_frame_start) time_frame_target += (1000000ll / 60ll);
