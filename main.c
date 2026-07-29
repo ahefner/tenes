@@ -576,8 +576,16 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
 
     if (movie_output_filename) {
         movie_output = fopen(movie_output_filename, "wb");
-        if (!movie_output) printf("Unable to create '%s' for movie output.\n", movie_output_filename);
-        else printf("Recording movie to '%s'\n", movie_output_filename);
+        if (!movie_output)
+        {
+            printf("Unable to create '%s' for movie output.\n", movie_output_filename);
+        }
+        else
+        {
+            printf("Recording movie to '%s'\n", movie_output_filename);
+            // Disable buffering as I'm doing odd experiments recording and playing from FIFOs.
+            setvbuf(movie_output, NULL, _IONBF, 0);
+        }
     }
 
     sys_init();
