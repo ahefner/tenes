@@ -472,25 +472,6 @@ void runframe (void)
 {
     unique_frame_number++;
 
-    if (movie_input) {
-        byte tmp[4];
-        if (fread(&tmp, 4, 1, movie_input)) {
-            for (byte i=0; i<4; i++) nes.joypad.pad[i] ^= tmp[i];
-        } else {
-            printf("Reached end of movie '%s'\n", movie_input_filename);
-            fclose(movie_input);
-            movie_input = NULL;
-            if (quit_after_playback) running=0;
-        }
-    }
-
-    if (movie_output) {
-        if (!fwrite(&nes.joypad.pad, 4, 1, movie_output)) {
-            fclose(movie_output);
-            movie_output = NULL;
-        }
-    }
-
     time_frame_start = usectime();
     frame_times_usec[frame_times_index & 0xFF] = time_frame_start;
 
@@ -634,6 +615,25 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
         if (hold_button_a) nes.joypad.pad[0] |= nes.time & 1;
 
         nes.joypad.pad[cfg_keyboard_controller] |= keyboard_input;
+
+        if (movie_input) {
+            byte tmp[4];
+            if (fread(&tmp, 4, 1, movie_input)) {
+                for (byte i=0; i<4; i++) nes.joypad.pad[i] ^= tmp[i];
+            } else {
+                printf("Reached end of movie '%s'\n", movie_input_filename);
+                fclose(movie_input);
+                movie_input = NULL;
+                if (quit_after_playback) running=0;
+            }
+        }
+
+        if (movie_output) {
+            if (!fwrite(&nes.joypad.pad, 4, 1, movie_output)) {
+                fclose(movie_output);
+                movie_output = NULL;
+            }
+        }
 
         bool button_held = false;
         for (int i=0; i<4; i++) button_held |= nes.joypad.pad[i];
