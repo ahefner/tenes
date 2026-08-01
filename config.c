@@ -300,6 +300,7 @@ void cfg_parseargs (int argc, const char **argv)
 
       if (!strcmp(txt, "-playquit")) {
           quit_after_playback = 1;
+          startup_restore_state = -1;
       }
 
       if (!strcmp(txt, "-sram")) {
@@ -311,6 +312,7 @@ void cfg_parseargs (int argc, const char **argv)
       if (!strcmp(txt, "-play")) {
           if (argc<=(++i)) break;
           movie_input_filename = argv[i];
+          startup_restore_state = -1;
       }
 
       if (!strcmp(txt, "-stripe")) {
