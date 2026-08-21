@@ -1,7 +1,7 @@
 #ifndef TENES_GLOBAL_H
 #define TENES_GLOBAL_H
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <sys/time.h>
 #include <time.h>
 
@@ -49,7 +49,7 @@ extern int cfg_joythreshold;
 extern int cfg_buttonmap[4][4];
 extern int cfg_jsmap[4];
 extern int cfg_keyboard_controller;
-extern SDLKey keymap[8];
+extern SDL_Keycode keymap[8];
 extern int cfg_disable_joysticks;
 extern int cfg_disable_keyboard;
 
@@ -130,7 +130,7 @@ extern const char *override_sram_filename;
 extern const char *cfg_mountpoint;
 extern int cfg_mount_fs;
 
-extern SDL_mutex *producer_mutex;
+extern SDL_Mutex *producer_mutex;
 
 #ifdef INSTRUCTION_TRACING
 #define COUNT_READ 0

@@ -25,7 +25,7 @@ int cfg_buttonmap[4][4] = { {2,1,4,5}, {2,1,4,5}, {2,1,4,5}, {2,1,4,5}};
 int cfg_jsmap[4] = {0,1,2,3};
 int cfg_keyboard_controller = 0;
 int aux_axis[2] = {0,0};
-SDLKey keymap[8] = { SDLK_s, SDLK_a, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
+SDL_Keycode keymap[8] = { SDLK_S, SDLK_A, SDLK_TAB, SDLK_RETURN, SDLK_UP, SDLK_DOWN, SDLK_LEFT, SDLK_RIGHT };
 int cfg_joythreshold = 4096;
 int cfg_disable_joysticks = 0;
 int cfg_disable_keyboard = 0;
@@ -121,7 +121,7 @@ int unique_frame_number = 0;
 // the SRAM file.
 const char *override_sram_filename = NULL;
 
-SDL_mutex *producer_mutex;      /* Held while filling audio buffer */
+SDL_Mutex *producer_mutex;      /* Held while filling audio buffer */
 
 const char *cfg_mountpoint = "/tmp/nesfs";
 int cfg_mount_fs = 0;

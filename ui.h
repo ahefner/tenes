@@ -3,6 +3,8 @@
 
 #include "sys.h"
 
+#define MOUSE_BIT(button) (1u << ((button) - 1))
+
 struct inputctx {
     int mx, my;                 /* Mouse X/Y */
     int buttons;                /* Mouse button bitmask (level)*/

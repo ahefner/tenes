@@ -19,7 +19,6 @@
 #include "ui.h"
 #include "timer.h"
 
-
 int hold_button_a = 0;
 
 extern unsigned buffer_high;
@@ -73,8 +72,8 @@ void calibrate_aux_stick (void)
 {
     struct joystick *joy = &joystick[cfg_jsmap[0]];
     if (joy->connected) {
-        aux_axis[0] = SDL_JoystickGetAxis(joy->sdl, 2);
-        aux_axis[1] = SDL_JoystickGetAxis(joy->sdl, 3);
+        aux_axis[0] = SDL_GetJoystickAxis(joy->sdl, 2);
+        aux_axis[1] = SDL_GetJoystickAxis(joy->sdl, 3);
     }
 }
 
@@ -158,19 +157,19 @@ void stopwatch_toggle()
 int screencapping = 0;
 char screencap_dest[256];
 
-void process_control_key (SDLKey sym)
+void process_control_key (SDL_Keycode sym)
 {
     switch (sym) {
-    case SDLK_m:
+    case SDLK_M:
         nes.mirror_mode ^= 1;
         printf("Toggled mirror mode. New mode=%i\n", nes.mirror_mode);
         break;
 
-    case SDLK_c:
+    case SDLK_C:
         running = 0;
         break;
 
-    case SDLK_d:
+    case SDLK_D:
         if (movie_output) {
             printf("Stopped recording movie.\n");
             fclose(movie_output);
@@ -178,27 +177,27 @@ void process_control_key (SDLKey sym)
         } else printf("Not currently recording a movie.\n");
         break;
 
-    case SDLK_s:
+    case SDLK_S:
         sound_muted ^= 1;
         printf("Sound %s.\n", sound_muted? "muted" : "unmuted");
         break;
 
-    case SDLK_j:
+    case SDLK_J:
         calibrate_aux_stick();
         break;
 
-    case SDLK_t:
+    case SDLK_T:
         stopwatch_toggle();
         break;
 
 
-    case SDLK_a:
+    case SDLK_A:
         hold_button_a ^= 1;
         nes.joypad.pad[0] &= ~1;
         printf("%s button A. Press Control-A to toggle.\n", hold_button_a? "holding" : "released");
         break;
 
-    case SDLK_p:
+    case SDLK_P:
         palette_dump();
         break;
 
@@ -226,23 +225,23 @@ int process_controller_key_event (SDL_KeyboardEvent * key)
     // Some of the control shortcuts overlap the keyboard
     // bindings. Ignore these - process_key_event will handle them if
     // needed.
-    if ((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT)) return 0;
+    if ((key->mod & SDL_KMOD_CTRL) || (key->mod & SDL_KMOD_ALT)) return 0;
 
     // Match keysym against keyboard -> button mapping:
     if (cfg_disable_keyboard) return 0;
 
     int idx;
     for (idx = 0; idx < 8; idx++) {
-        if (keymap[idx] == key->keysym.sym) break;
+        if (keymap[idx] == key->key) break;
     }
 
     if (idx < 8) {
         switch (key->type) {
-        case SDL_KEYUP:
+        case SDL_EVENT_KEY_UP:
             keyboard_input &= ~BIT(idx);
             key_event_count[idx]++;
             return 1;
-        case SDL_KEYDOWN:
+        case SDL_EVENT_KEY_DOWN:
             keyboard_input |= BIT(idx);
             key_event_count[idx]++;
             return 1;
@@ -265,11 +264,11 @@ void poll_key_events ()
     SDL_PumpEvents();
 
     SDL_Event event;
-    while (1 == SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_KEYEVENTMASK)
+    while (1 == SDL_PeepEvents(&event, 1, SDL_PEEKEVENT, SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP)
            && process_controller_key_event(&event.key))
     {
         // We processed the key event, so we'd better take it out of the queue..
-        SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_KEYEVENTMASK);
+        SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_EVENT_KEY_DOWN, SDL_EVENT_KEY_UP);
         latency_bypass_count++;
     }
 }
@@ -281,13 +280,13 @@ void process_key_event (SDL_KeyboardEvent * key)
     // FIXME: Current track not saved in state, so wrong at startup or after restore.
 
     if ((nes.machine_type == NSF_PLAYER)
-        && (key->type == SDL_KEYUP)
+        && (key->type == SDL_EVENT_KEY_UP)
         // Ignore if modifiers held - otherwise screws up my desktop switching. :)
-        && (!(key->keysym.mod & (KMOD_CTRL | KMOD_ALT))))
+        && (!(key->mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT))))
     {
         int delta = 0;
 
-        switch (key->keysym.sym) {
+        switch (key->key) {
         case SDLK_LEFT:
             delta = -1;
             break;
@@ -312,17 +311,17 @@ void process_key_event (SDL_KeyboardEvent * key)
     // Control and alt keys are available globally.
     // Ignore modified keys down, so as not to confuse the input code.
     // FIXME: This is part of what makes the control/alt shortcuts feel janky!
-    if (((key->keysym.mod & KMOD_CTRL) || (key->keysym.mod & KMOD_ALT))
-        && (key->type == SDL_KEYDOWN)) return;
+    if (((key->mod & SDL_KMOD_CTRL) || (key->mod & SDL_KMOD_ALT))
+        && (key->type == SDL_EVENT_KEY_DOWN)) return;
 
     // Actions occur on key up.
-    if ((key->keysym.mod & KMOD_CTRL) && (key->type == SDL_KEYUP)) {
-        process_control_key(key->keysym.sym);
+    if ((key->mod & SDL_KMOD_CTRL) && (key->type == SDL_EVENT_KEY_UP)) {
+        process_control_key(key->key);
         return;
     }
 
-    if ((key->keysym.mod & KMOD_ALT) && (key->type == SDL_KEYUP)) {
-        if (key->keysym.sym == SDLK_t) {
+    if ((key->mod & SDL_KMOD_ALT) && (key->type == SDL_EVENT_KEY_UP)) {
+        if (key->key == SDLK_T) {
             stopwatch_stop();
             stopwatch_reset();
             stopwatch_armed = false;
@@ -330,11 +329,20 @@ void process_key_event (SDL_KeyboardEvent * key)
         return;
     }
 
-    if ((key->keysym.mod & KMOD_ALT) &&
-        (key->type == SDL_KEYUP) &&
-        (key->keysym.sym == SDLK_RETURN))
+    if ((key->mod & SDL_KMOD_ALT) &&
+        (key->type == SDL_EVENT_KEY_UP) &&
+        (key->key == SDLK_RETURN))
     {
-        SDL_WM_ToggleFullScreen(window_surface);
+        /* SDL3 dropped SDL_WM_ToggleFullScreen(). SDL_SetWindowFullscreen()
+         * takes the *target* state rather than toggling, so we read the
+         * window's current flags to figure out which way to flip it, then
+         * re-fetch the window surface: SDL_GetWindowSurface()'s previous
+         * return value is not guaranteed to still be valid/current-sized
+         * after a fullscreen transition. */
+        bool currently_fullscreen = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
+        SDL_SetWindowFullscreen(window, !currently_fullscreen);
+        SDL_SyncWindow(window);
+        sys_refresh_window_surface();
         return;
     }
 
@@ -343,9 +351,9 @@ void process_key_event (SDL_KeyboardEvent * key)
 
     if (process_controller_key_event(key)) return;
 
-    if (key->type==SDL_KEYUP) {
+    if (key->type==SDL_EVENT_KEY_UP) {
 
-        switch (key->keysym.sym) {
+        switch (key->key) {
         case SDLK_ESCAPE:
             //running = 0;
             open_menu();
@@ -383,7 +391,7 @@ void process_key_event (SDL_KeyboardEvent * key)
             soft_reset_nes(&nes);
             break;
 
-        case SDLK_t:
+        case SDLK_T:
             break;
 
         case SDLK_F5:
@@ -404,16 +412,17 @@ void process_joystick (int controller)
 {
     int x,y;
     struct joystick *joy = &joystick[cfg_jsmap[controller]];
-    SDL_JoystickUpdate();
-    x = SDL_JoystickGetAxis(joy->sdl, 0);
-    y = SDL_JoystickGetAxis(joy->sdl, 1);
-    aux_position[0] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 2) - aux_axis[0])/25000.0));
-    aux_position[1] = max(-1.0, min(1.0, (SDL_JoystickGetAxis(joy->sdl, 3) - aux_axis[1])/25000.0));
+
+    SDL_UpdateJoysticks();
+    x = SDL_GetJoystickAxis(joy->sdl, 0);
+    y = SDL_GetJoystickAxis(joy->sdl, 1);
+    aux_position[0] = max(-1.0, min(1.0, (SDL_GetJoystickAxis(joy->sdl, 2) - aux_axis[0])/25000.0));
+    aux_position[1] = max(-1.0, min(1.0, (SDL_GetJoystickAxis(joy->sdl, 3) - aux_axis[1])/25000.0));
 
     nes.joypad.pad[controller] = 0;
 
     for (int i=0; i < 4; i++) {
-        if (SDL_JoystickGetButton(joy->sdl, cfg_buttonmap[controller][i]))
+        if (SDL_GetJoystickButton(joy->sdl, cfg_buttonmap[controller][i]))
             nes.joypad.pad[controller] |= BIT(i);
     }
 
@@ -430,31 +439,46 @@ void process_events (struct inputctx *input)
 
     input->pressed = 0;
     input->released = 0;
-    input->buttons = SDL_GetMouseState(&input->mx, &input->my);
+
+    float mx, my;
+    input->buttons = SDL_GetMouseState(&mx, &my);
+    input->mx = (int)mx;
+    input->my = (int)my;
 
     while (SDL_PollEvent (&event)) {
         switch (event.type) {
-        case SDL_QUIT:
+        case SDL_EVENT_QUIT:
             running = 0;
             break;
 
-        case SDL_KEYDOWN:
+        case SDL_EVENT_KEY_DOWN:
             process_key_event(&event.key);
             break;
 
-        case SDL_KEYUP:
+        case SDL_EVENT_KEY_UP:
             process_key_event(&event.key);
             break;
 
-        case SDL_MOUSEBUTTONDOWN:
-            input->pressed |= SDL_BUTTON(event.button.button);
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            input->pressed |= MOUSE_BIT(event.button.button);
             break;
 
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             // Don't pass the button up to the menu, or it will close immediately.
-            if (!menu && (input->buttons & SDL_BUTTON(3))) open_menu();
-            else input->released |= SDL_BUTTON(event.button.button);
+            if (!menu && (input->buttons & MOUSE_BIT(3))) open_menu();
+            else input->released |= MOUSE_BIT(event.button.button);
 
+            break;
+
+        case SDL_EVENT_MOUSE_WHEEL:
+            /* SDL3 (like SDL2 before it) reports the scroll wheel as its
+             * own event rather than as synthetic button-4/5 clicks the
+             * way SDL1.2 did. The menu/browser code in ui.c still checks
+             * for those legacy bits (button 4 = wheel up, button 5 =
+             * wheel down), so synthesize them here rather than touching
+             * every caller. */
+            if (event.wheel.y > 0) input->pressed |= MOUSE_BIT(4);
+            else if (event.wheel.y < 0) input->pressed |= MOUSE_BIT(5);
             break;
 
         default:
@@ -537,7 +561,7 @@ void update_titlebar (void)
         strncpy(current_title, nes.rom.title, sizeof(current_title));
         current_title[sizeof(current_title)-1] = 0;
 	char *tmp = strrchr(current_title, '/');
-        SDL_WM_SetCaption(tmp? tmp+1 : current_title,"tenes");
+        SDL_SetWindowTitle(window, tmp? tmp+1 : current_title);
     }
 }
 
@@ -649,7 +673,7 @@ int main (int argc, char *argv[]) /* non-const in SDL_main ... */
         if (menu) run_menu(&ctx);
         else dim_y_target = 0;
 
-        SDL_UpdateRect(window_surface, 0, 0, 0, 0);
+        SDL_UpdateWindowSurface(window);
         switch (nes.machine_type) {
         case NES_NTSC:
             if (!no_throttle) sys_framesync();

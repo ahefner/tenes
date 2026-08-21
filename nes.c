@@ -1,8 +1,8 @@
-
 #define NES_C
 
 #include <assert.h>
 #include <sys/stat.h>
+#include <stdlib.h>
 #include <limits.h>
 #include "sys.h"
 #include "nes.h"
@@ -153,7 +153,7 @@ void hard_reset_nes (struct nes_machine *nes)
     printf("Hard reset.\n");
     memset((void *) nes->ram, 0, sizeof(nes->ram));
 
-    SDL_mutexP(producer_mutex);
+    SDL_LockMutex(producer_mutex);
 
     memset((void *) &nes->snd, 0, sizeof (nes->snd));
     Reset6502(&nes->cpu);
@@ -163,7 +163,7 @@ void hard_reset_nes (struct nes_machine *nes)
     assert(nes->last_sound_cycle == 0);
     snd_reset();
 
-    SDL_mutexV(producer_mutex);
+    SDL_UnlockMutex(producer_mutex);
 
     if (cfg_trapbadops) nes->cpu.TrapBadOps = 1;
     else nes->cpu.TrapBadOps = 0;

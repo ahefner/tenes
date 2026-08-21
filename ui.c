@@ -25,7 +25,9 @@
 #include "filesystem.h"
 #include "ui.h"
 
-#include <SDL_image.h>
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG   /* everything under media/ is a PNG -- no need for the other decoders */
+#include "vendor/stb_image.h"
 
 
 void (*menu) (struct inputctx *) = NULL;
@@ -194,13 +196,8 @@ image_t sans_label (Uint32 color, unsigned text_height, const char *string)
         img->x_origin = 0;
         img->y_origin = baseline - min_y;
         img->freeptr = data;
-/*
-        img->x_origin = -((img->w*align_x[ALIGN_MAX]) >> align_x[ALIGN_MAX_SHIFT]);
-        img->y_origin = -((img->h*align_y[ALIGN_MAX]) >> align_y[ALIGN_MAX_SHIFT])
-            - (min_y - baseline)*align_y[ALIGN_AXIS];
-*/
-        img->_sdl = SDL_CreateRGBSurfaceFrom(data, img->w, img->h, 32, img->w*4,
-                                             0xFF0000, 0xFF00, 0xFF, 0xFF000000);
+
+        img->_sdl = SDL_CreateSurfaceFrom(img->w, img->h, SDL_PIXELFORMAT_ARGB8888, data, img->w*4);
         assert(img->_sdl);
         return img;
     }
@@ -311,22 +308,33 @@ char *nth_name (char *name, int n)
 image_t loaddecal (char *name)
 {
     image_t img = NULL;
-    SDL_Surface *ptr = IMG_Load(asset(name));
-    if (ptr == NULL) ptr = IMG_Load(localasset(name));
+    int w, h, channels;
 
-    if (ptr) {
-        SDL_SetAlpha(ptr, SDL_SRCALPHA, 128);
-        /* Naughty! Twiddle image into ARGB format. */
-        ptr->format->Amask = 0xFF000000;
-        ptr->format->Ashift = 24;
+    // stb_image ensures an alpha channel and consistent pixel format.
+
+    unsigned char *pixels = stbi_load(asset(name), &w, &h, &channels, 4);
+    if (pixels == NULL) pixels = stbi_load(localasset(name), &w, &h, &channels, 4);
+
+    if (pixels) {
         img = malloc(sizeof(*img));
         assert(img);
-        img->w = ptr->w;
-        img->h = ptr->h;
+        img->w = w;
+        img->h = h;
         img->x_origin = 0;
         img->y_origin = 0;
-        img->_sdl = ptr;
-        img->freeptr = NULL;
+        img->freeptr = pixels; /* stbi_load() uses malloc(); plain free() (which image_free() already does) is exactly what stbi_image_free() does. */
+
+        /* stb_image always writes bytes in R,G,B,A order in memory.
+         * SDL_PIXELFORMAT_RGBA32 is SDL's byte-order-based alias that
+         * picks whichever of its endian-specific enum values matches
+         * "bytes in memory are R,G,B,A" on the host -- so this is
+         * correct on both little- and big-endian machines without our
+         * having to think about it. */
+        img->_sdl = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_RGBA32, pixels, w*4);
+        assert(img->_sdl);
+
+        SDL_SetSurfaceBlendMode(img->_sdl, SDL_BLENDMODE_BLEND);
+
     } else printf("Unable to load %s!\n", asset(name));
 
     return img;
@@ -562,21 +570,22 @@ void open_menu (void)
     load_menu_media();
     menu = run_main_menu;
     //menu = run_input_menu;
-    SDL_ShowCursor(SDL_ENABLE);
+
+    SDL_ShowCursor();
 }
 
 void close_menu (void)
 {
     menu = 0;
-    SDL_ShowCursor(SDL_DISABLE);
+    SDL_HideCursor();
     dim_y_target = 0;
 }
 
 int menu_process_key_event (SDL_KeyboardEvent *key)
 {
-    if (key->type == SDL_KEYDOWN) return 0;
+    if (key->type == SDL_EVENT_KEY_DOWN) return 0;
 
-    if (key->keysym.sym == SDLK_ESCAPE) {
+    if (key->key == SDLK_ESCAPE) {
         close_menu();
         return 1;
     }
@@ -762,7 +771,7 @@ void run_main_menu (struct inputctx *input)
     //drawimage(pad600, 0, 0, left, top);
     //drawimage(mascot, window_surface->w, window_surface->h - 80, right, bottom);
 
-    if (input->released & SDL_BUTTON(3)) close_menu();
+    if (input->released & MOUSE_BIT(3)) close_menu();
 
     cursor_base[0] = 92;
     cursor_base[1] = 270;
@@ -1223,7 +1232,7 @@ int run_scrollbar (struct inputctx *input,
 
 void run_game_browser (struct inputctx *input)
 {
-    if (input->released & SDL_BUTTON(3)) menu = run_main_menu;
+    if (input->released & MOUSE_BIT(3)) menu = run_main_menu;
     dim_y_target = vid_height;
 
     int x_base = window_surface->w - 330;    /* Window vertical split  */
@@ -1414,7 +1423,7 @@ void run_game_browser (struct inputctx *input)
 
 void run_input_menu (struct inputctx *input)
 {
-    if (input->released & SDL_BUTTON(3)) menu = run_main_menu;
+    if (input->released & MOUSE_BIT(3)) menu = run_main_menu;
 
     static image_t keyboard_label = NULL;
     if (!keyboard_label) keyboard_label = sans_label(0xFFFFFF, 20, "Keyboard");
@@ -1449,7 +1458,11 @@ void run_input_menu (struct inputctx *input)
                 char buf[256];
                 sprintf(buf, "Joystick %i", device);
                 joystick[device-1].title = sans_label(0xFFFFFF, 20, buf);
-                joystick[device-1].maker = sans_label(0xAAAAAA, 12, SDL_JoystickName(device-1));
+                /* SDL3's SDL_GetJoystickName() only takes an already-open
+                 * SDL_Joystick* (the old SDL1.2 SDL_JoystickName(int
+                 * device_index) form this called is gone entirely, so
+                 * this needed to become a pointer lookup regardless). */
+                joystick[device-1].maker = sans_label(0xAAAAAA, 12, SDL_GetJoystickName(joystick[device-1].sdl));
             }
 
             title = joystick[device-1].title;
@@ -1469,7 +1482,7 @@ void run_input_menu (struct inputctx *input)
             if ((device == 0) && (joypad == cfg_keyboard_controller)) mapped = 1;
             else if ((device>0) && (cfg_jsmap[joypad] == (device-1))) mapped = 1;
             if (mapped) drawimage(checkmark, x + 43/2, y + 51/2, center, center);
-            if (mouseover(input, (SDL_Rect){x, y+2, 43, 47}) && (input->released & SDL_BUTTON(1))) next_mapping = joypad;
+            if (mouseover(input, (SDL_Rect){x, y+2, 43, 47}) && (input->released & MOUSE_BIT(1))) next_mapping = joypad;
         }
 
         if (next_mapping != -1) {

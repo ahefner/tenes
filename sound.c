@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <SDL.h>
+#include <SDL3/SDL.h>
 #include <signal.h>
 #include <math.h>
 #include "sys.h"
@@ -35,11 +35,16 @@ int sound_initialized = 0;
 volatile int sound_enabled = 1;
 
 static void buffer_init (void);
-static void audio_callback (void *udata, Sint16 * stream, int len);
+/* SDL3 flipped the audio callback from a "pull" model (SDL hands you a
+ * buffer, you fill exactly `len` bytes into it) to a "push" model (SDL
+ * tells you how much it wants via `additional_amount`, you feed an
+ * SDL_AudioStream with SDL_PutAudioStreamData()). Signature changed
+ * accordingly -- see SDL3/SDL_audio.h's SDL_AudioStreamCallback. */
+static void audio_callback (void *udata, SDL_AudioStream *stream, int additional_amount, int total_amount);
 static void snd_fillbuffer (Sint16 * buf, unsigned index, unsigned length);
 void snd_render_samples (int emergency_mode, int samples);
 
-static SDL_AudioSpec desired, obtained;
+static SDL_AudioStream *audio_stream = NULL;
 
 int snd_init (void)
 {
@@ -49,24 +54,23 @@ int snd_init (void)
 
         buffer_init();
 
-        desired.freq = 48000;
-        desired.format = AUDIO_S16 /* | AUDIO_MONO */ ;
-        desired.samples = 512; /* Desired buffer size */
-        desired.callback = (void *)audio_callback;
-        desired.channels = 1;
-        desired.userdata = NULL;
+        SDL_AudioSpec spec;
+        spec.freq = 48000;
+        spec.format = SDL_AUDIO_S16 /* native-endian 16-bit, mono */ ;
+        spec.channels = 1;
 
         printf ("Opening audio device.\n");
-        if (SDL_OpenAudio (&desired, &obtained)) {
-            printf ("SDL_OpenAudio failed: %s", SDL_GetError ());
+        audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
+        if (!audio_stream) {
+            printf ("SDL_OpenAudioDeviceStream failed: %s", SDL_GetError ());
             sound_enabled = 0;
             return -1;
         } else {
-            printf ("SDL audio initialized. Buffer size = %i. Sample rate = %i\n", obtained.samples, obtained.freq);
-            if (obtained.samples > AUDIO_BUFFER_SIZE)
-                printf("Obtained audio buffer size is too large! Sound will be garbled.\n");
+            printf ("SDL audio initialized. Sample rate = %i\n", spec.freq);
             sound_initialized = 1;
-            SDL_PauseAudio(0);
+            /* Device streams start paused; this is the SDL3 equivalent
+             * of the old SDL_PauseAudio(0). */
+            SDL_ResumeAudioStreamDevice(audio_stream);
 
             return 0;
         }
@@ -80,7 +84,7 @@ void snd_shutdown (void)
 {
     /* Setting sound_enabled breaks audio_callback out of its wait loop. */
     sound_enabled = 0;
-    if (sound_initialized) SDL_CloseAudio();
+    if (sound_initialized) SDL_DestroyAudioStream(audio_stream);
     SDL_DestroyMutex(producer_mutex);
 
 }
@@ -95,9 +99,9 @@ static int buffer_samples (void)
  * to let it buffer ahead from the main thread. */
 int snd_buffered_samples (void)
 {
-    SDL_mutexP(producer_mutex);
+    SDL_LockMutex(producer_mutex);
     int n = buffer_samples();
-    SDL_mutexV(producer_mutex);
+    SDL_UnlockMutex(producer_mutex);
     return n;
 }
 
@@ -146,8 +150,13 @@ void service_interrupts (void)
     apu_interrupt_pending = 0;
 }
 
-static void audio_callback (void *udata, Sint16 *stream, int len)
+static void audio_callback (void *udata, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
+    (void)udata;
+    (void)total_amount;
+    if (additional_amount <= 0) return;
+
+    int len = additional_amount;
     int req = len >> 1, consumed = req;
     int ideal_buffer_length = req + desired_buffer_ahead;
 
@@ -208,9 +217,9 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
     //if (num == AUDIO_BUFFER_SIZE) printf("Audio buffer full :(\n");
 
     if (req > num) {
-        SDL_mutexP(producer_mutex);
+        SDL_LockMutex(producer_mutex);
         snd_render_samples(1, (req - num) + 128);
-        SDL_mutexV(producer_mutex);
+        SDL_UnlockMutex(producer_mutex);
         memset(delta_log, 0, sizeof(delta_log));
         /* Don't pollute traces with audio messages */
 /*
@@ -219,7 +228,21 @@ static void audio_callback (void *udata, Sint16 *stream, int len)
 */
     }
 
-    if (sound_enabled) memcpy(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
+    /* SDL3: we push into the stream instead of memcpy-ing into a
+     * buffer SDL handed us. When sound is disabled we still have to
+     * push *something* (silence) each call, or the stream just
+     * starves and audio timing/underrun bookkeeping gets confused. */
+    if (sound_enabled) {
+        SDL_PutAudioStreamData(stream, audio_buffer + (buffer_low & BUFFER_PTR_MASK), len);
+    } else {
+        static const Sint16 silence[1024] = {0};
+        int remaining = len;
+        while (remaining > 0) {
+            int chunk = remaining < (int)sizeof(silence) ? remaining : (int)sizeof(silence);
+            SDL_PutAudioStreamData(stream, silence, chunk);
+            remaining -= chunk;
+        }
+    }
 
     buffer_low += consumed;
     //printf("consumed %i samples (%i/%i).\n", consumed, buffer_low, buffer_high);
@@ -514,7 +537,7 @@ void snd_write (unsigned addr, unsigned char value)
      * register contents. */
     snd_catchup();
 
-    SDL_mutexP(producer_mutex);
+    SDL_LockMutex(producer_mutex);
 
     if (0)
         printf("%ssnd %2X <- %02X  len(%2x,%2x,%2x,%2x) status=%02X vol(%i,%i,*,%i)\n", nes_time_string(), addr, value, SND.lcounter[0], SND.lcounter[1], SND.lcounter[2], SND.lcounter[3], nes.snd.regs[0x15], SND.volume[0], SND.volume[1], SND.volume[3]);
@@ -625,7 +648,7 @@ void snd_write (unsigned addr, unsigned char value)
     default: break;
     }
 
-    SDL_mutexV(producer_mutex);
+    SDL_UnlockMutex(producer_mutex);
 }
 
 unsigned char snd_read_status_reg (void)
@@ -635,14 +658,14 @@ unsigned char snd_read_status_reg (void)
 
     snd_catchup();
 
-    SDL_mutexP(producer_mutex);
+    SDL_LockMutex(producer_mutex);
     for (i=0; i<4; i++) if (SND.lcounter[i] > 0) result |= (1 << i);
     if (SND.dmc_counter) result |= BIT(4);
     result |= nes.snd.regs[0x15] & 0xE0;
     /* apu_reg.txt says to clear frameseq interrupt flag on read.
        It doesn't say anything about the DMC interrupt flag here.    */
     nes.snd.regs[0x15] &= 0xBF;
-    SDL_mutexV(producer_mutex);
+    SDL_UnlockMutex(producer_mutex);
     return result;
 }
 
@@ -703,7 +726,7 @@ void snd_render_samples (int emergency_mode, int samples)
 
 void snd_catchup (void)
 {
-    SDL_mutexP(producer_mutex);
+    SDL_LockMutex(producer_mutex);
 
     long long delta = nes.cpu.Cycles - nes.last_sound_cycle;
     long long samples = delta / clocks_per_sample;
@@ -719,7 +742,7 @@ void snd_catchup (void)
 
     service_interrupts();
 
-    SDL_mutexV(producer_mutex);
+    SDL_UnlockMutex(producer_mutex);
 }
 
 static void snd_fillbuffer (Sint16 *buf, unsigned index, unsigned length)

@@ -1,7 +1,7 @@
 #ifndef NES_SYS_H
 #define NES_SYS_H
 
-#include <SDL.h>
+#include <SDL3/SDL.h>
 
 // Stupid image wrapper, because you really need alignment offsets
 // attached to the image to have a nice interface. Also helps with
@@ -29,10 +29,16 @@ extern SDL_Surface *surface;
 extern struct joystick joystick[4];
 extern int numsticks;
 
+extern SDL_Window *window;
+
 void sys_init(void);
 void sys_shutdown(void);
 void sys_framesync (void);
 long long usectime (void);
 void make_dir (const char *path);
+
+/* Recompute window_surface (and its R/G/B bit shifts) after anything
+ * that can invalidate the old one, e.g. a fullscreen toggle or resize. */
+void sys_refresh_window_surface (void);
 
 #endif
