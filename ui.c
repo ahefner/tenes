@@ -277,10 +277,6 @@ void dim_background (void)
     dim_to_y(floor(dim_y));
 }
 
-//typedef SDL_Surface *image_t;
-
-
-
 char *asset (char *name)
 {
     static char buf[512];
@@ -314,6 +310,8 @@ image_t loaddecal (char *name)
 
     unsigned char *pixels = stbi_load(asset(name), &w, &h, &channels, 4);
     if (pixels == NULL) pixels = stbi_load(localasset(name), &w, &h, &channels, 4);
+
+    //printf("loaddecal %s  %i x %i\n", name, w, h);
 
     if (pixels) {
         img = malloc(sizeof(*img));
@@ -423,7 +421,8 @@ SDL_Rect drawimage (image_t image, int x, int y,
                        + align_x[ALIGN_AXIS]*image->x_origin,
                        y + align_y[ALIGN_MAX]*(image->h >> align_y[ALIGN_MAX_SHIFT])
                        + align_y[ALIGN_AXIS]*image->y_origin,
-                       0, 0 };
+                       image->w,
+                       image->h };
         SDL_BlitSurface(image->_sdl, NULL, window_surface, &r);
         return r;
     }
@@ -431,6 +430,7 @@ SDL_Rect drawimage (image_t image, int x, int y,
 }
 
 int mouseover (struct inputctx *input, SDL_Rect rect) {
+    //printf("mouseover %i,%i ... %i x %i\n", rect.x, rect.y, rect.w, rect.h);
     return ((input->mx >= rect.x) &&
             (input->my >= rect.y) &&
             (input->mx < rect.x+rect.w) &&
@@ -561,6 +561,8 @@ void run_menu (struct inputctx *input)
     cursor_base[1] = 40;
     setcursor(0,0);
     setcolor(color00);
+
+    //printf("debug run_menu: %04X %04X %04X\n", input->buttons, input->pressed, input->released);
 
     menu(input);
 }
