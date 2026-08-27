@@ -195,7 +195,7 @@ float q_chroma[8][3][64][42];
 #define DOWNSAMPLED_IR_CHANNELS
 short __attribute__((aligned(16))) rgb_output[8][3][64][2][22][4];
 
-inline byte shift_clamp_to_u8 (int x)
+inline static byte shift_clamp_to_u8 (int x)
 {
     x >>= RGB_SHIFT;
     if (x < 0) return 0;
