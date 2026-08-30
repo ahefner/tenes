@@ -233,7 +233,8 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
         int idx = (padding + x*5 + off - 18)>>1;
 
 #ifndef __SSE2__
-        /* Straightforward, slow output loop. */
+        /* Straightforward, slow output loop. Modern compilers can
+	   auto-vectorize this. */
         for (int i=0; i<22; i++) {
             vbuf[idx][0] += rgb[0];
             vbuf[idx][1] += rgb[1];
@@ -292,7 +293,7 @@ void ntsc_scanline (unsigned line, byte *colors, byte *emphasis, Uint32 *line0)
         byte g = shift_clamp_to_u8(vbuf[cidx][1]);
         byte b = shift_clamp_to_u8(vbuf[cidx][0]);
         Uint32 px = rgbi(r,g,b);
-        *line0++ = px;
+        line0[x] = px;
     }
 #else
     /* This shouldn't happen, but check just in case. */
@@ -364,12 +365,12 @@ void ntsc2x_emitter (unsigned line, byte *colors, byte *emphasis)
     if (ntsc_enable_scanlines)
     {
         for (int x=0; x<1280; x++) {
-            dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
+	  dim[x] = (dbl[x] >> 1) & 0x7F7F7F7F;
         }
 
         memcpy(line0, dim, sizeof(dim));
         memcpy(line1, dbl, sizeof(dbl));
-        memcpy(line2, dim, sizeof(dbl));
+        memcpy(line2, dim, sizeof(dim));
         memset(line3, 0, sizeof(dbl));
     }
     else
